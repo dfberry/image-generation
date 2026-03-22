@@ -1,0 +1,41 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+venv/
+env/
+.venv/
+.env
+*.egg-info/
+dist/
+build/
+
+# Model weights — large files, download on demand via HuggingFace cache
+*.bin
+*.safetensors
+*.ckpt
+*.pt
+*.pth
+models/
+weights/
+
+# Generated images — don't commit outputs
+outputs/*.png
+outputs/*.jpg
+outputs/*.webp
+
+# Jupyter
+.ipynb_checkpoints/
+*.ipynb
+
+# macOS
+.DS_Store
+.AppleDouble
+.LSOverride
+
+# IDE
+.vscode/
+.idea/
+*.swp
