@@ -1,0 +1,7 @@
+{
+  "version": "1.0",
+  "universe_allowlist": ["interstellar"],
+  "max_agents_per_universe": 20,
+  "overflow_strategy": ["diegetic_expansion", "thematic_promotion", "structural_mirroring"],
+  "exempt_names": ["Scribe", "Ralph", "@copilot"]
+}
