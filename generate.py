@@ -8,6 +8,7 @@ License: CreativeML Open RAIL++-M
 """
 
 import argparse
+import gc
 import os
 from datetime import datetime
 
@@ -59,11 +60,11 @@ def load_base(device: str) -> DiffusionPipeline:
         "stabilityai/stable-diffusion-xl-base-1.0",
         torch_dtype=dtype,
         use_safetensors=True,
-        # fp16 variant only available for CUDA
-        variant="fp16" if device == "cuda" else None,
+        # fp16 variant available for CUDA and MPS
+        variant="fp16" if device in ("cuda", "mps") else None,
     )
-    if device == "cpu":
-        # Offload to CPU to reduce VRAM pressure
+    if device in ("cpu", "mps"):
+        # CPU offload reduces VRAM pressure; MPS benefits too
         pipe.enable_model_cpu_offload()
     else:
         pipe.to(device)
@@ -76,20 +77,20 @@ def load_base(device: str) -> DiffusionPipeline:
     return pipe
 
 
-def load_refiner(base: DiffusionPipeline, device: str) -> DiffusionPipeline:
+def load_refiner(text_encoder_2, vae, device: str) -> DiffusionPipeline:
     """Load SDXL refiner, sharing text encoder and VAE from base."""
     print("📥 Loading SDXL refiner model...")
     dtype = get_dtype(device)
     refiner = DiffusionPipeline.from_pretrained(
         "stabilityai/stable-diffusion-xl-refiner-1.0",
         # Share components with base to save VRAM
-        text_encoder_2=base.text_encoder_2,
-        vae=base.vae,
+        text_encoder_2=text_encoder_2,
+        vae=vae,
         torch_dtype=dtype,
         use_safetensors=True,
-        variant="fp16" if device == "cuda" else None,
+        variant="fp16" if device in ("cuda", "mps") else None,
     )
-    if device == "cpu":
+    if device in ("cpu", "mps"):
         refiner.enable_model_cpu_offload()
     else:
         refiner.to(device)
@@ -119,7 +120,6 @@ def generate(args) -> str:
     if args.refine:
         print(f"🎨 Running base + refiner pipeline ({args.steps} steps total)...")
         base = load_base(device)
-        refiner = load_refiner(base, device)
 
         # Stage 1: base model produces latents
         latents = base(
@@ -133,7 +133,16 @@ def generate(args) -> str:
             generator=generator,
         ).images
 
+        # Extract shared components before freeing base from GPU
+        text_encoder_2 = base.text_encoder_2
+        vae = base.vae
+        del base
+        if device == "mps":
+            torch.mps.empty_cache()
+        gc.collect()
+
         # Stage 2: refiner polishes latents
+        refiner = load_refiner(text_encoder_2, vae, device)
         image = refiner(
             prompt=args.prompt,
             num_inference_steps=args.steps,
@@ -142,6 +151,10 @@ def generate(args) -> str:
             image=latents,
             generator=generator,
         ).images[0]
+        del latents, refiner
+        if device == "mps":
+            torch.mps.empty_cache()
+        gc.collect()
     else:
         print(f"🎨 Running base model ({args.steps} steps)...")
         base = load_base(device)
@@ -153,6 +166,10 @@ def generate(args) -> str:
             height=args.height,
             generator=generator,
         ).images[0]
+        del base
+        if device == "mps":
+            torch.mps.empty_cache()
+        gc.collect()
 
     image.save(output_path)
     print(f"✅ Saved: {output_path}")
