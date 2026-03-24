@@ -11,9 +11,15 @@ import argparse
 import gc
 import os
 from datetime import datetime
+from types import SimpleNamespace
 
 import torch
 from diffusers import DiffusionPipeline
+
+
+class OOMError(RuntimeError):
+    """Raised when GPU/MPS runs out of memory during generation."""
+    pass
 
 
 def parse_args():
@@ -188,6 +194,17 @@ def generate(args) -> str:
         if image is not None:
             image.save(output_path)
             print(f"✅ Saved: {output_path}")
+    except Exception as exc:
+        _is_cuda_oom = (
+            hasattr(torch.cuda, "OutOfMemoryError")
+            and isinstance(exc, torch.cuda.OutOfMemoryError)
+        )
+        _is_mps_oom = isinstance(exc, RuntimeError) and "out of memory" in str(exc).lower()
+        if _is_cuda_oom or _is_mps_oom:
+            raise OOMError(
+                "Out of GPU memory. Reduce steps with --steps or switch to CPU with --cpu."
+            ) from exc
+        raise
     finally:
         # Unconditional cleanup — runs on success, OOM, interrupt, or any exception.
         # base may already be None (freed mid-refine path) but del is safe on None.
@@ -205,6 +222,52 @@ def generate(args) -> str:
             torch._dynamo.reset()
 
     return output_path
+
+
+def batch_generate(prompts: list[dict], device: str = "mps") -> list[dict]:
+    """
+    Generate images for a list of prompt dicts, flushing GPU memory between items.
+
+    Each input dict: {"prompt": str, "output": str, "seed": int (optional)}
+    Returns list of {"prompt": str, "output": str, "status": "ok"|"error", "error": str|None}
+    """
+    results = []
+    for i, item in enumerate(prompts):
+        args = SimpleNamespace(
+            prompt=item["prompt"],
+            output=item["output"],
+            seed=item.get("seed"),
+            steps=40,
+            guidance=7.5,
+            width=1024,
+            height=1024,
+            refine=False,
+            cpu=(device == "cpu"),
+        )
+        try:
+            output_path = generate(args)
+            results.append({
+                "prompt": item["prompt"],
+                "output": output_path,
+                "status": "ok",
+                "error": None,
+            })
+        except Exception as exc:
+            results.append({
+                "prompt": item["prompt"],
+                "output": item["output"],
+                "status": "error",
+                "error": str(exc),
+            })
+
+        # Flush GPU memory between items (not needed after the last item)
+        if i < len(prompts) - 1:
+            gc.collect()
+            torch.cuda.empty_cache()
+            if torch.backends.mps.is_available():
+                torch.mps.empty_cache()
+
+    return results
 
 
 if __name__ == "__main__":
