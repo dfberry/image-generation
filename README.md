@@ -62,11 +62,16 @@ The pipeline **automatically cleans up GPU memory** after each generation:
 
 ## Testing
 
-22 pytest regression tests covering memory management, device handling, and error cases.
+**Regression tests (stable):** 22 pytest tests covering memory management, device handling, and error cases — all pass in ~2 seconds, no GPU required.
+
+**TDD suites (in development):** Additional test files for features in progress (batch generation, OOM handling) are expected to have failing tests during development.
 
 ```bash
+# Run the regression test suite (no GPU required)
+pytest tests/test_memory_cleanup.py -v
+
+# Run all tests including TDD in-progress suites
 pytest tests/ -v
-# Expected: All 22 tests pass in ~2 seconds (no GPU required)
 ```
 
 ## Batch Generation
