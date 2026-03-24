@@ -19,6 +19,22 @@
 
 <!-- Append new learnings below. Each entry is something lasting about the project. -->
 
+### 2026-03-25 — README Updated: Reflect Memory Fixes & Features
+
+Updated README.md to document current project state post-PR #1–#6 (all memory audit issues resolved).
+
+**Sections added/updated:**
+1. **Setup → GPU Support** — Highlighted MPS (Apple Silicon) as primary target, CUDA as supported, CPU as fallback. Clarified `--cpu` flag usage.
+2. **Dependency versions** — Added explicit version floors: `torch>=2.1.0`, `diffusers>=0.21.0`, `accelerate>=0.24.0` (critical for PR #1's cleanup strategy).
+3. **Usage examples** — Reorganized to show device-detection flow first, then CPU override, then refinement options.
+4. **Memory Management (new section)** — Documented automatic cleanup, exception safety, batch-safety. Highlights that all 7 audit issues are fixed.
+5. **Testing (new section)** — Documented 22 pytest tests, no GPU required, ~2s runtime.
+6. **Batch Generation (new section)** — Added `generate_blog_images.sh` reference.
+
+**PR #8:** https://github.com/dfberry/image-generation/pull/8
+
+**Architecture note:** README now accurately reflects the mature memory-safe design. All device paths (MPS/CUDA/CPU) are documented as first-class citizens.
+
 ### 2026-03-25 — PR #6 Code Review: PIL Leak Fix + Test Assert Fixes
 
 Reviewed and APPROVED `squad/pr6-pil-leak-fix` (Trinity code fix, Neo test fixes). Both changes correct.
