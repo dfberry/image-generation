@@ -9,7 +9,9 @@ License: CreativeML Open RAIL++-M
 
 import argparse
 import gc
+import json
 import os
+import sys
 from datetime import datetime
 from types import SimpleNamespace
 
@@ -27,7 +29,10 @@ def parse_args():
         description="Generate images with Stable Diffusion XL",
         formatter_class=argparse.ArgumentDefaultsHelpFormatter,
     )
-    parser.add_argument("--prompt", required=True, help="Text prompt for image generation")
+    group = parser.add_mutually_exclusive_group(required=True)
+    group.add_argument("--prompt", help="Text prompt for image generation")
+    group.add_argument("--batch-file", dest="batch_file", metavar="PATH",
+                       help="JSON file with list of prompt dicts for batch generation")
     parser.add_argument("--output", default=None, help="Output file path")
     parser.add_argument("--steps", type=int, default=40, help="Number of inference steps")
     parser.add_argument("--guidance", type=float, default=7.5, help="Guidance scale (CFG)")
@@ -270,6 +275,46 @@ def batch_generate(prompts: list[dict], device: str = "mps") -> list[dict]:
     return results
 
 
-if __name__ == "__main__":
+def generate_with_retry(args, max_retries: int = 2) -> str:
+    """
+    Wraps generate(args) with OOM retry logic.
+    - On OOMError: halves args.steps (floor at 1), prints warning, retries
+    - Retries up to max_retries times (so up to max_retries+1 total calls)
+    - If all retries exhausted: raises OOMError with message mentioning final steps count
+    - Non-OOM exceptions: re-raised immediately, no retry
+    """
+    for attempt in range(max_retries + 1):
+        try:
+            return generate(args)
+        except OOMError:
+            if attempt == max_retries:
+                raise OOMError(
+                    f"Out of GPU memory after {max_retries} retries. Last attempt used {args.steps} steps."
+                )
+            args.steps = max(1, args.steps // 2)
+            print(f"OOM: retrying with {args.steps} steps")
+
+
+def main():
     args = parse_args()
-    generate(args)
+    if hasattr(args, 'batch_file') and args.batch_file:
+        try:
+            with open(args.batch_file) as f:
+                prompts = json.load(f)
+        except FileNotFoundError:
+            print(f"Error: batch file not found: {args.batch_file}", file=sys.stderr)
+            sys.exit(1)
+        except json.JSONDecodeError as e:
+            print(f"Error: invalid JSON in batch file: {e}", file=sys.stderr)
+            sys.exit(1)
+        device = "cpu" if args.cpu else get_device(False)
+        results = batch_generate(prompts, device=device)
+        for r in results:
+            status = r['status']
+            print(f"[{status}] {r['prompt'][:50]} → {r.get('output', r.get('error', ''))}")
+    else:
+        generate_with_retry(args)
+
+
+if __name__ == "__main__":
+    main()
