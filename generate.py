@@ -184,10 +184,15 @@ def generate(args) -> str:
                 height=args.height,
                 generator=generator,
             ).images[0]
+
+        if image is not None:
+            image.save(output_path)
+            print(f"✅ Saved: {output_path}")
     finally:
         # Unconditional cleanup — runs on success, OOM, interrupt, or any exception.
         # base may already be None (freed mid-refine path) but del is safe on None.
         del base, refiner, latents, text_encoder_2, vae
+        image = None
         gc.collect()
         torch.cuda.empty_cache()
         if torch.backends.mps.is_available():
@@ -199,8 +204,6 @@ def generate(args) -> str:
         if device == "cuda" and hasattr(torch, "_dynamo"):
             torch._dynamo.reset()
 
-    image.save(output_path)
-    print(f"✅ Saved: {output_path}")
     return output_path
 
 
