@@ -120,64 +120,63 @@ def generate(args) -> str:
     # Base+refiner split: 80% of steps on base, 20% on refiner
     high_noise_frac = 0.8
 
-    if args.refine:
-        print(f"🎨 Running base + refiner pipeline ({args.steps} steps total)...")
-        base = load_base(device)
+    base = refiner = latents = text_encoder_2 = vae = image = None
+    try:
+        if args.refine:
+            print(f"🎨 Running base + refiner pipeline ({args.steps} steps total)...")
+            base = load_base(device)
 
-        # Stage 1: base model produces latents
-        latents = base(
-            prompt=args.prompt,
-            num_inference_steps=args.steps,
-            guidance_scale=args.guidance,
-            width=args.width,
-            height=args.height,
-            denoising_end=high_noise_frac,
-            output_type="latent",
-            generator=generator,
-        ).images
+            # Stage 1: base model produces latents
+            latents = base(
+                prompt=args.prompt,
+                num_inference_steps=args.steps,
+                guidance_scale=args.guidance,
+                width=args.width,
+                height=args.height,
+                denoising_end=high_noise_frac,
+                output_type="latent",
+                generator=generator,
+            ).images
 
-        # Extract shared components before freeing base from GPU
-        text_encoder_2 = base.text_encoder_2
-        vae = base.vae
-        del base
-        if device == "mps":
-            torch.mps.empty_cache()
-        if device == "cuda":
-            torch.cuda.empty_cache()
+            # Extract shared components before freeing base from GPU
+            text_encoder_2 = base.text_encoder_2
+            vae = base.vae
+            del base
+            base = None
+            if device == "mps":
+                torch.mps.empty_cache()
+            if device == "cuda":
+                torch.cuda.empty_cache()
+            gc.collect()
+
+            refiner = load_refiner(text_encoder_2, vae, device)
+            image = refiner(
+                prompt=args.prompt,
+                num_inference_steps=args.steps,
+                guidance_scale=args.guidance,
+                denoising_start=high_noise_frac,
+                image=latents,
+                generator=generator,
+            ).images[0]
+        else:
+            print(f"🎨 Running base model ({args.steps} steps)...")
+            base = load_base(device)
+            image = base(
+                prompt=args.prompt,
+                num_inference_steps=args.steps,
+                guidance_scale=args.guidance,
+                width=args.width,
+                height=args.height,
+                generator=generator,
+            ).images[0]
+    finally:
+        # Unconditional cleanup — runs on success, OOM, interrupt, or any exception.
+        # base may already be None (freed mid-refine path) but del is safe on None.
+        del base, refiner, latents, text_encoder_2, vae
         gc.collect()
-        refiner = load_refiner(text_encoder_2, vae, device)
-        image = refiner(
-            prompt=args.prompt,
-            num_inference_steps=args.steps,
-            guidance_scale=args.guidance,
-            denoising_start=high_noise_frac,
-            image=latents,
-            generator=generator,
-        ).images[0]
-        del latents, refiner
-        del text_encoder_2, vae
-        if device == "mps":
+        torch.cuda.empty_cache()
+        if torch.backends.mps.is_available():
             torch.mps.empty_cache()
-        if device == "cuda":
-            torch.cuda.empty_cache()
-        gc.collect()
-    else:
-        print(f"🎨 Running base model ({args.steps} steps)...")
-        base = load_base(device)
-        image = base(
-            prompt=args.prompt,
-            num_inference_steps=args.steps,
-            guidance_scale=args.guidance,
-            width=args.width,
-            height=args.height,
-            generator=generator,
-        ).images[0]
-        del base
-        if device == "mps":
-            torch.mps.empty_cache()
-        if device == "cuda":
-            torch.cuda.empty_cache()
-        gc.collect()
 
     image.save(output_path)
     print(f"✅ Saved: {output_path}")
