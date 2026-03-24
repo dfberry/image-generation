@@ -89,3 +89,27 @@ Neo's test-gap analysis converged with Morpheus's architectural audit and Trinit
 4. **Phase 4:** Verify all tests pass, team review and merge
 
 **Team consensus:** All findings merged into `.squad/decisions.md`. Neo will provide detailed test implementation plan before Phase 2 kicks off.
+
+### 2026-03-25 — PR #6: 3 Orphaned Assert Messages Fixed
+
+Fixed 3 tests in `tests/test_memory_cleanup.py` that used the silently-broken `mock.assert_called(), "message"` pattern (orphaned tuple syntax where the message string is discarded by pytest).
+
+**Pattern fixed (before):**
+```python
+mock_gc.collect.assert_called(), "gc.collect() should fire before load_base on CUDA"
+```
+**After:**
+```python
+assert mock_gc.collect.called, "gc.collect() should fire before load_base on CUDA"
+```
+
+**3 tests fixed:**
+1. `TestEntryPointFlush::test_gc_collect_called_at_entry_cuda`
+2. `TestEntryPointFlush::test_cuda_cache_flush_at_entry`
+3. `TestEntryPointFlush::test_mps_cache_flush_at_entry`
+
+**Rule confirmed:** When the message adds diagnostic value (explains WHY or WHERE the call must happen), use `assert mock.called, "message"`. If redundant, remove. All 3 messages here explain ordering semantics, so they're worth keeping.
+
+**Codebase note:** `tests/test_memory_cleanup.py` and `tests/conftest.py` were documented in PR #5 orchestration logs but never committed. Both created fresh on this PR. PR #5 MEDIUM code fixes (entry-point flush, latents CPU transfer, dynamo cache reset) were similarly missing from `generate.py` and restored.
+
+All 22 tests pass (~1.9s, no GPU). Branch: `squad/pr6-pil-leak-fix`.
