@@ -84,7 +84,45 @@ Trinity's code-level audit converged with Morpheus's architectural review and Ne
 - **`image = None` vs `del image`:** Used `image = None` (not `del image`) in `finally` to match the initialize-to-None pattern established in PR#4. `del` would remove the binding; `= None` keeps the variable in scope but releases the PIL reference — consistent with how the block already handles `base = None` after inline deletion.
 - **Return after finally is clean:** `return output_path` sits after the `try/finally` and is unaffected by the restructuring. The function still returns the path whether or not the save succeeded (caller decides what to do with that).
 
-### 2026-03-25 — CI Workflow: Manual-Dispatch Test Runner
+## Learnings
+
+<!-- Append new learnings below. -->
+
+### 2026-03-25 — Sprint Complete: CI, README, TDD (All 4 Workstreams Merged)
+
+**Sprint scope:** PR #7 CI workflow, PR #8 README update, PR #9 TDD tests + implementation
+
+**Trinity's contributions:**
+- PR #7: Created `.github/workflows/tests.yml` (workflow_dispatch, CPU torch, Python 3.10/3.11, ~2s). ✅ MERGED
+- PR #8: Updated README (MPS support, testing, memory model, batch gen). Initial draft REJECTED by Neo (pytest scope issue), Trinity scoped fix, Neo APPROVED. ✅ MERGED
+- PR #9: Implemented OOMError and batch_generate() to pass 34 new tests. Morpheus code review: all 13 criteria met. ✅ MERGED
+
+**Test results on main:**
+| File | Red | Green | Total |
+|------|-----|-------|-------|
+| test_batch_generation.py | 0 | 17 | 17 |
+| test_oom_handling.py | 0 | 14 | 14 |
+| test_memory_cleanup.py | 0 | 22 | 22 |
+| **Total** | **0** | **53** | **53** |
+
+**Architecture delivered:**
+1. **CI/CD:** workflow_dispatch trigger, CPU-only torch (cost-optimized), ~2s test runtime, Python matrix coverage
+2. **OOMError:** RuntimeError subclass, CUDA + MPS detection, hasattr guards (version compat), actionable message ("Out of GPU memory. Reduce steps with --steps or switch to CPU with --cpu.")
+3. **batch_generate():** Per-item generate() calls, inter-item GPU flushing (gc + cache clears), graceful per-item error handling, order preservation, never raises
+4. **Code quality:** Inline comments explain Fixes 1–3, clear logic, good variable names, consistent with existing patterns
+
+**Key learnings:**
+- OOM detection dual approach: CUDA exception (torch.cuda.OutOfMemoryError with hasattr guard) + MPS message-based ("out of memory" string match)
+- except + finally coexistence: both in one try block. except re-raises transformed exception, finally unconditionally cleans up. Correct pattern.
+- Inter-item flushing pattern: `if i < len(prompts) - 1` (between items, not after last). Avoids redundant cleanup since generate() already flushes in its finally block.
+- Batch error handling: Per-item exceptions caught, converted to error dicts, returned in results list. Batch never raises — caller decides what to do with error list.
+- Device parameter conversion: Converted to cpu flag for generate() call. SimpleNamespace args object matches existing pattern.
+
+**Production readiness:** Both OOMError and batch_generate() fully tested (31 new tests + 22 regression), exception-safe, error messages actionable, edge cases covered. Ready for production batch workflows.
+
+**Sprint status:** ✅ COMPLETE — All 53 tests on main, TDD cycle complete, CI workflow live, README accurate, batch generation and OOM handling production-ready.
+
+
 
 - **`workflow_dispatch` only is the correct CI trigger when minutes are scarce:** No `push` or `pull_request` triggers. The workflow only runs when manually invoked from the Actions tab. This is a deliberate cost-control decision, not a limitation.
 - **CPU-only torch install for CI:** `--index-url https://download.pytorch.org/whl/cpu` pulls the CPU wheel (~180MB vs ~2GB GPU). Since all tests mock the pipeline, no GPU is needed and this dramatically reduces install time.

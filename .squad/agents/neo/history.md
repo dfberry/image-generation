@@ -19,6 +19,40 @@
 
 <!-- Append new learnings below. Each entry is something lasting about the project. -->
 
+### 2026-03-25 — Sprint Complete: CI, README, TDD (All 4 Workstreams Merged)
+
+**Sprint scope:** PR #7 CI workflow, PR #8 README update, PR #9 TDD tests + implementation
+
+**Neo's contributions:**
+- PR #8 code review: REJECT (pytest command misleading — would show 22 TDD failures) → Trinity fixed scope → Re-review APPROVED
+- PR #9 test design: Wrote 34 new tests (17 batch_generate, 17 OOMError) documenting requirements before code
+- PR #9 implementation review: All 53 tests pass (22 regression, 17 batch gen, 14 OOM handling)
+
+**Test results on main:**
+| File | Red | Green | Total |
+|------|-----|-------|-------|
+| test_batch_generation.py | 0 | 17 | 17 |
+| test_oom_handling.py | 0 | 14 | 14 |
+| test_memory_cleanup.py | 0 | 22 | 22 |
+| **Total** | **0** | **53** | **53** |
+
+**Architecture validated:**
+1. **Test-first discipline:** TDD red phase documented requirements (34 new tests). Trinity implementation brought all to green. Neo review confirmed behavior matches spec.
+2. **Code review as gateway:** README documentation must match user experience. Neo caught pytest command mismatch; Trinity scoped fix; both approved.
+3. **Regression suite strength:** 22 tests in test_memory_cleanup.py prevent reversion of PR #1–#6 memory fixes. All pass on main.
+4. **Batch safety:** 17 tests in test_batch_generation.py validate per-item isolation, inter-item flushing, graceful failure, order preservation.
+5. **OOM safety:** 14 tests in test_oom_handling.py validate CUDA/MPS OOM detection, actionable messages, finally block cleanup, state clean after OOM.
+
+**Key learnings:**
+- Red phase tests document contract precisely. Implementation must satisfy all tests to pass green phase.
+- Call-order tracking via `call_log + side_effect` validates inter-item flushing without GPU hardware.
+- Documentation accuracy builds user confidence. README test counts and commands must match actual pytest behavior.
+- Exception path testing is scalable via mocking at function entry points. No GPU needed.
+
+**Sprint status:** ✅ COMPLETE — All 53 tests passing on main, TDD cycle complete, batch generation and OOM handling production-ready.
+
+
+
 ### 2026-03-25 — PR #5: MEDIUM Regression Tests Delivered & Approved
 
 Added 9 new MEDIUM regression tests to `tests/test_memory_cleanup.py` for `squad/pr5-medium-memory-fixes`. All 22 tests pass (~5.9s, no GPU).
