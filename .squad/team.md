@@ -12,21 +12,15 @@
 
 | Name | Role | Charter | Status |
 |------|------|---------|--------|
-| Cooper | Lead | `.squad/agents/cooper/charter.md` | ✅ Active |
-| Romilly | Python/ML Dev | `.squad/agents/romilly/charter.md` | ✅ Active |
-| Brand | Prompt Engineer | `.squad/agents/brand/charter.md` | ✅ Active |
-| Scribe | Session Logger | `.squad/agents/scribe/charter.md` | 📋 Silent |
-| Ralph | Work Monitor | — | 🔄 Monitor |
+| Morpheus | 🏗️ Lead | .squad/agents/morpheus/charter.md | Active |
+| Trinity | 🔧 Backend Dev | .squad/agents/trinity/charter.md | Active |
+| Neo | 🧪 Tester | .squad/agents/neo/charter.md | Active |
+| Scribe | 📋 Scribe | .squad/agents/scribe/charter.md | Active |
+| Ralph | 🔄 Work Monitor | — | Active |
 
 ## Project Context
 
 - **Owner:** dfberry
-- **Project:** image-generation — SDXL image generation tool with MPS/CUDA/CPU support
-- **Stack:** Python, diffusers, torch, SDXL (stabilityai/stable-diffusion-xl-base-1.0 + refiner), MPS (Apple Silicon), fp16
-- **Key file:** `generate.py` — main generation script
-- **Docs:** `docs/blog-image-generation-skill.md` — skill/best practices for prompt engineering
+- **Project:** image-generation — Python AI image generation tool using Stable Diffusion XL. Generates blog illustrations with tropical magical-realism aesthetic.
+- **Stack:** Python 3.10+, diffusers, transformers, torch, Pillow
 - **Created:** 2026-03-23
-
-## Universe
-- **Casting:** Interstellar (2014)
-- **Recast date:** 2026-03-23

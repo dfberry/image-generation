@@ -104,7 +104,10 @@ def generate(args) -> str:
     # Set up generator for reproducible output
     generator = None
     if args.seed is not None:
-        generator = torch.Generator(device=device).manual_seed(args.seed)
+        # Fix C: cpu_offload routes layers to CPU for "cpu"/"mps" devices,
+        # so bind the generator to CPU to avoid a device mismatch.
+        generator_device = "cpu" if device in ("cpu", "mps") else device
+        generator = torch.Generator(device=generator_device).manual_seed(args.seed)
         print(f"🌱 Seed: {args.seed}")
 
     # Resolve output path
@@ -139,9 +142,9 @@ def generate(args) -> str:
         del base
         if device == "mps":
             torch.mps.empty_cache()
+        if device == "cuda":
+            torch.cuda.empty_cache()
         gc.collect()
-
-        # Stage 2: refiner polishes latents
         refiner = load_refiner(text_encoder_2, vae, device)
         image = refiner(
             prompt=args.prompt,
@@ -152,8 +155,11 @@ def generate(args) -> str:
             generator=generator,
         ).images[0]
         del latents, refiner
+        del text_encoder_2, vae
         if device == "mps":
             torch.mps.empty_cache()
+        if device == "cuda":
+            torch.cuda.empty_cache()
         gc.collect()
     else:
         print(f"🎨 Running base model ({args.steps} steps)...")
@@ -169,6 +175,8 @@ def generate(args) -> str:
         del base
         if device == "mps":
             torch.mps.empty_cache()
+        if device == "cuda":
+            torch.cuda.empty_cache()
         gc.collect()
 
     image.save(output_path)
