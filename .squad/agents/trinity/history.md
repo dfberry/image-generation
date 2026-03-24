@@ -74,3 +74,12 @@ Trinity's code-level audit converged with Morpheus's architectural review and Ne
 - Exception safety test fails until try/finally is added
 
 **Team consensus:** Trinity's version-floor fix must run in Phase 1 (prerequisite). Then Neo's test infra (Phase 2), then Morpheus's code fixes (Phase 3). All merged into `.squad/decisions.md`.
+
+## Learnings
+
+### 2026-03-25 — PR #6: PIL Image Leak Fix (LOW)
+
+- **image.save() inside try is the right pattern:** Keeping the save inside the `try` block lets the `finally` clause null out `image` unconditionally. This closes the window where PIL's uncompressed pixel buffer (~4MB) lingers in scope after cleanup.
+- **`if image is not None` guard is essential:** On exception paths (OOM, interrupt, inference failure), `image` stays `None`. The guard prevents an AttributeError on None and makes intent explicit — the save is a conditional success-path action, not an unconditional epilogue.
+- **`image = None` vs `del image`:** Used `image = None` (not `del image`) in `finally` to match the initialize-to-None pattern established in PR#4. `del` would remove the binding; `= None` keeps the variable in scope but releases the PIL reference — consistent with how the block already handles `base = None` after inline deletion.
+- **Return after finally is clean:** `return output_path` sits after the `try/finally` and is unaffected by the restructuring. The function still returns the path whether or not the save succeeded (caller decides what to do with that).

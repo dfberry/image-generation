@@ -19,6 +19,24 @@
 
 <!-- Append new learnings below. Each entry is something lasting about the project. -->
 
+### 2026-03-25 — PR #6 Code Review: PIL Leak Fix + Test Assert Fixes
+
+Reviewed and APPROVED `squad/pr6-pil-leak-fix` (Trinity code fix, Neo test fixes). Both changes correct.
+
+**Change 1 (Trinity — PIL leak fix):**
+- `image.save()` moved inside `try` with `if image is not None:` guard. Guard is defensively correct (not strictly required since exception path already skips save, but harmless). Happy path unchanged. `image = None` in `finally` properly releases the PIL buffer after save. `return output_path` post-`finally` still correct — `output_path` defined before `try`.
+- Closes the LOW-severity PIL leak identified in the original memory audit.
+
+**Change 2 (Neo — test assert fixes + file restoration):**
+- Root bug: `mock.assert_called(), "msg"` is a tuple expression (not an assertion). The comma silently detaches the message; `assert_called()` is called as a bare expression; the message is dropped. Tests appeared to pass even if the mock was never called.
+- Fix: `assert mock.called, "msg"` — proper Python assertion with message. Semantically correct.
+- Neo's commit also restored `tests/test_memory_cleanup.py`, `tests/conftest.py`, and the 3 MEDIUM code fixes (entry-point flush, latents CPU transfer, dynamo reset) from PR5 — which were documented as merged but absent from main. This wider scope is justified; tests and code are tightly coupled.
+- All 22 tests pass.
+
+**Architecture note:** PR5 code changes were documented as merged but never landed in main's `generate.py`. This was a scribe/merge gap — squad decisions documented the approval but the code wasn't actually in main. PR6 closes that gap. Recommend the scribe confirm main's final state post-merge.
+
+**Decision:** Both changes APPROVED.
+
 ### 2026-03-25 — PR #5 Code Review & Approval: Four MEDIUM Memory Fixes
 
 Reviewed and APPROVED `squad/pr5-medium-memory-fixes` (Trinity code, Neo tests). All four MEDIUM-severity issues correctly addressed.
