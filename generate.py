@@ -101,6 +101,14 @@ def generate(args) -> str:
     """Run image generation and save to output path."""
     device = get_device(args.cpu)
 
+    # Fix 3: Pre-flight flush — reclaim any GPU memory from a prior generate()
+    # call before loading new pipelines. Reduces OOM risk in back-to-back runs.
+    gc.collect()
+    if torch.cuda.is_available():
+        torch.cuda.empty_cache()
+    if torch.backends.mps.is_available():
+        torch.mps.empty_cache()
+
     # Set up generator for reproducible output
     generator = None
     if args.seed is not None:
@@ -141,6 +149,12 @@ def generate(args) -> str:
             # Extract shared components before freeing base from GPU
             text_encoder_2 = base.text_encoder_2
             vae = base.vae
+
+            # Fix 1: Move latents to CPU before the cache flush window so that
+            # the GPU-resident tensor doesn't pin VRAM while empty_cache() runs.
+            if device in ("cuda", "mps"):
+                latents = latents.cpu()
+
             del base
             base = None
             if device == "mps":
@@ -155,7 +169,8 @@ def generate(args) -> str:
                 num_inference_steps=args.steps,
                 guidance_scale=args.guidance,
                 denoising_start=high_noise_frac,
-                image=latents,
+                # Move latents back to device for refiner inference.
+                image=latents.to(device) if device in ("cuda", "mps") else latents,
                 generator=generator,
             ).images[0]
         else:
@@ -177,6 +192,12 @@ def generate(args) -> str:
         torch.cuda.empty_cache()
         if torch.backends.mps.is_available():
             torch.mps.empty_cache()
+        # Fix 2: torch.compile (used on CUDA in load_base) populates a process-global
+        # dynamo cache that survives del base. Reset it to prevent accumulation across
+        # repeated generate() calls. If torch.compile is added for other devices later,
+        # broaden this guard accordingly.
+        if device == "cuda" and hasattr(torch, "_dynamo"):
+            torch._dynamo.reset()
 
     image.save(output_path)
     print(f"✅ Saved: {output_path}")
