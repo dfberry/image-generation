@@ -150,3 +150,25 @@ Reviewed `squad/pr3-high-memory-fixes` (Trinity's work). Both HIGH-severity issu
 **Remaining open (out of scope for this PR):** torch.compile dynamo cache reset (MEDIUM), entry-point VRAM flush (MEDIUM), latents tensor CPU transfer before refiner load (MEDIUM), PIL image cleanup (LOW).
 
 **Decision:** APPROVED.
+
+### 2026-03-25 — PR #8: README Update (MPS Support, Testing, Memory Model, Batch Gen) — MERGED
+
+**Sprint:** CI, README, TDD Sprint
+
+**Changes made:**
+- Added MPS support section with device detection guidance
+- Updated Testing section with pytest instructions and test counts (22 regression tests)
+- Documented memory management model (try/finally cleanup, inter-item cache flush, exception safety)
+- Added Batch Generation feature overview
+- Scoped pytest command to `pytest tests/test_memory_cleanup.py -v` (22 green tests only, avoiding TDD red-phase failures)
+
+**Review flow:**
+1. Trinity reviewed PR #8: APPROVED (all technical claims verified accurate)
+2. Neo reviewed PR #8: REJECTED (initial pytest command showed 22 failures from TDD red-phase tests)
+3. Trinity fixed scoping on `squad/readme-update` branch (commit scoped to test_memory_cleanup.py)
+4. Neo re-reviewed PR #8 after fix: APPROVED
+5. PR #8 merged to main (squash)
+
+**Status:** ✅ MERGED
+
+**Architectural note:** README now correctly explains the memory model and batch generation as design decisions, not just features. Readers understand why `generate()` flushes GPU state and how batch workflows should manage inter-iteration cleanup.

@@ -83,3 +83,57 @@ Trinity's code-level audit converged with Morpheus's architectural review and Ne
 - **`if image is not None` guard is essential:** On exception paths (OOM, interrupt, inference failure), `image` stays `None`. The guard prevents an AttributeError on None and makes intent explicit — the save is a conditional success-path action, not an unconditional epilogue.
 - **`image = None` vs `del image`:** Used `image = None` (not `del image`) in `finally` to match the initialize-to-None pattern established in PR#4. `del` would remove the binding; `= None` keeps the variable in scope but releases the PIL reference — consistent with how the block already handles `base = None` after inline deletion.
 - **Return after finally is clean:** `return output_path` sits after the `try/finally` and is unaffected by the restructuring. The function still returns the path whether or not the save succeeded (caller decides what to do with that).
+
+### 2026-03-25 — CI Workflow: Manual-Dispatch Test Runner
+
+- **`workflow_dispatch` only is the correct CI trigger when minutes are scarce:** No `push` or `pull_request` triggers. The workflow only runs when manually invoked from the Actions tab. This is a deliberate cost-control decision, not a limitation.
+- **CPU-only torch install for CI:** `--index-url https://download.pytorch.org/whl/cpu` pulls the CPU wheel (~180MB vs ~2GB GPU). Since all tests mock the pipeline, no GPU is needed and this dramatically reduces install time.
+- **Matrix strategy on Python 3.10 and 3.11:** Both versions this project targets get validated on every manual run. No caching, no artifacts — keeps the workflow simple and the YAML minimal.
+- **Tests run in ~2 seconds with mocks:** The full suite (22 tests in `tests/test_memory_cleanup.py` + `tests/conftest.py`) uses `unittest.mock` throughout. No model downloads, no GPU, no external calls.
+- **Branch naming collision:** Created `squad/ci-manual-dispatch` but the working tree was on `squad/readme-update` due to a pre-existing local branch. Fixed by force-pushing the commit ref directly: `git push origin squad/readme-update:squad/ci-manual-dispatch --force`.
+- **PR #7:** https://github.com/dfberry/image-generation/pull/7
+
+### 2026-03-25 — PR #8: README Testing Section Fix
+
+Fixed Neo's rejection of PR #8 by updating the pytest command and Testing section description in README.md:
+
+**Problem:** PR #9 added TDD red-phase tests (batch_generation, OOM handling) that intentionally fail. Running `pytest tests/` now shows 53 tests, not 22. Users see 22 failures and think the project is broken.
+
+**Solution:**
+- Scoped the main command to `pytest tests/test_memory_cleanup.py -v` (the 22 regression tests that pass)
+- Added secondary command `pytest tests/ -v` with context that TDD suites are expected to have failing tests
+- Updated descriptive text to clarify: "Regression tests (stable)" vs "TDD suites (in development)"
+- Verified all 22 tests pass in 1.88s, no GPU required
+
+**Commit:** `83ea71b` to `squad/readme-update`  
+**Status:** Approved. Tests verified. Ready for Neo's re-review.
+
+### 2026-03-25 — CI, README, TDD Sprint: Orchestration Complete
+
+**Sprint Completion:**
+
+| PR | Agent | Task | Status |
+|----|-------|------|--------|
+| #7 | Trinity | Create workflow_dispatch CI | ✅ MERGED |
+| #8 | Morpheus | Update README (MPS, testing, memory model, batch gen) | ✅ MERGED |
+| #9 | Neo | Write TDD test suite (batch_generate, OOMError) | 🔴 RED (22 tests fail, 31 green) |
+
+**Execution:**
+- Trinity created `.github/workflows/tests.yml` (CPU torch, Python 3.10/3.11, ~2s runtime)
+- Morpheus updated README with MPS support, testing section, memory model, batch generation docs
+- Initial PR #8 pytest command failed (would show 22 TDD red-phase failures)
+- Trinity scoped pytest to `test_memory_cleanup.py` (22 green tests only) on `squad/readme-update` branch
+- Neo re-reviewed PR #8 after scope fix: APPROVED
+- PR #8 merged to main (squash)
+- Neo wrote 34 new tests: 17 batch_generate(), 17 OOMError (9 pass, 22 red)
+- PR #9 opened on `squad/tdd-batch-oom-tests`, awaits Trinity implementation
+
+**Test Status:**
+| File | Red | Green |
+|------|-----|-------|
+| test_batch_generation.py | 17 | 0 |
+| test_oom_handling.py | 5 | 9 |
+| test_memory_cleanup.py | 0 | 22 |
+| **Total** | **22** | **31** |
+
+**Next:** Trinity implements batch_generate() and OOMError to pass PR #9.

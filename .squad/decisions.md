@@ -97,6 +97,95 @@
 
 **Open issues (MEDIUM — Phase 3):** torch.compile dynamo cache reset, entry-point VRAM flush, latents CPU transfer, PIL cleanup (LOW).
 
+---
+
+### PR #5: MEDIUM Memory Fixes — MERGED
+
+**Date:** 2026-03-25
+**Implementer:** Trinity
+**Reviewer:** Morpheus
+**Verdict:** ✅ MERGED
+
+**Fixes (3 MEDIUM-severity, 1 architecture note):**
+1. **Latents tensor on GPU during cache flush** — `latents = latents.cpu()` before `del base`, guarded by `device in ("cuda", "mps")`. Moves tensor off GPU before cache flush window opens, maximizing VRAM reclamation.
+
+2. **torch.compile dynamo cache growth** — `torch._dynamo.reset()` added to `finally` block, guarded by `device == "cuda" and hasattr(torch, "_dynamo")`. Prevents graph cache accumulation across repeated `generate()` calls.
+
+3. **Entry-point VRAM flush missing** — `gc.collect()` + `torch.cuda.empty_cache()` + guarded `torch.mps.empty_cache()` added at the top of `generate()` before pipeline loads. Ensures each call starts with clean VRAM.
+
+4. **Global state audit** — All pipeline objects (`base`, `refiner`, `latents`, `text_encoder_2`, `vae`) confirmed local to `generate()`. No module-level globals, no cache leaks. Code is clean.
+
+**Test coverage:** 22 regression tests (test_memory_cleanup.py) all passing.
+
+---
+
+### PR #6: PIL Leak Fix + Test Assert Fixes — MERGED
+
+**Date:** 2026-03-25
+**Implementers:** Trinity (PIL fix), Neo (test assertions + file restoration)
+**Reviewer:** Morpheus
+**Verdict:** ✅ MERGED
+
+**Fixes:**
+1. **PIL Image leak (LOW)** — Moved `image.save(output_path)` and print inside try block, guarded by `if image is not None:`. Added `image = None` to finally cleanup. Releases PIL buffer promptly in batch contexts.
+
+2. **Test assertion fixes** — Fixed 3 tests in `test_memory_cleanup.py` changing from `mock.assert_called(), "msg"` (silent tuple, broken assertion message) to `assert mock.called, "msg"` (proper Python assertion). Tests: gc_collect_called_at_entry_cuda, cuda_cache_flush_at_entry, mps_cache_flush_at_entry.
+
+3. **PR #5 code restoration** — Neo's commit restored missing entry-point flush, latents CPU transfer, and dynamo reset code that was previously reviewed/approved (PR #5) but absent from main. Also restored test infrastructure (test_memory_cleanup.py, conftest.py).
+
+**Result:** All 22 tests pass. Codebase now reflects approved fixes.
+
+---
+
+### Decision: CI Workflow — Manual Dispatch Only (2026-03-25)
+
+**By:** Trinity (Backend Developer)
+**PR:** #7
+
+**Decision:** Add `.github/workflows/tests.yml` with `on: workflow_dispatch` only.
+
+**Rationale:** dfberry is out of GitHub Actions minutes; no auto-triggers to avoid accidental burns. CPU-only torch install (`--index-url https://download.pytorch.org/whl/cpu`) keeps install fast and avoids GPU runner requirements. All 22 tests mock the pipeline — no real model loading, ~2 second runtime. Matrix: Python 3.10 and 3.11 (both supported versions).
+
+**Files Created:** `.github/workflows/tests.yml`
+
+---
+
+### Decision: README Update — MPS Support + Testing + Memory Model (2026-03-25)
+
+**By:** Morpheus (Architecture)
+**PR:** #8
+**Status:** MERGED (after Trinity scoped pytest command to test_memory_cleanup.py)
+
+**Content Added:**
+- MPS support section with device detection and model architecture
+- Testing instructions (scoped pytest command showing 22 green tests only)
+- Memory management model explanation
+- Batch generation feature overview
+
+**Note:** Initial pytest command failed due to TDD red-phase tests (PR #9). Trinity fixed scoping on squad/readme-update branch. Neo re-reviewed and approved. Merged to main (squash).
+
+---
+
+### Decision: TDD Test Suite — Batch Generation + OOM Handling (2026-03-25)
+
+**By:** Neo (Tester)
+**PR:** #9
+**Status:** Red phase complete, awaiting Trinity implementation
+
+**Test Suite:**
+- **test_batch_generation.py** (17 tests): batch_generate() function contract tests (per-item error handling, inter-item GPU flushing, order preservation)
+- **test_oom_handling.py** (17 tests): OOMError class and recovery hints (9 pass, 5 red)
+- **test_memory_cleanup.py** (22 tests): Existing regression suite (all green)
+
+**Total:** 22 red, 31 green
+
+**Features Under Test:**
+1. **batch_generate(prompts: list[dict], device: str = "mps") → list[dict]** — Input: [{"prompt", "output", "seed"}], Output: [{"prompt", "output", "status", "error"}]. Contract: per-item exception handling, inter-item `gc.collect()` + device cache clear, order preservation.
+
+2. **OOMError(RuntimeError)** — Catches `torch.cuda.OutOfMemoryError` and MPS OOM `RuntimeError("out of memory")`, re-raises as custom OOMError with recovery message. Finally block executes (cleanup guaranteed even on OOM).
+
+**Implementation Location:** Trinity may place `batch_generate` in `generate.py` or new `batch.py`. Tests handle both with try/except import.
+
 ## Governance
 
 - All meaningful changes require team consensus
