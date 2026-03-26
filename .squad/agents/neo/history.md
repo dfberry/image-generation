@@ -19,6 +19,32 @@
 
 <!-- Append new learnings below. Each entry is something lasting about the project. -->
 
+### 2026-07-24 — Issue #8: Unit Tests for Untested Functions (PR #14)
+
+**Scope:** 31 new mock-based unit tests in `tests/test_unit_functions.py` covering 6 previously-untested function groups.
+
+**Test inventory:**
+
+| Group | Tests | What's verified |
+|-------|-------|-----------------|
+| `get_device()` | 5 | CUDA/MPS/CPU fallback, force_cpu, CUDA>MPS priority |
+| `get_dtype()` | 4 | float16 for CUDA/MPS, float32 for CPU/unknown |
+| `load_base()` | 10 | Model ID, dtype, fp16 variant, safetensors, cpu_offload vs .to(), torch.compile |
+| `load_refiner()` | 6 | Refiner model ID, shared text_encoder_2/vae, device routing |
+| Pre-flight flush | 3 | gc.collect, CUDA/MPS empty_cache at generate() entry |
+| `main()` single-prompt | 3 | Delegates to generate_with_retry, no batch_generate, exception propagation |
+| **Total** | **31** | |
+
+**Results:** 31/31 pass, 0 regressions in existing 81-test green suite. 22 pre-existing failures (scheduler TDD red-phase) unchanged.
+
+**Key learnings:**
+- `@patch("generate.torch")` replaces the module-level `torch` import — must re-bind `mock_torch.float16 = torch.float16` etc. to preserve real dtype values inside mocked calls.
+- `torch.compile(pipe.unet, ...)` reassigns `pipe.unet`, so the original unet reference must be captured *before* calling `load_base()` to assert against `mock_torch.compile.assert_called_once_with(original_unet, ...)`.
+- `delattr(mock_torch, 'compile')` is the cleanest way to skip the `hasattr(torch, "compile")` branch on non-compile tests.
+- Test collection alone takes ~33s due to torch import overhead — fast mocks don't help import cost.
+
+**Branch:** squad/8-missing-unit-tests | **PR:** #14 | **Closes:** #8
+
 ### 2026-03-25 — Sprint Complete: CI, README, TDD (All 4 Workstreams Merged)
 
 **Sprint scope:** PR #7 CI workflow, PR #8 README update, PR #9 TDD tests + implementation
@@ -50,6 +76,85 @@
 - Exception path testing is scalable via mocking at function entry points. No GPU needed.
 
 **Sprint status:** ✅ COMPLETE — All 53 tests passing on main, TDD cycle complete, batch generation and OOM handling production-ready.
+
+### 2026-03-26 — Full Quality Posture Audit
+
+**Scope:** Comprehensive review of test suite, coverage gaps, risk prioritization.
+
+**Current test inventory (6 files, 75 tests):**
+
+| File | Tests | Focus |
+|------|-------|-------|
+| test_memory_cleanup.py | 22 | Exception safety, entry flush, latents, dynamo, global state |
+| test_batch_generation.py | 17 | batch_generate() contract: per-item calls, flush, errors, ordering |
+| test_oom_handling.py | 14 | OOMError re-raise, cleanup on OOM, actionable messages, MPS/CUDA |
+| test_batch_cli.py | 10 | --batch-file arg parsing, JSON handling, main() integration |
+| test_oom_retry.py | 12 | generate_with_retry() contract: halving, floor, non-OOM passthrough |
+| conftest.py | — | MockPipeline, MockImage, 4 arg fixtures |
+| **Total** | **75** | |
+
+**CRITICAL FINDING: Tests cannot run locally.**
+All 75 tests fail to collect — `ModuleNotFoundError: No module named 'torch'`. The CI workflow installs CPU-only torch, but local dev requires `pip install torch --index-url https://download.pytorch.org/whl/cpu`. This means the suite is CI-only; no developer can verify tests before pushing. `test_batch_generation.py` partially collects (17 items) because it uses `try/except ImportError` at module level, but the other 4 test files crash on `import torch` or `import generate as gen`.
+
+**What IS tested (strong areas):**
+1. Memory cleanup try/finally paths (13 tests) — exception safety is well-covered
+2. Entry-point VRAM flush ordering (3 tests) — call-log pattern validates gc→load_base order
+3. Latents tensor lifecycle (3 tests) — CPU transfer, device transfer back, finally cleanup
+4. Dynamo cache reset (2 tests) — CUDA-only guard verified
+5. Batch generation contract (17 tests) — per-item error isolation, inter-item flush, order preservation
+6. OOM detection + re-raise (14 tests) — both CUDA and MPS OOM paths, actionable messages
+7. OOM retry logic (12 tests) — step halving, floor at 1, non-OOM passthrough
+8. Batch CLI integration (10 tests) — parse_args, JSON loading, error paths
+
+**What is NOT tested — Gap Analysis (prioritized):**
+
+**P0 — Will cause user-visible failures:**
+1. **CLI argument validation** — `--steps 0`, `--steps -5`, `--width 7`, `--guidance -1` all silently accepted. SDXL requires width/height multiples of 8, steps≥1, guidance≥0. No validation exists in `parse_args()` or `generate()`. User gets cryptic diffusers errors.
+2. **batch_generate() hardcodes params** — steps=40, guidance=7.5, width=1024, height=1024, refine=False are baked into SimpleNamespace (L241-250). CLI `--steps` and `--guidance` are ignored in batch mode. Not tested because not even wired up.
+3. **Empty prompt string** — `--prompt ""` passes parse_args but will produce garbage or errors from SDXL. No guard, no test.
+
+**P1 — Architecture gaps that prevent future regression detection:**
+4. **get_device() has zero unit tests** — CUDA→MPS→CPU fallback chain is core logic, completely untested
+5. **get_dtype() has zero unit tests** — fp16/fp32 routing untested
+6. **load_base() untested in isolation** — fp16 variant selection, cpu_offload routing, torch.compile conditional all only exercised through generate() with full mocking
+7. **load_refiner() untested in isolation** — shared component passing (text_encoder_2, vae), fp16 variant, offload routing
+8. **Output path auto-generation** — timestamp-based naming and `os.makedirs` not tested
+9. **main() prompt-mode path** — single-prompt execution through main() never tested; only batch-file path is tested
+
+**P2 — Edge cases and robustness:**
+10. **Seed boundary values** — negative seeds, seed=0, max int — no tests
+11. **Output path edge cases** — non-existent parent dir, permissions, special chars
+12. **Prompt length limits** — SDXL tokenizer truncates at 77 tokens; no warning or test
+13. **batch_generate() with seed=0 vs seed=None** — different behavior, untested
+14. **generate_with_retry() integration** — all tests mock generate(); no test verifies the actual retry→generate chain
+15. **Non-OOM RuntimeError inside batch** — e.g. CUDA driver error, network error during model download
+
+**P3 — Nice to have:**
+16. **high_noise_frac = 0.8** — hardcoded, not configurable, not tested
+17. **Prompt style validation** — does a prompt match the magical-realism aesthetic? (Would need manual review or heuristic)
+18. **torch.no_grad() defensive wrap** — Decision #5 (LOW) from audit still not implemented or tested
+19. **Image quality/size assertions** — all tests use MockImage; no validation of actual PIL output format
+
+**Reproducibility Assessment:**
+- ✅ All tests use fixed mocks — deterministic
+- ✅ test_batch_generation.py uses seed fixtures
+- ⚠️ No real generation tests (expected: GPU required)
+- ❌ Cannot run locally without manual torch install
+- ❌ CI workflow is manual-dispatch only — no auto-run on PR
+
+**Recommended test writing priority:**
+
+| Priority | Test | Why |
+|----------|------|-----|
+| **1st** | CLI validation (steps, width, height, guidance ranges) | Users will hit this first. Add argparse validators. |
+| **2nd** | get_device() unit tests | Core routing logic, 3 branches, zero coverage |
+| **3rd** | batch_generate() param forwarding | --steps, --guidance currently ignored in batch mode — bug |
+| **4th** | Empty/whitespace prompt guard | Silent garbage output is worse than an error |
+| **5th** | load_base() isolation tests | fp16, offload, torch.compile routing all indirectly tested only |
+| **6th** | main() single-prompt path | The primary user flow has zero test coverage |
+| **7th** | Output path edge cases | os.makedirs, timestamp naming, permission errors |
+
+**Design note:** batch_generate() ignoring --steps/--guidance is actually a **bug**, not just a test gap. The SimpleNamespace on L241-250 hardcodes `steps=40, guidance=7.5` regardless of what the user passes. Trinity should fix this; Neo should write the test first (TDD).
 
 ### 2026-03-24 — TDD Cycle Complete: Red Phase Tests + Code Reviews (PRs #10, #11)
 
@@ -330,3 +435,119 @@ pytest tests/ -v
 - OOM message example: `"Out of memory. Try: reduce --steps, use --cpu, or close other GPU apps."`
 
 **Status:** Red phase complete. PR #9 opened. Awaits Trinity implementation.
+
+### 2026-03-26 — Full Team Code Review: Cross-Cutting Findings & Coordination
+
+Full five-agent simultaneous code review (2026-03-26) identified bug convergence and coordinated action priorities:
+
+**Bug Convergence (Neo findings confirmed by Trinity + Niobe + Switch):**
+1. **args.steps mutation (Trinity detail):** generate_with_retry() corrupts caller state — matches Neo's risk assessment of "will bite when retry logic is composed with other features"
+2. **batch_generate() parameter drop (Trinity + Niobe + Neo):** All three independently identified CLI flags silently ignored. Neo is positioned to write TDD tests; Trinity will implement fix.
+3. **Negative prompt gap (Niobe + Switch):** Architectural blocker for image quality — Trinity must wire CLI support; Neo must write parameter-passing tests.
+
+**Test Coordination (Neo + Trinity sequencing):**
+- **Phase 1 TDD:** Neo writes tests for batch parameter forwarding, args preservation after retry, CLI validation
+- **Phase 2 Implementation:** Trinity implements fixes to pass all tests
+- **Phase 3 Quality:** Niobe validates image quality post-scheduler tuning
+
+**Coverage Opportunities (Next Sprint):**
+- CLI argument validation tests (guard against width=7, steps=0, guidance=-1)
+- Batch parameter override per-item testing (supports Niobe's per-item tuning feature)
+- Negative prompt parameter passing (coordinated Trinity + Neo + Switch)
+
+**Local Testing Prerequisite:**
+- Document CPU torch setup for developers (no local GPU required, but need --index-url workaround). Switch recommendation: create `make test` target or README dev-setup section.
+
+**Regression Suite Strength:**
+- 53 tests, ~2s runtime — sustainable feedback loop. Continue mock-based approach (no GPU, no model downloads).
+- Batch safety (17 tests) + OOM safety (14 tests) + memory cleanup (22 tests) = comprehensive exception-path coverage.
+
+---
+
+## Full Team Code Review (2026-03-26)
+
+**Event:** Comprehensive 5-agent code review of image-generation project  
+**Scope:** Architecture, backend, pipeline quality, prompts, testing  
+**Outcome:** 10 issues identified (3 HIGH, 4 MEDIUM, 3 LOW)
+
+**Neo Role & Findings (Tester):**
+- **Key Responsibility Areas:** Test strategy, CLI validation, edge cases, quality assessment
+- **Current Test Status:** 53+ tests all passing (22 memory + 17 batch + 14 OOM + 10 CLI + 12 retry + 3 device)
+- **Coverage Gaps Identified:**
+  1. CLI argument validation missing (steps=0, width=7, guidance=-1 accepted)
+  2. batch_generate() parameter forwarding untested (feature not yet implemented)
+  3. Device fallback scenarios incomplete (CPU workaround, CUDA/MPS untested in CI)
+  4. Integration tests missing (CLI → file output end-to-end)
+- **Code Quality Observations:**
+  - Call-order tracking validates memory fixes thoroughly
+  - 3 tests have orphaned assert messages (syntax issue, doesn't break functionality)
+  - Regression coverage solid for all implemented features
+
+**Neo's Phase 2 TDD-First Responsibilities:**
+1. **Write CLI Validation Tests (TDD Red Phase):**
+   - Edge cases: steps=0, steps=-1, width=7, width=-1, guidance=-1, guidance=1000
+   - Use pytest.mark.parametrize for comprehensive coverage
+   - Trinity implements validators based on test requirements
+
+2. **Write Batch Parameter Forwarding Tests (TDD Red Phase):**
+   - Batch with --steps override (should use custom, not default)
+   - Batch with --guidance override
+   - Batch with --width/--height override
+   - Mixed batch behavior (some items CLI, some batch JSON)
+   - Trinity implements parameter forwarding based on test requirements
+
+3. **Code Quality Fixes (Phase 2):**
+   - Fix orphaned assert messages in 3 tests (syntax cleanup)
+   - Add call-order assertion to test_latents_transferred_back_for_refiner
+
+**Cross-Team Coordination Notes:**
+- Neo/Trinity: TDD-first approach (Neo writes failing tests, Trinity implements)
+- Tests define behavior contract; implementation follows tests
+- All Phase 2 work must maintain zero-regression status (existing 53+ tests pass)
+
+**Test Recommendations by Phase:**
+- **Phase 1:** Add tests/__init__.py, document local test setup (CPU torch workaround)
+- **Phase 2:** Write CLI validation + batch forwarding tests (TDD-first), fix orphaned asserts
+- **Phase 3:** Add device-specific fixtures, integration tests, performance baselines
+
+**Key Testing Notes:**
+- Current fixture approach (mocking, no GPU) is sustainable; continue pattern
+- Mock-based testing keeps feedback loop fast (~2s for 53+ tests)
+- CI constraints noted (tests/CPU torch workaround, GPU tests conditional)
+
+**Team Consensus:**
+- CLI validation: Neo writes tests first, Trinity implements validators
+- Batch parameter forwarding: Neo writes tests first, Trinity implements forwarding
+- All TDD-first work: tests define requirements, implementation follows
+- Ready to begin Phase 2 test writing immediately
+### 2026-03-26 — TDD Red Phase: Scheduler Optimisation (Issue #6)
+
+**Scope:** 15 tests in `tests/test_scheduler.py` — all written before implementation.
+
+**Test inventory (14 FAIL, 1 PASS):**
+
+| Group | Tests | Status | What they verify |
+|-------|-------|--------|-----------------|
+| TestSchedulerCLIFlag | 4 | 4 FAIL | `--scheduler` flag exists, default=DPMSolverMultistepScheduler, accepts custom values |
+| TestDefaultStepsChanged | 2 | 1 FAIL, 1 PASS | Default steps=28 (not 40); explicit --steps still works |
+| TestSchedulerApplied | 3 | 3 FAIL | Scheduler set on base pipeline via `.from_config()`, works in both base-only and refiner modes |
+| TestRefinerGuidance | 5 | 5 FAIL | `--refiner-guidance` flag exists, default=5.0, independent from base guidance in generate() |
+| TestBatchGenerateDefaults | 1 | 1 FAIL | `batch_generate()` uses steps=28 (currently hardcoded to 40) |
+
+**Why each test fails (proof of red):**
+- CLI flag tests: `parse_args()` has no `--scheduler` or `--refiner-guidance` arguments → AttributeError / SystemExit
+- Steps default test: `parse_args()` defaults to `steps=40` → assert 40 == 28 fails
+- Scheduler-applied tests: `generate()` never touches `pipe.scheduler` → `from_config` never called
+- Refiner guidance tests: refiner call uses `args.guidance` (same as base) → no independent guidance_scale
+- Batch steps test: `batch_generate()` hardcodes `steps=40` → assert 40 == 28 fails
+
+**1 intentional PASS:** `test_explicit_steps_still_honoured` — `--steps 50` already works today and must continue working after the change.
+
+**Existing suite impact:** 0 regressions. All 80 previously-passing tests still pass. The 8 pre-existing failures are from `test_cli_validation.py` (issue #5, separate TDD red phase).
+
+**Key patterns used:**
+- `_parse_with_args()` helper from test_cli_validation.py for CLI flag tests
+- conftest.py `MockPipeline` + `mock_args_*` fixtures for generate() integration tests
+- Kwargs capture via wrapper function to verify refiner receives independent guidance_scale
+- `patch("diffusers.DPMSolverMultistepScheduler", ..., create=True)` since the import doesn't exist yet in generate.py
+

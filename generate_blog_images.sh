@@ -10,7 +10,8 @@
 
 set -euo pipefail
 
-cd /Users/geraldinefberry/repos/my_repos/image-generation
+SCRIPT_DIR=$(cd "$(dirname "$0")" && pwd)
+cd "$SCRIPT_DIR"
 source venv/bin/activate
 
 BATCH_FILE="batch_prompts_$$.json"

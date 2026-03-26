@@ -16,12 +16,37 @@ from datetime import datetime
 from types import SimpleNamespace
 
 import torch
+import diffusers
 from diffusers import DiffusionPipeline
 
 
 class OOMError(RuntimeError):
     """Raised when GPU/MPS runs out of memory during generation."""
     pass
+
+
+def _positive_int(value):
+    """Argparse type: positive integer (> 0)."""
+    ivalue = int(value)
+    if ivalue <= 0:
+        raise argparse.ArgumentTypeError(f"must be > 0, got {value}")
+    return ivalue
+
+
+def _non_negative_float(value):
+    """Argparse type: non-negative float (>= 0)."""
+    fvalue = float(value)
+    if fvalue < 0:
+        raise argparse.ArgumentTypeError(f"must be >= 0, got {value}")
+    return fvalue
+
+
+def _dimension(value):
+    """Argparse type: image dimension in pixels (>= 64)."""
+    ivalue = int(value)
+    if ivalue < 64:
+        raise argparse.ArgumentTypeError(f"must be >= 64, got {value}")
+    return ivalue
 
 
 def parse_args():
@@ -34,11 +59,20 @@ def parse_args():
     group.add_argument("--batch-file", dest="batch_file", metavar="PATH",
                        help="JSON file with list of prompt dicts for batch generation")
     parser.add_argument("--output", default=None, help="Output file path")
-    parser.add_argument("--steps", type=int, default=40, help="Number of inference steps")
-    parser.add_argument("--guidance", type=float, default=7.5, help="Guidance scale (CFG)")
-    parser.add_argument("--width", type=int, default=1024, help="Image width in pixels")
-    parser.add_argument("--height", type=int, default=1024, help="Image height in pixels")
+    parser.add_argument("--steps", type=_positive_int, default=28, help="Number of inference steps (> 0)")
+    parser.add_argument("--guidance", type=_non_negative_float, default=7.5, help="Guidance scale (>= 0)")
+    parser.add_argument("--refiner-guidance", type=_non_negative_float, default=5.0, dest="refiner_guidance",
+                        help="Guidance scale for refiner (independent from base)")
+    parser.add_argument("--scheduler", type=str, default="DPMSolverMultistepScheduler",
+                        help="Scheduler class name from diffusers")
+    parser.add_argument("--width", type=_dimension, default=1024, help="Image width in pixels (>= 64)")
+    parser.add_argument("--height", type=_dimension, default=1024, help="Image height in pixels (>= 64)")
     parser.add_argument("--seed", type=int, default=None, help="Random seed for reproducibility")
+    parser.add_argument(
+        "--negative-prompt",
+        default="blurry, bad quality, worst quality, low resolution, text, watermark, signature, deformed, ugly, duplicate, morbid",
+        help="Negative prompt to steer generation away from undesired features",
+    )
     parser.add_argument("--refine", action="store_true", help="Use base + refiner pipeline (higher quality)")
     parser.add_argument("--cpu", action="store_true", help="Force CPU mode (slow, no GPU required)")
     return parser.parse_args()
@@ -108,6 +142,34 @@ def load_refiner(text_encoder_2, vae, device: str) -> DiffusionPipeline:
     return refiner
 
 
+SUPPORTED_SCHEDULERS = [
+    "DPMSolverMultistepScheduler",
+    "EulerDiscreteScheduler",
+    "EulerAncestralDiscreteScheduler",
+    "DDIMScheduler",
+    "LMSDiscreteScheduler",
+    "PNDMScheduler",
+    "UniPCMultistepScheduler",
+    "HeunDiscreteScheduler",
+    "KDPM2DiscreteScheduler",
+    "DEISMultistepScheduler",
+]
+
+
+def apply_scheduler(pipeline, scheduler_name: str):
+    """Override the pipeline's scheduler by name, using its existing config."""
+    if not hasattr(diffusers, scheduler_name):
+        raise ValueError(
+            f"Unknown scheduler: {scheduler_name}. "
+            f"Available: {', '.join(SUPPORTED_SCHEDULERS)}"
+        )
+    scheduler_cls = getattr(diffusers, scheduler_name)
+    config = getattr(pipeline.scheduler, 'config', {})
+    if not isinstance(config, dict):
+        config = {}
+    pipeline.scheduler = scheduler_cls.from_config(config)
+
+
 def generate(args) -> str:
     """Run image generation and save to output path."""
     device = get_device(args.cpu)
@@ -145,9 +207,13 @@ def generate(args) -> str:
             print(f"🎨 Running base + refiner pipeline ({args.steps} steps total)...")
             base = load_base(device)
 
+            # Apply chosen scheduler to base pipeline
+            apply_scheduler(base, args.scheduler)
+
             # Stage 1: base model produces latents
             latents = base(
                 prompt=args.prompt,
+                negative_prompt=args.negative_prompt,
                 num_inference_steps=args.steps,
                 guidance_scale=args.guidance,
                 width=args.width,
@@ -177,8 +243,9 @@ def generate(args) -> str:
             refiner = load_refiner(text_encoder_2, vae, device)
             image = refiner(
                 prompt=args.prompt,
+                negative_prompt=args.negative_prompt,
                 num_inference_steps=args.steps,
-                guidance_scale=args.guidance,
+                guidance_scale=args.refiner_guidance,
                 denoising_start=high_noise_frac,
                 # Move latents back to device for refiner inference.
                 image=latents.to(device) if device in ("cuda", "mps") else latents,
@@ -187,8 +254,13 @@ def generate(args) -> str:
         else:
             print(f"🎨 Running base model ({args.steps} steps)...")
             base = load_base(device)
+
+            # Apply chosen scheduler to base pipeline
+            apply_scheduler(base, args.scheduler)
+
             image = base(
                 prompt=args.prompt,
+                negative_prompt=args.negative_prompt,
                 num_inference_steps=args.steps,
                 guidance_scale=args.guidance,
                 width=args.width,
@@ -229,28 +301,34 @@ def generate(args) -> str:
     return output_path
 
 
-def batch_generate(prompts: list[dict], device: str = "mps") -> list[dict]:
+def batch_generate(prompts: list[dict], device: str = "mps", args=None) -> list[dict]:
     """
     Generate images for a list of prompt dicts, flushing GPU memory between items.
 
     Each input dict: {"prompt": str, "output": str, "seed": int (optional)}
     Returns list of {"prompt": str, "output": str, "status": "ok"|"error", "error": str|None}
+
+    When args is provided, CLI params (steps, guidance, width, height, refine,
+    negative_prompt) are forwarded from it instead of using defaults.
     """
     results = []
     for i, item in enumerate(prompts):
-        args = SimpleNamespace(
+        batch_args = SimpleNamespace(
             prompt=item["prompt"],
             output=item["output"],
             seed=item.get("seed"),
-            steps=40,
-            guidance=7.5,
-            width=1024,
-            height=1024,
-            refine=False,
+            steps=args.steps if args else 28,
+            guidance=args.guidance if args else 7.5,
+            refiner_guidance=args.refiner_guidance if args else 5.0,
+            scheduler=args.scheduler if args else "DPMSolverMultistepScheduler",
+            width=args.width if args else 1024,
+            height=args.height if args else 1024,
+            refine=args.refine if args else False,
+            negative_prompt=args.negative_prompt if args else "",
             cpu=(device == "cpu"),
         )
         try:
-            output_path = generate(args)
+            output_path = generate_with_retry(batch_args)
             results.append({
                 "prompt": item["prompt"],
                 "output": output_path,
@@ -278,21 +356,25 @@ def batch_generate(prompts: list[dict], device: str = "mps") -> list[dict]:
 def generate_with_retry(args, max_retries: int = 2) -> str:
     """
     Wraps generate(args) with OOM retry logic.
-    - On OOMError: halves args.steps (floor at 1), prints warning, retries
+    - On OOMError: halves steps (floor at 1), prints warning, retries
     - Retries up to max_retries times (so up to max_retries+1 total calls)
     - If all retries exhausted: raises OOMError with message mentioning final steps count
     - Non-OOM exceptions: re-raised immediately, no retry
+    - Does NOT mutate args.steps — uses a local copy for each attempt.
     """
+    current_steps = args.steps
     for attempt in range(max_retries + 1):
         try:
-            return generate(args)
+            retry_args = SimpleNamespace(**vars(args))
+            retry_args.steps = current_steps
+            return generate(retry_args)
         except OOMError:
             if attempt == max_retries:
                 raise OOMError(
-                    f"Out of GPU memory after {max_retries} retries. Last attempt used {args.steps} steps."
+                    f"Out of GPU memory after {max_retries} retries. Last attempt used {current_steps} steps."
                 )
-            args.steps = max(1, args.steps // 2)
-            print(f"OOM: retrying with {args.steps} steps")
+            current_steps = max(1, current_steps // 2)
+            print(f"OOM: retrying with {current_steps} steps")
 
 
 def main():
@@ -308,7 +390,7 @@ def main():
             print(f"Error: invalid JSON in batch file: {e}", file=sys.stderr)
             sys.exit(1)
         device = "cpu" if args.cpu else get_device(False)
-        results = batch_generate(prompts, device=device)
+        results = batch_generate(prompts, device=device, args=args)
         for r in results:
             status = r['status']
             print(f"[{status}] {r['prompt'][:50]} → {r.get('output', r.get('error', ''))}")

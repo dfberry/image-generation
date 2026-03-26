@@ -18,6 +18,20 @@
         "scribe": "Scribe",
         "ralph": "Work Monitor"
       }
+    },
+    "snapshot-20260326": {
+      "assignment_id": "snapshot-20260326",
+      "universe": "The Matrix",
+      "created_at": "2026-03-26T01:49:59Z",
+      "agents": {
+        "morpheus": "Lead",
+        "trinity": "Backend Dev",
+        "niobe": "Image Specialist",
+        "switch": "Prompt/LLM Engineer",
+        "neo": "Tester",
+        "scribe": "Scribe",
+        "ralph": "Work Monitor"
+      }
     }
   }
 }

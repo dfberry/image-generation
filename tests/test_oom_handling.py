@@ -53,6 +53,9 @@ def _base_args(tmp_path, refine=False, cpu=False):
     args.guidance = 7.5
     args.width = 64
     args.height = 64
+    args.negative_prompt = ""
+    args.scheduler = "DPMSolverMultistepScheduler"
+    args.refiner_guidance = 5.0
     return args
 
 

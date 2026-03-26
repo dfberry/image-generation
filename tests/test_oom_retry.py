@@ -60,6 +60,9 @@ def _args(steps=40):
         guidance=7.5,
         width=64,
         height=64,
+        negative_prompt="",
+        scheduler="DPMSolverMultistepScheduler",
+        refiner_guidance=5.0,
     )
 
 

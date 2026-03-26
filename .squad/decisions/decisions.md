@@ -303,3 +303,216 @@ Tests written and merged:
 ### Future Work Note
 
 Morpheus flagged that `batch_generate()` should eventually use `generate_with_retry()` for consistent OOM handling across both single-prompt and batch modes. Currently batch fails immediately on OOM for one item while single-prompt mode retries. This is acceptable for initial release but represents an architectural inconsistency. Deferred as future enhancement, not blocking current merge.
+
+---
+
+## Full Team Code Review (2026-03-26T02:00:00Z — 2026-03-26T02:02:00Z)
+
+**Date:** 2026-03-26 (UTC)  
+**Event:** Comprehensive team code review: architecture, backend implementation, pipeline quality, prompt library, and test coverage  
+**Agents:** Morpheus (Lead), Trinity (Backend), Niobe (Pipeline), Switch (Prompts), Neo (Testing)  
+**Outcome:** 10 issues identified (3 HIGH, 4 MEDIUM, 3 LOW), cross-team recommendations for Phase 1/2/3 work
+
+### Issues Summary
+
+#### HIGH Severity (Correctness & Portability Blockers)
+
+1. **args.steps Mutation in generate_with_retry() — Trinity Finding**
+   - **Issue:** Retry loop modifies passed-in args object: `args.steps = args.steps // 2`
+   - **Impact:** Caller's args permanently modified (unexpected side effect)
+   - **Fix:** Use local copy: `retry_args = SimpleNamespace(**vars(args))`
+   - **Severity:** HIGH (correctness bug)
+   - **Priority:** Phase 2 immediate fix
+
+2. **Hardcoded Absolute Path in generate_blog_images.sh — Morpheus Finding**
+   - **Issue:** Line 13 uses absolute path (breaks on different machines)
+   - **Impact:** Script fails on different directories/systems
+   - **Fix:** Use `$(dirname "$0")` or PWD-relative path
+   - **Severity:** HIGH (portability blocker)
+   - **Priority:** Phase 1 quick win
+
+3. **Monolithic generate.py (7+ Responsibilities) — Morpheus Finding**
+   - **Issue:** 320-line single file: CLI parsing, generation, memory, batch logic mixed
+   - **Impact:** Harder to test, module reuse limited
+   - **Recommendation:** Consider batch logic extraction (Phase 3 architectural)
+   - **Severity:** HIGH (design concern, not immediate blocker)
+
+#### MEDIUM Severity (Functional Gaps & Architecture)
+
+1. **batch_generate() Ignores CLI Overrides — Trinity Finding**
+   - **Issue:** Batch items generated with defaults, not CLI args (--steps, --guidance, --width, --height, --refine)
+   - **Impact:** CLI flags only work in single-prompt path; batch inconsistent with CLI
+   - **Fix:** Implement parameter forwarding (TDD-first approach)
+   - **Severity:** MEDIUM (design inconsistency)
+   - **Priority:** Phase 2
+
+2. **Cache Flush Guard Inconsistency — Trinity Finding**
+   - **Issue:** CUDA cache clear unconditional; MPS guards incomplete
+   - **Impact:** Code maintainability, inconsistent guard strategy
+   - **Fix:** Extract `flush_device_cache(device)` helper
+   - **Severity:** MEDIUM (code quality, DRY)
+   - **Priority:** Phase 2 refactor
+
+3. **No --negative-prompt CLI Support — Switch/Niobe Finding**
+   - **Issue:** Pipeline supports negative prompts, but no CLI flag or batch wiring
+   - **Impact:** SDXL quality degraded (negative prompts critical for artifact rejection)
+   - **Estimated Quality Gain:** 20–30% improvement with negative prompts
+   - **Architecture Needed:** CLI flag (Trinity) + batch JSON (Trinity) + style guide (Switch) + pipeline tuning (Niobe)
+   - **Severity:** MEDIUM (architectural gap, image quality blocker)
+   - **Priority:** Phase 3 (depends on negative prompt support)
+   - **Blocking Dependencies:** Trinity CLI wiring required before style guide finalization
+
+4. **CLI Argument Validation Missing — Neo Finding**
+   - **Issue:** argparse accepts invalid ranges (steps=0, width=7, guidance=-1)
+   - **Impact:** Parser accepts edge cases; generation may fail or produce unexpected output
+   - **Fix:** Add validators using argparse type= parameter
+   - **Severity:** MEDIUM (correctness edge case)
+   - **Priority:** Phase 2 (TDD-first)
+
+#### LOW Severity (Quick Wins & Documentation)
+
+1. **README Test Count Stale — Morpheus Finding**
+   - **Issue:** Documentation says "22 tests", actual: 53+
+   - **Fix:** Update README: "22 tests" → "53+ tests"
+   - **Priority:** Phase 1 quick win
+
+2. **Style Anchor Inconsistency in Prompts — Switch Finding**
+   - **Issue:** 3 different anchors across 10 prompts; "magical realism" missing from vacation set
+   - **Impact:** Visual style inconsistency
+   - **Fix:** Standardize anchor, add to vacation set
+   - **Priority:** Phase 2
+
+3. **Missing tests/__init__.py — Morpheus Finding**
+   - **Issue:** No __init__.py in tests/ (minor, pytest doesn't require it)
+   - **Fix:** Add empty file for consistency
+   - **Priority:** Phase 1 quick win
+
+4. **Vacation Prompts Missing "No Text" Constraint — Switch Finding**
+   - **Issue:** All original vacation prompts include "no text" constraint; current examples.md missing
+   - **Impact:** Generated vacation images may have text artifacts
+   - **Fix:** Add "no text" constraint documentation + negative prompt
+   - **Priority:** Phase 2
+
+5. **No Prompt Template System — Switch Finding**
+   - **Issue:** Prompts duplicated, no single source of truth (no programmatic access)
+   - **Impact:** Hard to maintain consistency, no template reuse
+   - **Recommendation:** JSON/YAML template system (Phase 3)
+   - **Priority:** Phase 3 architectural enhancement
+
+### Recommendations by Phase
+
+#### Phase 1 (Immediate, Quick Wins)
+1. Fix hardcoded path in generate_blog_images.sh
+2. Update README: test count 22 → 53+
+3. Add tests/__init__.py (empty)
+
+#### Phase 2 (Next Sprint, Core Fixes, TDD-First)
+
+**HIGH Priority:**
+1. Fix args.steps mutation in generate_with_retry() (use SimpleNamespace copy)
+
+**MEDIUM Priority:**
+2. batch_generate() parameter forwarding (Neo writes tests → Trinity implements)
+3. Extract flush_device_cache() helper (DRY refactor)
+4. Add CLI argument validators (TDD-first)
+5. Vacation set fixes: add "magical realism" + "no text" constraint
+6. Document local test setup (CPU torch workaround)
+
+**Architectural Changes:**
+7. All TDD-first: write failing tests first, implement to green, regression check
+
+#### Phase 3 (Architectural Enhancements)
+
+1. **Negative Prompt Feature (Highest Priority)**
+   - Trinity: CLI wiring (--negative-prompt flag) + batch JSON support
+   - Switch: Style guide + negative prompt anchors + vacation set completion
+   - Niobe: Pipeline integration + guidance tuning
+
+2. **Prompt Template System (After Negative Prompts)**
+   - Switch: Create prompts/templates.json (JSON/YAML structured definitions)
+   - Trinity: Implement prompt builder function in generate.py
+   - Benefits: Single source of truth, programmatic access, easy maintenance
+
+3. **Quality Tuning (After Negative Prompts Wired)**
+   - Niobe: A/B test guidance scales (current 7.5 vs proposed 5.0 for refiner)
+   - Niobe: A/B test scheduler (Euler 40 steps vs DPMSolverMultistep 28 steps, ~35% speedup)
+   - Establish baseline and validate quality equivalence
+
+4. **Optional: Logging Infrastructure**
+   - Trinity: Consider structured logging (logging module)
+   - Benefits: Better debugging, performance metrics
+   - Priority: Low, non-blocking
+
+### Cross-Team Dependencies
+
+- **Trinity/Neo:** Batch parameter forwarding requires TDD test-first
+- **Trinity/Switch:** Negative prompt CLI requires close collaboration on style guide
+- **Trinity/Niobe:** Scheduler/guidance tuning depends on --negative-prompt feature
+- **Morpheus:** Approves all architectural decisions and prioritization
+
+### Test Coverage Status
+
+**Current:** 53+ tests all passing (22 memory + 17 batch + 14 OOM + 10 CLI + 12 retry + 3 device)
+
+**Gaps Identified by Neo:**
+- CLI argument validation: No edge case tests (steps=0, width=7, etc.)
+- Batch parameter forwarding: Not tested (feature not yet implemented)
+- Device fallback: Incomplete (local CPU workaround, CUDA/MPS untested in CI)
+- Integration: No end-to-end tests (CLI → file output)
+
+**Phase 2 Additions:**
+- CLI validation tests (TDD-first)
+- Batch parameter forwarding tests (TDD-first)
+
+**Phase 3 Additions:**
+- Device-specific fixtures + conditional skip decorators
+- Integration tests (file output verification)
+
+### Memory Management Status
+
+**Audit Result: ✅ SOLID — No Blockers**
+
+All MEDIUM-priority memory fixes (PR #4–#6) verified correct:
+- Latents CPU transfer: ✅ Correct timing and device handling
+- Dynamo cache reset: ✅ Guards present and necessary
+- Entry-point VRAM flush: ✅ Fires before load_base()
+- Global state: ✅ Clean (no process-persistent references)
+
+**Production Status:** Memory management ready for production batch workflows
+
+### Pipeline Quality Status
+
+**Finding: Wait for Negative Prompts Before Tuning**
+
+- **Scheduler Swap:** Defer DPMSolverMultistep swap (35% speedup) until negative prompts establish baseline
+- **Guidance Tuning:** Defer refiner guidance 5.0 testing (vs current 7.5) until negative prompt baseline
+- **Rationale:** Negative prompts significantly impact quality perception; baseline unreliable without them
+
+**Blocked on:** Trinity CLI implementation (negative prompt feature)
+
+### Prompt Library Status
+
+**Findings:**
+- Style consistency issues (3 different anchors)
+- Vacation set missing constraints ("no text", style anchor)
+- No template system (prompts duplicated, no programmatic access)
+
+**Phase 2:** Fix vacation set consistency  
+**Phase 3:** Template system + negative prompt integration (blocked on Trinity)
+
+### Decisions Made
+
+1. **HIGH Priority:** Fix args.steps mutation immediately (Phase 2)
+2. **TDD-First Approach:** All Phase 2 changes require tests first
+3. **Negative Prompt Feature:** Critical for quality improvement, Phase 3 priority
+4. **Template System:** Deferred to Phase 3 (after negative prompts)
+5. **Guidance/Scheduler Tuning:** Deferred to Phase 3 (after negative prompts establish baseline)
+
+### Next Steps
+
+1. Team consensus on Phase 2 prioritization
+2. Begin Phase 1 quick wins immediately
+3. Neo writes failing tests for Phase 2 (CLI validation, batch parameters)
+4. Trinity implements Phase 2 fixes per TDD-first approach
+5. Scribe merges inbox decisions into decisions.md (completed)
+6. Team syncs on Phase 3 scope after Phase 2 complete

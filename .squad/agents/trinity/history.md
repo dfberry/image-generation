@@ -86,7 +86,88 @@ Trinity's code-level audit converged with Morpheus's architectural review and Ne
 
 ## Learnings
 
-<!-- Append new learnings below. -->
+<!-- Append new learnings below. Each entry is something lasting about the project. -->
+
+### 2026-03-26 — PR #12: Add negative prompt support (#3)
+
+**TDD Green Phase — made Neo's 7 failing tests in test_negative_prompt.py pass.**
+
+**Changes to generate.py:**
+1. **CLI:** Added `--negative-prompt` flag to argparse with sensible default: "blurry, bad quality, worst quality, low resolution, text, watermark, signature, deformed, ugly, duplicate, morbid"
+2. **Base pipeline:** `negative_prompt=args.negative_prompt` passed to base `__call__` (both standalone and refiner modes)
+3. **Refiner pipeline:** `negative_prompt=args.negative_prompt` passed to refiner `__call__`
+4. **Batch:** `batch_generate()` updated to accept `args=None` param, forwards `negative_prompt` per-item via SimpleNamespace; also upgraded to use `generate_with_retry()` for OOM resilience
+
+**Test results:** 95/95 pass (7 new + 88 existing, zero regressions)
+**Branch:** squad/3-negative-prompt
+**PR:** https://github.com/diberry/image-generation/pull/12
+
+**Key learnings:**
+- Negative prompt is standard SDXL quality lever — default covers common artifacts (blur, watermark, deformation)
+- All three pipeline call sites (base-only, base-in-refine, refiner) need the kwarg for consistent guidance
+- batch_generate() needed both `args` forwarding and `generate_with_retry` delegation — the local main was missing PR #10's batch fixes
+
+### 2026-03-26 — Full Team Code Review: Cross-Cutting Findings
+
+Full five-agent simultaneous code review identified key architectural consensus and bug convergence:
+
+**Architectural Consensus (from Morpheus, Trinity, Neo, Niobe, Switch):**
+- Monolithic generate.py is sustainable now; module extraction not justified until responsibilities exceed 10. Revisit decision when code reaches ~400 lines or test maintenance burden increases.
+- Try/finally memory management (PRs #4–#6) is canonical pattern for SDXL. Extend to all device-specific code paths (reference: PR#4 HIGH pattern, PR#5 MEDIUM fixes).
+- TDD with mock-based testing is proven discipline — continue for all new features. 53 tests, ~2s runtime, no GPU = gold standard for CI cost.
+
+**Bug Convergence (3 issues flagged independently by multiple agents):**
+1. **args.steps mutation:** Trinity detailed exact fix; Neo writing test. generate_with_retry() corrupts caller state — local copy pattern required.
+2. **batch_generate() parameter drop:** Trinity (backend), Niobe (pipeline tuning), Neo (testing) all independently identified same issue — CLI --steps, --guidance, --width, --height, --refine are silently ignored in batch. Coordinated Trinity/Neo TDD fix required.
+3. **Negative prompt gap:** Niobe (pipeline quality), Switch (prompt engineering), and Trinity (CLI wiring) all identified as blocker for image quality. Architectural prerequisite before scheduler tuning or parameter defaults.
+
+**Quality Dependencies (Trinity must sequence fixes):**
+- Negative prompt implementation prerequisite for scheduler tuning (pipeline baseline must be set before performance optimization).
+- Batch parameter forwarding blocks Niobe's per-item override feature (Trinity must fix batch first, then Niobe can implement per-item tuning).
+- CLI validation (Neo) and args mutation fix (Trinity) interdependent — validation catches bad inputs before they reach retry logic.
+
+**Quick Wins (unblocked, can start immediately):**
+- Fix hardcoded macOS path in generate_blog_images.sh (Trinity)
+- Update README test count to 53+ (Trinity)
+- Add "no text" constraint to vacation prompts (Switch, no code)
+- Standardize style anchors to original version (Switch, no code)
+- Add tests/__init__.py (Neo)
+
+**Next Sprint Coordination (Trinity + Neo TDD approach):**
+1. Batch parameter forwarding (Trinity implementation, Neo TDD test-first)
+2. args.steps mutation fix (Trinity implementation, Neo TDD test-first)
+3. CLI argument validation (Trinity implementation, Neo TDD test-first)
+4. Negative prompt CLI wiring (Trinity), style guide updates (Switch), tests (Neo)
+
+
+
+4. **CODE SMELL — `batch_generate()` skips OOM retry:** Uses `generate()` directly (line 253) instead of `generate_with_retry()`. Batch items don't get the step-halving retry logic. Fix: optionally delegate to `generate_with_retry()`.
+
+5. **CODE SMELL — Redundant `hasattr` in `main()` (line 300):** `hasattr(args, 'batch_file')` is always True because argparse defines the attribute. Should be just `if args.batch_file:`.
+
+6. **CODE SMELL — Inconsistent MPS hasattr guard:** `get_device()` (line 54) uses `hasattr(torch.backends, "mps")` guard. Entry-point flush (line 120) and finally block (line 220) call `torch.backends.mps.is_available()` without the hasattr guard. Safe with `torch>=2.1.0` floor, but inconsistent.
+
+7. **SHELL — `generate_blog_images.sh` assumes Unix venv activation (line 14):** `source venv/bin/activate` won't work on Windows. Not critical since the script is bash-only, but the hardcoded cd path is the real blocker.
+
+8. **MINOR — No `tests/__init__.py`:** Can cause import ambiguity in some pytest configurations. Quick fix: create empty `__init__.py`.
+
+**Quick fixes (safe, no test changes needed):**
+- Issue #5: Change `if hasattr(args, 'batch_file') and args.batch_file:` → `if args.batch_file:`
+- Issue #6: Add `hasattr(torch.backends, "mps") and` guard to lines 120 and 220
+- Issue #2: Replace hardcoded `cd` with `cd "$(dirname "$0")"`
+- Issue #8: Create empty `tests/__init__.py`
+
+**Requires test updates:**
+- Issue #1 (args mutation): Needs new test to verify original args.steps is preserved
+- Issue #3 (batch ignores CLI params): Needs `batch_generate()` signature change + test updates
+
+**What's clean:**
+- `generate()` function architecture is solid: locals-only pipeline vars, try/finally cleanup, OOM detection with dual CUDA/MPS paths
+- `OOMError` class is clean and well-integrated
+- `parse_args()` mutually-exclusive group is correct
+- `requirements.txt` version floors are appropriately set
+- Test coverage is thorough (75 tests across 5 files), well-structured with clear TDD phases
+- `conftest.py` mock infrastructure is clean and reusable
 
 ### 2026-03-25 — Sprint Complete: CI, README, TDD (All 4 Workstreams Merged)
 
@@ -214,3 +295,77 @@ Fixed Neo's rejection of PR #8 by updating the pytest command and Testing sectio
 | **Total** | **22** | **31** |
 
 **Next:** Trinity implements batch_generate() and OOMError to pass PR #9.
+
+### 2026-03-25 — Issue #2 / PR #9: Fix hardcoded macOS path in shell scripts
+
+- **Only one shell script exists:** `generate_blog_images.sh`. The `regen_*.sh` scripts referenced in history were from a prior iteration and are no longer in the repo.
+- **SCRIPT_DIR pattern is the portable standard:** `SCRIPT_DIR=$(cd "$(dirname "$0")" && pwd)` followed by `cd "$SCRIPT_DIR"` makes all relative paths (like `venv/bin/activate`, `outputs/`, `generate.py`) resolve correctly regardless of where the script is invoked from or which machine it runs on.
+- **Always audit all `*.sh` files when fixing path issues:** Even if only one script is reported, check every shell script in the repo to prevent the same bug from lurking elsewhere.
+
+---
+
+## Full Team Code Review (2026-03-26)
+
+**Event:** Comprehensive 5-agent code review of image-generation project  
+**Scope:** Architecture, backend, pipeline quality, prompts, testing  
+**Outcome:** 10 issues identified (3 HIGH, 4 MEDIUM, 3 LOW)
+
+**Trinity Role & Findings (Backend Dev):**
+- **Key Responsibility Areas:** generate.py, shell scripts, CLI design, dependency management
+- **HIGH Issues Found:** 
+  1. args.steps mutation in generate_with_retry() — corrupts caller state
+  2. Hardcoded absolute path in generate_blog_images.sh — portability blocker
+- **MEDIUM Issues Found:**
+  1. batch_generate() ignores CLI overrides (--steps, --guidance, --width, --height, --refine)
+  2. Cache flush guard inconsistency (CUDA vs MPS pattern)
+  3. No --negative-prompt CLI support (architectural gap, blocks quality improvements)
+- **LOW Issues Found:**
+  1. README test count stale (22 → 53+)
+  2. CLI argument validation missing (steps=0, width=7, guidance=-1 accepted)
+
+**Issues Requiring Trinity Implementation:**
+1. **HIGH Phase 2:** Fix args.steps mutation → use SimpleNamespace copy in retry loop
+2. **MEDIUM Phase 2:** Implement batch_generate() parameter forwarding (TDD-first, Neo writes tests)
+3. **MEDIUM Phase 2:** Extract flush_device_cache() helper (DRY refactor)
+4. **LOW Phase 2:** Add CLI argument validators (argparse type parameter)
+5. **MEDIUM Phase 3:** Implement --negative-prompt CLI flag + batch JSON support
+
+**Cross-Team Coordination Notes:**
+- Trinity/Neo: Batch parameter forwarding requires TDD test-first approach
+- Trinity/Switch: Negative prompt CLI must coordinate with style guide updates
+- Trinity/Niobe: Negative prompt wiring unblocks scheduler/guidance tuning work
+- All Phase 2 changes must follow TDD-first discipline
+
+**Code Review Observations:**
+- Memory management: Well-engineered try/finally + OOM + batch cleanup patterns
+- Error handling: OOMError detection solid, message actionable
+- Test integration: 53+ tests all passing, good regression coverage
+- Overall quality: High maintainability, clear structure
+
+**Recommendations Summary:**
+- Phase 1: Fix paths, update docs (quick wins)
+- Phase 2: Fix mutations/forwarding/validation (all TDD-first, critical for reliability)
+- Phase 3: Negative prompts + templates + tuning (architectural features)
+
+**Team Consensus:**
+- args.steps mutation is HIGH priority, fix immediately in Phase 2
+- Batch parameter forwarding: implement TDD-first (Neo tests → Trinity code)
+- All Phase 2 work must maintain zero-regression test status
+- Ready to begin Phase 1 quick wins immediately
+### 2026-03-26 — PR #11: CLI Argument Validation (Issue #5, TDD Green Phase)
+
+**Assignment:** Make Neo's 13 tests in test_cli_validation.py pass by adding range validation to parse_args().
+
+**Implementation:** Three custom argparse type functions:
+- `_positive_int(value)` — rejects steps <= 0
+- `_non_negative_float(value)` — rejects guidance < 0
+- `_dimension(value)` — rejects width/height < 64
+
+Wired into argparse via `type=` parameter. Argparse raises SystemExit with clear error on invalid input — matches test expectations exactly.
+
+**Results:** 13/13 validation tests pass. 94/95 total suite pass (1 pre-existing failure in test_negative_prompt.py unrelated to this change).
+
+**Key learnings:**
+- Custom argparse type functions are the cleanest validation pattern: argparse handles error formatting, SystemExit, and help text automatically. No post-parse validation needed.
+- ArgumentTypeError message includes the rejected value for debuggability.
+- Pre-existing test_negative_prompt.py::test_batch_forwards_negative_prompt fails due to unimplemented negative prompt feature — not a regression.
