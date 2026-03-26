@@ -36,6 +36,8 @@ def _args(negative_prompt=None, refine=False, **overrides):
         height=64,
         refine=refine,
         cpu=True,
+        scheduler="DPMSolverMultistepScheduler",
+        refiner_guidance=5.0,
     )
     if negative_prompt is not None:
         defaults["negative_prompt"] = negative_prompt

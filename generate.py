@@ -16,6 +16,7 @@ from datetime import datetime
 from types import SimpleNamespace
 
 import torch
+import diffusers
 from diffusers import DiffusionPipeline
 
 
@@ -58,8 +59,12 @@ def parse_args():
     group.add_argument("--batch-file", dest="batch_file", metavar="PATH",
                        help="JSON file with list of prompt dicts for batch generation")
     parser.add_argument("--output", default=None, help="Output file path")
-    parser.add_argument("--steps", type=_positive_int, default=40, help="Number of inference steps (> 0)")
+    parser.add_argument("--steps", type=_positive_int, default=28, help="Number of inference steps (> 0)")
     parser.add_argument("--guidance", type=_non_negative_float, default=7.5, help="Guidance scale (>= 0)")
+    parser.add_argument("--refiner-guidance", type=_non_negative_float, default=5.0, dest="refiner_guidance",
+                        help="Guidance scale for refiner (independent from base)")
+    parser.add_argument("--scheduler", type=str, default="DPMSolverMultistepScheduler",
+                        help="Scheduler class name from diffusers")
     parser.add_argument("--width", type=_dimension, default=1024, help="Image width in pixels (>= 64)")
     parser.add_argument("--height", type=_dimension, default=1024, help="Image height in pixels (>= 64)")
     parser.add_argument("--seed", type=int, default=None, help="Random seed for reproducibility")
@@ -137,6 +142,34 @@ def load_refiner(text_encoder_2, vae, device: str) -> DiffusionPipeline:
     return refiner
 
 
+SUPPORTED_SCHEDULERS = [
+    "DPMSolverMultistepScheduler",
+    "EulerDiscreteScheduler",
+    "EulerAncestralDiscreteScheduler",
+    "DDIMScheduler",
+    "LMSDiscreteScheduler",
+    "PNDMScheduler",
+    "UniPCMultistepScheduler",
+    "HeunDiscreteScheduler",
+    "KDPM2DiscreteScheduler",
+    "DEISMultistepScheduler",
+]
+
+
+def apply_scheduler(pipeline, scheduler_name: str):
+    """Override the pipeline's scheduler by name, using its existing config."""
+    if not hasattr(diffusers, scheduler_name):
+        raise ValueError(
+            f"Unknown scheduler: {scheduler_name}. "
+            f"Available: {', '.join(SUPPORTED_SCHEDULERS)}"
+        )
+    scheduler_cls = getattr(diffusers, scheduler_name)
+    config = getattr(pipeline.scheduler, 'config', {})
+    if not isinstance(config, dict):
+        config = {}
+    pipeline.scheduler = scheduler_cls.from_config(config)
+
+
 def generate(args) -> str:
     """Run image generation and save to output path."""
     device = get_device(args.cpu)
@@ -174,6 +207,9 @@ def generate(args) -> str:
             print(f"🎨 Running base + refiner pipeline ({args.steps} steps total)...")
             base = load_base(device)
 
+            # Apply chosen scheduler to base pipeline
+            apply_scheduler(base, args.scheduler)
+
             # Stage 1: base model produces latents
             latents = base(
                 prompt=args.prompt,
@@ -209,7 +245,7 @@ def generate(args) -> str:
                 prompt=args.prompt,
                 negative_prompt=args.negative_prompt,
                 num_inference_steps=args.steps,
-                guidance_scale=args.guidance,
+                guidance_scale=args.refiner_guidance,
                 denoising_start=high_noise_frac,
                 # Move latents back to device for refiner inference.
                 image=latents.to(device) if device in ("cuda", "mps") else latents,
@@ -218,6 +254,10 @@ def generate(args) -> str:
         else:
             print(f"🎨 Running base model ({args.steps} steps)...")
             base = load_base(device)
+
+            # Apply chosen scheduler to base pipeline
+            apply_scheduler(base, args.scheduler)
+
             image = base(
                 prompt=args.prompt,
                 negative_prompt=args.negative_prompt,
@@ -277,8 +317,10 @@ def batch_generate(prompts: list[dict], device: str = "mps", args=None) -> list[
             prompt=item["prompt"],
             output=item["output"],
             seed=item.get("seed"),
-            steps=args.steps if args else 40,
+            steps=args.steps if args else 28,
             guidance=args.guidance if args else 7.5,
+            refiner_guidance=args.refiner_guidance if args else 5.0,
+            scheduler=args.scheduler if args else "DPMSolverMultistepScheduler",
             width=args.width if args else 1024,
             height=args.height if args else 1024,
             refine=args.refine if args else False,

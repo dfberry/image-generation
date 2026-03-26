@@ -27,6 +27,7 @@ class MockPipeline:
         self.text_encoder_2 = MagicMock()
         self.vae = MagicMock()
         self.unet = MagicMock()
+        self.scheduler = MagicMock()
         self._return_latents = return_latents
 
     def __call__(self, **kwargs):
@@ -61,6 +62,9 @@ def mock_args_base(tmp_path):
     args.guidance = 7.5
     args.width = 64
     args.height = 64
+    args.negative_prompt = ""
+    args.scheduler = "DPMSolverMultistepScheduler"
+    args.refiner_guidance = 5.0
     return args
 
 
@@ -77,6 +81,9 @@ def mock_args_refine(tmp_path):
     args.guidance = 7.5
     args.width = 64
     args.height = 64
+    args.negative_prompt = ""
+    args.scheduler = "DPMSolverMultistepScheduler"
+    args.refiner_guidance = 5.0
     return args
 
 
@@ -93,6 +100,9 @@ def mock_args_cuda(tmp_path):
     args.guidance = 7.5
     args.width = 64
     args.height = 64
+    args.negative_prompt = ""
+    args.scheduler = "DPMSolverMultistepScheduler"
+    args.refiner_guidance = 5.0
     return args
 
 
@@ -109,4 +119,7 @@ def mock_args_cuda_refine(tmp_path):
     args.guidance = 7.5
     args.width = 64
     args.height = 64
+    args.negative_prompt = ""
+    args.scheduler = "DPMSolverMultistepScheduler"
+    args.refiner_guidance = 5.0
     return args

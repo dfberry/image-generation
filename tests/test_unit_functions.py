@@ -362,6 +362,7 @@ class TestPreFlightCacheFlush:
             prompt="test", output="outputs/test.png", seed=None,
             cpu=True, refine=False, steps=2, guidance=7.5,
             width=64, height=64, negative_prompt="bad",
+            scheduler="DPMSolverMultistepScheduler", refiner_guidance=5.0,
         )
         gen.generate(args)
         mock_gc.collect.assert_called()
@@ -386,6 +387,7 @@ class TestPreFlightCacheFlush:
             prompt="test", output="outputs/test.png", seed=None,
             cpu=False, refine=False, steps=2, guidance=7.5,
             width=64, height=64, negative_prompt="bad",
+            scheduler="DPMSolverMultistepScheduler", refiner_guidance=5.0,
         )
         gen.generate(args)
         mock_torch.cuda.empty_cache.assert_called()
@@ -408,6 +410,7 @@ class TestPreFlightCacheFlush:
             prompt="test", output="outputs/test.png", seed=None,
             cpu=False, refine=False, steps=2, guidance=7.5,
             width=64, height=64, negative_prompt="bad",
+            scheduler="DPMSolverMultistepScheduler", refiner_guidance=5.0,
         )
         gen.generate(args)
         mock_torch.mps.empty_cache.assert_called()
