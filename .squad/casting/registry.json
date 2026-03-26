@@ -24,6 +24,22 @@
       "legacy_named": false,
       "status": "active"
     },
+    "niobe": {
+      "persistent_name": "Niobe",
+      "universe": "The Matrix",
+      "role": "Image Specialist",
+      "created_at": "2026-03-26T01:49:59Z",
+      "legacy_named": false,
+      "status": "active"
+    },
+    "switch": {
+      "persistent_name": "Switch",
+      "universe": "The Matrix",
+      "role": "Prompt/LLM Engineer",
+      "created_at": "2026-03-26T01:49:59Z",
+      "legacy_named": false,
+      "status": "active"
+    },
     "scribe": {
       "persistent_name": "Scribe",
       "universe": null,

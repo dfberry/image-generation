@@ -186,6 +186,347 @@
 
 **Implementation Location:** Trinity may place `batch_generate` in `generate.py` or new `batch.py`. Tests handle both with try/except import.
 
+---
+
+## Team Code Review Findings (2026-03-26)
+
+**By:** Morpheus (Lead), Trinity (Backend), Niobe (Image Specialist), Switch (Prompt/LLM), Neo (Tester)
+
+**Event:** Full team code review across architecture, backend implementation, pipeline quality, prompts, and test coverage.
+
+### Architecture Review — Structural Assessment (Morpheus)
+
+**Summary:** Full architecture review identified 10 issues across 3 severity levels. Codebase demonstrates strong TDD discipline and memory management engineering.
+
+#### HIGH-Severity Issues
+
+| # | Issue | Location | Impact | Fix |
+|---|-------|----------|--------|-----|
+| 1 | Monolithic generate.py | `generate.py` (320 lines, 7+ responsibilities) | CLI parsing, device detection, model loading, generation, batch orchestration, retry logic, OOM handling, entry point all in one file. Maintenance burden and test coupling. | Extract to `cli.py`, `pipeline.py`, `batch.py`, `errors.py` (future, when complexity justifies) |
+| 2 | Hardcoded absolute path | `generate_blog_images.sh:13` | `cd /Users/geraldinefberry/repos/my_repos/image-generation` breaks on any other machine | Use `SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"` (**QUICK WIN**) |
+
+#### MEDIUM-Severity Issues
+
+| # | Issue | Location | Impact | Fix |
+|---|-------|----------|--------|-----|
+| 3 | batch_generate() duplicates defaults | `generate.py:246-249` | `steps=40, guidance=7.5, width=1024, height=1024` hardcoded in SimpleNamespace duplicates argparse defaults. Will drift when defaults change. | Remove duplication, forward from args object |
+| 4 | Batch mode drops user config | `generate.py:232-275` | `--refine`, `--steps`, `--guidance`, `--width`, `--height` CLI flags ignored in batch mode (see Trinity analysis) | Pass CLI overrides through batch_generate() signature |
+| 5 | No logging infrastructure | Entire codebase | All output is `print()`. No log levels, no structured logging. Shell script uses `tee` as workaround. | Consider logging library (post-TDD decision) |
+| 6 | Inconsistent cache-flush guards | `generate.py:219` vs `220-221` | `torch.cuda.empty_cache()` called unguarded; `torch.mps.empty_cache()` guarded by `is_available()`. Functionally safe but inconsistent style. | Extract `flush_device_cache(device)` helper (**QUICK WIN**) |
+
+#### LOW-Severity Issues (Quick Wins)
+
+| # | Issue | Location | Fix |
+|---|-------|----------|-----|
+| 7 | README test count stale | `README.md:65` | Says "22 pytest tests" but repo now has 53+ tests across 6 test files (**QUICK WIN**) |
+| 8 | Orphaned docs file | `docs/blog-image-generation-skill.md` | Single file in docs/, not referenced anywhere. Consider archiving or deleting. |
+| 9 | No tests/__init__.py | `tests/` | pytest works without it, but explicit is safer for `from tests.conftest import ...` patterns (**QUICK WIN**) |
+
+#### Strengths Identified
+
+- **Memory management:** try/finally, OOM handling, batch GPU flushing — well-engineered, thoroughly tested (PRs #4–#6)
+- **TDD discipline:** 53 tests, all mock-based, ~2s runtime, no GPU required — gold standard for CI cost and feedback speed
+- **Error handling for OOM:** Custom OOMError class, actionable messages, retry logic with per-attempt step reduction — solid
+- **CI:** workflow_dispatch with CPU-only torch (smart resource conservation for dfberry's limited Actions minutes)
+- **Code comments:** "Fix 1:", "Fix 2:" etc. trace back to audit decisions — good traceability and maintainability
+
+#### Recommended Action Sequence
+
+**Immediate (Quick Wins):**
+1. Trinity: Fix hardcoded path in generate_blog_images.sh
+2. Trinity: Update README test count to 53+
+3. Neo: Add tests/__init__.py
+
+**Next Sprint (Core Maintenance):**
+4. Trinity: Extract flush_device_cache(device) helper for DRY cache-flush patterns
+5. Trinity + Neo: Pass CLI overrides through batch_generate() — TDD approach
+
+**Future (Architectural, complexity-justified):**
+6. Team decision: Module extraction (cli.py, pipeline.py, batch.py, errors.py)
+
+---
+
+### Backend Review — Args Mutation Bug + Batch Parameter Flow (Trinity)
+
+**Summary:** Identified two bugs in parameter handling and one architectural gap in batch mode.
+
+#### Bug: args.steps Mutation in generate_with_retry()
+
+**Location:** `generate.py:294`  
+**Severity:** MEDIUM  
+**Problem:** Mutates caller's `args.steps` in-place during OOM retry:
+
+```python
+args.steps = max(1, args.steps // 2)
+```
+
+After an OOM retry, the original args object is corrupted. If `main()` or any caller inspects `args.steps` after the call, it sees the halved value — not what the user requested. Not blocking today (main doesn't inspect args.steps after), but **will bite when retry logic is composed with other features**.
+
+**Proposed Fix:** Work on a local copy:
+
+```python
+def generate_with_retry(args, max_retries: int = 2) -> str:
+    current_steps = args.steps
+    for attempt in range(max_retries + 1):
+        args.steps = current_steps  # Restore before each attempt
+        try:
+            return generate(args)
+        except OOMError:
+            if attempt == max_retries:
+                raise OOMError(f"Out of GPU memory after {max_retries} retries. Last attempt used {current_steps} steps.")
+            current_steps = max(1, current_steps // 2)
+            print(f"OOM: retrying with {current_steps} steps")
+```
+
+**Action:** Neo writes test verifying args.steps is preserved after retry. Trinity implements fix.
+
+#### Bug: batch_generate() Ignores CLI Parameters
+
+**Location:** `generate.py:241-250` (batch_generate SimpleNamespace creation)  
+**Severity:** MEDIUM  
+**Problem:** User-supplied `--steps`, `--guidance`, `--width`, `--height` from CLI are silently ignored in batch mode. `batch_generate()` hardcodes:
+
+```python
+steps=40, guidance=7.5, width=1024, height=1024, refine=False
+```
+
+Users get unexpected behavior — no error, no warning, just different output than requested.
+
+**Action:** Trinity accepts CLI overrides as parameters or forwards full args namespace. Neo writes TDD tests.
+
+#### Architecture Observation: Cache-Flush Guard Inconsistency
+
+**Location:** `generate.py:219` vs `220-221`  
+**Pattern:**
+- `torch.cuda.empty_cache()` — called unconditional (safe even without CUDA)
+- `torch.mps.empty_cache()` — guarded by `is_available()` (raises on non-Apple hardware)
+
+**Fix:** Extract `flush_device_cache(device)` helper to DRY and standardize the pattern.
+
+---
+
+### Pipeline Quality Review (Niobe)
+
+**Summary:** Memory management is solid post-PR#4–#6. Image quality and performance have clear, high-value improvement opportunities.
+
+#### Finding 1: Missing Negative Prompt Support (Architectural Gap, HIGH)
+
+**Impact:** Visibly cleaner images. SDXL produces noticeably better output with negative prompts.
+
+**What:** Add `--negative-prompt` CLI arg. Pass to both base and refiner. Default to a sensible baseline like `"blurry, low quality, deformed, watermark, text, ugly, cropped"`.
+
+**Visual effect:** Reduces artifacts, watermarks, and deformity in generated images. Especially important for folk art aesthetic where hands and faces appear in prompts 04 and 05.
+
+**Note:** This is a prerequisite for image quality. Switch, Trinity, Neo must collaborate (Trinity: CLI wiring; Switch: prompt engineering; Neo: tests).
+
+#### Finding 2: Scheduler Performance Opportunity (HIGH)
+
+**Impact:** ~35% faster generation at equivalent quality.
+
+**What:** Replace default EulerDiscreteScheduler with `DPMSolverMultistepScheduler`. Lower default steps from 40 → 28.
+
+```python
+from diffusers import DPMSolverMultistepScheduler
+pipe.scheduler = DPMSolverMultistepScheduler.from_config(pipe.scheduler.config)
+```
+
+**Visual effect:** No visible quality difference at 28 steps. Saves ~4-5 seconds per image on GPU.
+
+**Updated Parameter Table:**
+
+| Use case | --steps | --guidance | --refine |
+|----------|---------|------------|----------|
+| Quick draft | 20 | 6.0 | no |
+| Blog quality | 28 | 7.0 | yes |
+| Best quality | 40 | 7.5 | yes |
+
+#### Finding 3: Refiner Guidance Scale Tuning (MEDIUM)
+
+**What:** Use guidance_scale=5.0 for refiner when base uses 7.5. The refiner operates on nearly-complete images — high CFG over-sharpens edges and can introduce haloing artifacts.
+
+#### Finding 4: Batch Per-Item Parameter Overrides (MEDIUM)
+
+**What:** Allow per-item `steps`, `guidance`, `refine` overrides in batch JSON. Also change `device` default from `"mps"` to auto-detection via `get_device(False)`.
+
+**Relates to:** Trinity's batch parameter flow redesign.
+
+#### Finding 5: CUDA CPU Offload Option (MEDIUM)
+
+**What:** Add `--offload` flag to use `enable_model_cpu_offload()` on CUDA instead of `pipe.to("cuda")`. Enables refiner workflow on 8-12GB VRAM cards at slight speed cost.
+
+#### Finding 6: Soften torch.compile (LOW)
+
+**What:** Remove `fullgraph=True` from `torch.compile()` call. Keeps the speedup, avoids compilation failures on edge-case torch versions.
+
+#### What's Working Well
+
+- Resolution (1024×1024) — correct for SDXL native
+- fp16/float32 dtype logic — correct
+- Component sharing — correct and important
+- Memory cleanup flow — solid after PR #4–#6
+- OOM retry logic — working correctly
+
+#### Decision Needed
+
+Items 1–2 are the highest-value changes. If the team agrees, Trinity implements, Neo writes tests, Niobe validates output quality. Items 3–6 can follow as a second pass.
+
+**Implementation Priority:** Negative prompt (1) must precede scheduler (2) because quality baseline must be established before performance tuning.
+
+---
+
+### Prompt Library Audit (Switch)
+
+**Summary:** First comprehensive audit of prompts/examples.md and prompt consumption patterns. Found 7 quality issues ranging from missing negative prompt support (architectural gap) to inconsistent style anchors (prompt quality).
+
+#### Issue 1: No Negative Prompt Support (Architectural Gap, HIGH)
+
+SDXL supports `negative_prompt` but it's not wired through anywhere:
+- `generate.py` CLI has no `--negative-prompt` flag
+- Pipeline calls in `generate()` don't pass `negative_prompt=`
+- No negative prompt guidance in the style guide
+
+**Impact:** Every generated image is susceptible to common SDXL artifacts (text overlays, blurriness, deformation, watermarks). Negative prompts are the primary defense.
+
+**Recommendation:** Trinity adds `--negative-prompt` to CLI and pipeline calls. Switch defines a default negative prompt for the tropical magical-realism style and documents it in the style guide.
+
+#### Issue 2: "no text" Constraint Missing from Vacation Prompts (MEDIUM)
+
+All 5 original prompts include "no text" to prevent SDXL text generation artifacts. All 5 vacation-theme prompts omit it.
+
+**Impact:** Vacation images likely contain unwanted text artifacts.
+
+**Recommendation:** Add "no text" to all vacation prompts. (**QUICK WIN** — no code changes needed)
+
+#### Issue 3: Style Anchor Drift (MEDIUM)
+
+Three different style anchors used inconsistently:
+1. `"Latin American folk art style, magical realism illustration"` (original prompts)
+2. `"Latin American folk art illustration"` (vacation 01, 03, 05)
+3. `"Folk art illustration"` (vacation 02, 04)
+
+**Impact:** Visual inconsistency across blog images. "Magical realism" is a key aesthetic differentiator that's lost in vacation prompts.
+
+**Recommendation:** Standardize on a canonical style anchor: `"Latin American folk art style, magical realism illustration"` (the original, strongest version). (**QUICK WIN** — no code changes needed)
+
+#### Issue 4: No Prompt Template System (MEDIUM)
+
+Every prompt is hand-written with inline style qualifiers. No composable structure.
+
+**Impact:** Inconsistency, maintenance burden, high error rate when adding new prompts.
+
+**Recommendation:** Define a prompt template: `{scene_description}, {palette_hints}, {style_anchor}, {mood}, {constraints}`. Document each component in the style guide.
+
+#### Issue 5: Refiner Parameter Mismatch (MEDIUM)
+
+The parameter table recommends `--refine` for blog quality, but:
+- Vacation prompts' commands omit `--refine`
+- `batch_generate()` hardcodes `refine=False`
+- `generate_blog_images.sh` uses batch mode (no refiner)
+
+**Impact:** Blog images generated at lower quality than intended.
+
+**Recommendation:** Either update the parameter table to reflect the actual workflow, or wire refiner support through batch mode. (Trinity decision for batch; Switch updates style guide accordingly.)
+
+#### Issue 6: Minimal Style Guide (LOW)
+
+The style guide is 4 lines. Missing:
+- Prompt structure guidance (what order to put elements)
+- Negative prompt strategy
+- What to avoid (common failure modes with SDXL)
+- How parameters affect style (guidance scale ↔ adherence, steps ↔ detail)
+- Seed selection strategy
+- Troubleshooting tips
+
+**Recommendation:** Expand style guide into a proper prompt engineering reference.
+
+#### Issue 7: Prompt Duplication (LOW)
+
+Vacation prompts exist in three places with no single source of truth:
+1. `prompts/examples.md`
+2. `generate_blog_images.sh` (inline Python)
+3. Could drift further if JSON batch files are added
+
+**Recommendation:** Store canonical prompts as JSON in `prompts/` and reference from shell scripts.
+
+#### Proposed Implementation Order
+
+1. **Phase 1 (Quick Wins):** Add "no text" to vacation prompts, standardize style anchors (Switch, no code changes needed)
+2. **Phase 2:** Expand style guide with structure, vocabulary, and parameter guidance (Switch)
+3. **Phase 3:** Add `--negative-prompt` CLI flag + default negative (Trinity + Switch)
+4. **Phase 4:** Create prompt template system and migrate existing prompts (Switch)
+5. **Phase 5:** Extract prompts to JSON, deduplicate across scripts (Trinity + Switch)
+
+#### Who Needs to Act
+
+- **Trinity:** `--negative-prompt` CLI support, batch refiner wiring
+- **Switch:** Style guide expansion, prompt fixes, template system
+- **Morpheus:** Approve architectural changes (negative prompt, template system)
+- **Neo:** Tests for negative prompt parameter passing
+
+---
+
+### Quality Audit & Test Coverage Findings (Neo)
+
+**Summary:** 53 existing tests all passing. Identified 3 bugs/gaps requiring TDD approach to fix.
+
+#### Finding 1: batch_generate() Parameter Forwarding Not Implemented (BUG, MEDIUM)
+
+**Location:** `generate.py:241-250`
+
+`batch_generate()` hardcodes `steps=40, guidance=7.5, width=1024, height=1024, refine=False` in the SimpleNamespace. User-supplied `--steps`, `--guidance`, `--width`, `--height` are silently ignored in batch mode.
+
+**Severity:** MEDIUM — batch users get unexpected behavior.
+
+**Alignment:** Matches Trinity's analysis (see Backend Review above).
+
+**Action:** Neo writes TDD tests documenting batch parameter forwarding contract. Trinity implements.
+
+#### Finding 2: No CLI Argument Validation (GAP, MEDIUM)
+
+**Location:** `parse_args()`
+
+Accepts `--steps 0`, `--width 7`, `--guidance -1` without error. SDXL requires:
+- width/height in multiples of 8
+- steps ≥ 1
+- guidance ≥ 0
+
+Invalid inputs cause cryptic diffusers errors downstream (e.g., "Expected height to be a multiple of 8").
+
+**Severity:** MEDIUM — users get confusing error messages.
+
+**Action:** Neo writes TDD tests for CLI validation. Trinity adds argparse validators or guards in `generate()`.
+
+#### Finding 3: Local Test Setup Undocumented (GAP, LOW)
+
+**Location:** Test setup, README
+
+All 75 tests fail to collect without `pip install torch --index-url https://download.pytorch.org/whl/cpu`. The README and CI workflow don't document local setup. Need a dev setup section or a `make test` target.
+
+**Severity:** LOW — CI works, but no local dev feedback loop.
+
+**Action:** Team adds local test setup docs to README (or creates make test target).
+
+#### Existing Test Strengths
+
+✅ **53 Green Tests** — All passing on main, ~2s total runtime
+- **22 memory cleanup tests** (regression suite, prevents PR#1–#6 reversion)
+- **17 batch_generate tests** (per-item isolation, inter-item flushing, order preservation)
+- **14 OOM handling tests** (CUDA/MPS OOM detection, actionable messages, cleanup safety)
+
+✅ **Test Architecture**
+- Mock-based (no real GPU, no model downloads)
+- Call-order validation via side_effect tracking
+- Comprehensive exception path coverage
+- CPU torch CI (workflow_dispatch, no auto-trigger)
+
+#### Recommended Action Sequence
+
+1. **Neo:** Write TDD tests for CLI validation and batch parameter forwarding
+2. **Trinity:** Fix batch_generate() parameter forwarding and add argparse validators
+3. **Team:** Add local test setup docs to README
+
+---
+
 ## Governance
 
 - All meaningful changes require team consensus

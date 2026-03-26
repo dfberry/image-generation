@@ -19,6 +19,58 @@
 
 <!-- Append new learnings below. Each entry is something lasting about the project. -->
 
+### 2026-03-26 — Full Team Code Review: Cross-Cutting Findings
+
+All five team members reviewed the project simultaneously (2026-03-26 code review). Key cross-functional insights:
+
+**Architectural Consensus:**
+- Monolithic generate.py is sustainable for now; complexity doesn't yet justify module extraction. Revisit when responsibilities exceed 10.
+- Try/finally memory management (PRs #4–#6) is the correct pattern for SDXL inference. Extend to all device-specific code paths.
+- TDD approach with mock-based tests is proven — continue this discipline for all new features.
+
+**Bug Convergence — Three independent audits identified the same 3 issues:**
+1. **args.steps mutation:** Trinity and Neo both flagged `generate_with_retry()` mutating caller's args. Trinity detailed the fix; Neo is writing test.
+2. **batch_generate() parameter drop:** Trinity (backend), Niobe (pipeline), Neo (testing) all independently discovered batch mode ignores CLI --steps, --guidance, --width, --height, --refine. This is a coordinated team effort to fix.
+3. **Negative prompt gap:** Niobe (pipeline), Switch (prompts), and Trinity all identified this as a blocker for image quality. Architectural prerequisite before scheduler tuning.
+
+**Quality Dependencies:**
+- Negative prompt must be implemented before scheduler tuning (Niobe). Quality baseline first, then performance.
+- Batch parameter forwarding blocks Niobe's per-item override feature. Trinity must fix batch first.
+- CLI validation (Neo) and args mutation fix (Trinity) must sequence — validation catches bad inputs before they reach retry logic.
+
+**Unblocked Quick Wins:**
+- Fix hardcoded path in generate_blog_images.sh (Trinity)
+- Update README test count (Trinity)
+- Add "no text" to vacation prompts (Switch)
+- Standardize style anchors (Switch)
+- Add tests/__init__.py (Neo)
+
+**Next Sprint Priority (Trinity + Neo TDD):**
+1. Batch parameter forwarding (coordinated Trinity/Neo)
+2. args.steps mutation fix (coordinated Trinity/Neo)
+3. CLI argument validation (coordinated Trinity/Neo)
+
+
+
+### 2026-03-25 — Architecture Review: Structural Assessment
+
+Full codebase architecture review. Reviewed: generate.py (320 lines), 6 test files (53+ tests), shell scripts, README, CI, project structure.
+
+**Key findings (10 issues):**
+
+- **HIGH:** Monolithic generate.py (7+ responsibilities in one file), hardcoded absolute path in generate_blog_images.sh
+- **MEDIUM:** batch_generate() duplicates argparse defaults (drift risk), batch mode drops user CLI overrides (--refine, --steps, etc.), no logging (all print()), inconsistent cache-flush guard style
+- **LOW/Quick wins:** README test count stale (says 22, actually 53+), orphaned docs/ file, missing tests/__init__.py
+
+**What's working well:** Memory management (try/finally + OOM + batch flush), TDD discipline (53 tests, ~2s, no GPU), OOM retry logic, CI resource conservation, code comment traceability.
+
+**Recommended actions:**
+1. Quick wins: fix shell path, update README count, add tests/__init__.py
+2. Next sprint: extract flush_device_cache() helper, pass CLI overrides to batch_generate()
+3. Future: module extraction when complexity justifies it (cli.py, pipeline.py, batch.py, errors.py)
+
+**Decision written to:** `.squad/decisions/inbox/morpheus-architecture-review.md`
+
 ### 2026-03-25 — Sprint Complete: CI, README, TDD (All 4 Workstreams Merged)
 
 **Sprint scope:** PR #7 CI workflow, PR #8 README update, PR #9 TDD tests + implementation

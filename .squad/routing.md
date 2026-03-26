@@ -7,10 +7,17 @@ How to decide who handles what.
 | Work Type | Route To | Examples |
 |-----------|----------|---------|
 | Architecture, decisions, scope | Morpheus | What to build, trade-offs, structural choices |
-| Python implementation | Trinity | generate.py changes, new CLI flags, pipeline tweaks |
+| Python implementation, CLI code | Trinity | generate.py code changes, new CLI flags, argument parsing |
 | Shell scripts | Trinity | generate_blog_images.sh, regen_*.sh, new batch scripts |
-| Prompt engineering | Trinity | New prompts, prompt library updates, style guide changes |
+| Requirements & dependencies | Trinity | requirements.txt, pip, package management |
 | Output structure | Trinity | Naming conventions, output directory changes |
+| Diffusers pipeline config | Niobe | SDXL base/refiner, schedulers, guidance scale, steps |
+| Image quality & tuning | Niobe | Resolution, VAE, image artifacts, visual output |
+| Device/GPU optimization | Niobe | CUDA, MPS, CPU fallback, VRAM management |
+| Prompt engineering | Switch | New prompts, prompt templates, style guide |
+| Prompt library | Switch | prompts/examples.md, prompt organization |
+| Style system & aesthetics | Switch | Tropical magical-realism, aesthetic vocabulary |
+| LLM integration | Switch | Prompt generation, enhancement, LLM workflows |
 | Test design & test code | Neo | pytest tests, edge case specs, validation |
 | Prompt validation | Neo | Does this prompt produce the intended output? |
 | Quality review | Neo | Image output quality assessment, regression checks |
@@ -26,6 +33,8 @@ How to decide who handles what.
 | `squad` | Triage: analyze issue, assign `squad:{member}` label | Morpheus |
 | `squad:morpheus` | Lead picks up issue | Morpheus |
 | `squad:trinity` | Backend picks up issue | Trinity |
+| `squad:niobe` | Image specialist picks up issue | Niobe |
+| `squad:switch` | Prompt/LLM engineer picks up issue | Switch |
 | `squad:neo` | Tester picks up issue | Neo |
 | `squad:copilot` | Assign to @copilot for autonomous work (if enabled) | @copilot 🤖 |
 

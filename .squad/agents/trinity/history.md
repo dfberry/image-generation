@@ -86,7 +86,69 @@ Trinity's code-level audit converged with Morpheus's architectural review and Ne
 
 ## Learnings
 
-<!-- Append new learnings below. -->
+<!-- Append new learnings below. Each entry is something lasting about the project. -->
+
+### 2026-03-26 — Full Team Code Review: Cross-Cutting Findings
+
+Full five-agent simultaneous code review identified key architectural consensus and bug convergence:
+
+**Architectural Consensus (from Morpheus, Trinity, Neo, Niobe, Switch):**
+- Monolithic generate.py is sustainable now; module extraction not justified until responsibilities exceed 10. Revisit decision when code reaches ~400 lines or test maintenance burden increases.
+- Try/finally memory management (PRs #4–#6) is canonical pattern for SDXL. Extend to all device-specific code paths (reference: PR#4 HIGH pattern, PR#5 MEDIUM fixes).
+- TDD with mock-based testing is proven discipline — continue for all new features. 53 tests, ~2s runtime, no GPU = gold standard for CI cost.
+
+**Bug Convergence (3 issues flagged independently by multiple agents):**
+1. **args.steps mutation:** Trinity detailed exact fix; Neo writing test. generate_with_retry() corrupts caller state — local copy pattern required.
+2. **batch_generate() parameter drop:** Trinity (backend), Niobe (pipeline tuning), Neo (testing) all independently identified same issue — CLI --steps, --guidance, --width, --height, --refine are silently ignored in batch. Coordinated Trinity/Neo TDD fix required.
+3. **Negative prompt gap:** Niobe (pipeline quality), Switch (prompt engineering), and Trinity (CLI wiring) all identified as blocker for image quality. Architectural prerequisite before scheduler tuning or parameter defaults.
+
+**Quality Dependencies (Trinity must sequence fixes):**
+- Negative prompt implementation prerequisite for scheduler tuning (pipeline baseline must be set before performance optimization).
+- Batch parameter forwarding blocks Niobe's per-item override feature (Trinity must fix batch first, then Niobe can implement per-item tuning).
+- CLI validation (Neo) and args mutation fix (Trinity) interdependent — validation catches bad inputs before they reach retry logic.
+
+**Quick Wins (unblocked, can start immediately):**
+- Fix hardcoded macOS path in generate_blog_images.sh (Trinity)
+- Update README test count to 53+ (Trinity)
+- Add "no text" constraint to vacation prompts (Switch, no code)
+- Standardize style anchors to original version (Switch, no code)
+- Add tests/__init__.py (Neo)
+
+**Next Sprint Coordination (Trinity + Neo TDD approach):**
+1. Batch parameter forwarding (Trinity implementation, Neo TDD test-first)
+2. args.steps mutation fix (Trinity implementation, Neo TDD test-first)
+3. CLI argument validation (Trinity implementation, Neo TDD test-first)
+4. Negative prompt CLI wiring (Trinity), style guide updates (Switch), tests (Neo)
+
+
+
+4. **CODE SMELL — `batch_generate()` skips OOM retry:** Uses `generate()` directly (line 253) instead of `generate_with_retry()`. Batch items don't get the step-halving retry logic. Fix: optionally delegate to `generate_with_retry()`.
+
+5. **CODE SMELL — Redundant `hasattr` in `main()` (line 300):** `hasattr(args, 'batch_file')` is always True because argparse defines the attribute. Should be just `if args.batch_file:`.
+
+6. **CODE SMELL — Inconsistent MPS hasattr guard:** `get_device()` (line 54) uses `hasattr(torch.backends, "mps")` guard. Entry-point flush (line 120) and finally block (line 220) call `torch.backends.mps.is_available()` without the hasattr guard. Safe with `torch>=2.1.0` floor, but inconsistent.
+
+7. **SHELL — `generate_blog_images.sh` assumes Unix venv activation (line 14):** `source venv/bin/activate` won't work on Windows. Not critical since the script is bash-only, but the hardcoded cd path is the real blocker.
+
+8. **MINOR — No `tests/__init__.py`:** Can cause import ambiguity in some pytest configurations. Quick fix: create empty `__init__.py`.
+
+**Quick fixes (safe, no test changes needed):**
+- Issue #5: Change `if hasattr(args, 'batch_file') and args.batch_file:` → `if args.batch_file:`
+- Issue #6: Add `hasattr(torch.backends, "mps") and` guard to lines 120 and 220
+- Issue #2: Replace hardcoded `cd` with `cd "$(dirname "$0")"`
+- Issue #8: Create empty `tests/__init__.py`
+
+**Requires test updates:**
+- Issue #1 (args mutation): Needs new test to verify original args.steps is preserved
+- Issue #3 (batch ignores CLI params): Needs `batch_generate()` signature change + test updates
+
+**What's clean:**
+- `generate()` function architecture is solid: locals-only pipeline vars, try/finally cleanup, OOM detection with dual CUDA/MPS paths
+- `OOMError` class is clean and well-integrated
+- `parse_args()` mutually-exclusive group is correct
+- `requirements.txt` version floors are appropriately set
+- Test coverage is thorough (75 tests across 5 files), well-structured with clear TDD phases
+- `conftest.py` mock infrastructure is clean and reusable
 
 ### 2026-03-25 — Sprint Complete: CI, README, TDD (All 4 Workstreams Merged)
 
