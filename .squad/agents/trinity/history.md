@@ -88,6 +88,25 @@ Trinity's code-level audit converged with Morpheus's architectural review and Ne
 
 <!-- Append new learnings below. Each entry is something lasting about the project. -->
 
+### 2026-03-26 — PR #12: Add negative prompt support (#3)
+
+**TDD Green Phase — made Neo's 7 failing tests in test_negative_prompt.py pass.**
+
+**Changes to generate.py:**
+1. **CLI:** Added `--negative-prompt` flag to argparse with sensible default: "blurry, bad quality, worst quality, low resolution, text, watermark, signature, deformed, ugly, duplicate, morbid"
+2. **Base pipeline:** `negative_prompt=args.negative_prompt` passed to base `__call__` (both standalone and refiner modes)
+3. **Refiner pipeline:** `negative_prompt=args.negative_prompt` passed to refiner `__call__`
+4. **Batch:** `batch_generate()` updated to accept `args=None` param, forwards `negative_prompt` per-item via SimpleNamespace; also upgraded to use `generate_with_retry()` for OOM resilience
+
+**Test results:** 95/95 pass (7 new + 88 existing, zero regressions)
+**Branch:** squad/3-negative-prompt
+**PR:** https://github.com/diberry/image-generation/pull/12
+
+**Key learnings:**
+- Negative prompt is standard SDXL quality lever — default covers common artifacts (blur, watermark, deformation)
+- All three pipeline call sites (base-only, base-in-refine, refiner) need the kwarg for consistent guidance
+- batch_generate() needed both `args` forwarding and `generate_with_retry` delegation — the local main was missing PR #10's batch fixes
+
 ### 2026-03-26 — Full Team Code Review: Cross-Cutting Findings
 
 Full five-agent simultaneous code review identified key architectural consensus and bug convergence:
@@ -333,3 +352,20 @@ Fixed Neo's rejection of PR #8 by updating the pytest command and Testing sectio
 - Batch parameter forwarding: implement TDD-first (Neo tests → Trinity code)
 - All Phase 2 work must maintain zero-regression test status
 - Ready to begin Phase 1 quick wins immediately
+### 2026-03-26 — PR #11: CLI Argument Validation (Issue #5, TDD Green Phase)
+
+**Assignment:** Make Neo's 13 tests in test_cli_validation.py pass by adding range validation to parse_args().
+
+**Implementation:** Three custom argparse type functions:
+- `_positive_int(value)` — rejects steps <= 0
+- `_non_negative_float(value)` — rejects guidance < 0
+- `_dimension(value)` — rejects width/height < 64
+
+Wired into argparse via `type=` parameter. Argparse raises SystemExit with clear error on invalid input — matches test expectations exactly.
+
+**Results:** 13/13 validation tests pass. 94/95 total suite pass (1 pre-existing failure in test_negative_prompt.py unrelated to this change).
+
+**Key learnings:**
+- Custom argparse type functions are the cleanest validation pattern: argparse handles error formatting, SystemExit, and help text automatically. No post-parse validation needed.
+- ArgumentTypeError message includes the rejected value for debuggability.
+- Pre-existing test_negative_prompt.py::test_batch_forwards_negative_prompt fails due to unimplemented negative prompt feature — not a regression.
