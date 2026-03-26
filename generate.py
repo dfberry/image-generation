@@ -24,6 +24,30 @@ class OOMError(RuntimeError):
     pass
 
 
+def _positive_int(value):
+    """Argparse type: positive integer (> 0)."""
+    ivalue = int(value)
+    if ivalue <= 0:
+        raise argparse.ArgumentTypeError(f"must be > 0, got {value}")
+    return ivalue
+
+
+def _non_negative_float(value):
+    """Argparse type: non-negative float (>= 0)."""
+    fvalue = float(value)
+    if fvalue < 0:
+        raise argparse.ArgumentTypeError(f"must be >= 0, got {value}")
+    return fvalue
+
+
+def _dimension(value):
+    """Argparse type: image dimension in pixels (>= 64)."""
+    ivalue = int(value)
+    if ivalue < 64:
+        raise argparse.ArgumentTypeError(f"must be >= 64, got {value}")
+    return ivalue
+
+
 def parse_args():
     parser = argparse.ArgumentParser(
         description="Generate images with Stable Diffusion XL",
@@ -34,11 +58,16 @@ def parse_args():
     group.add_argument("--batch-file", dest="batch_file", metavar="PATH",
                        help="JSON file with list of prompt dicts for batch generation")
     parser.add_argument("--output", default=None, help="Output file path")
-    parser.add_argument("--steps", type=int, default=40, help="Number of inference steps")
-    parser.add_argument("--guidance", type=float, default=7.5, help="Guidance scale (CFG)")
-    parser.add_argument("--width", type=int, default=1024, help="Image width in pixels")
-    parser.add_argument("--height", type=int, default=1024, help="Image height in pixels")
+    parser.add_argument("--steps", type=_positive_int, default=40, help="Number of inference steps (> 0)")
+    parser.add_argument("--guidance", type=_non_negative_float, default=7.5, help="Guidance scale (>= 0)")
+    parser.add_argument("--width", type=_dimension, default=1024, help="Image width in pixels (>= 64)")
+    parser.add_argument("--height", type=_dimension, default=1024, help="Image height in pixels (>= 64)")
     parser.add_argument("--seed", type=int, default=None, help="Random seed for reproducibility")
+    parser.add_argument(
+        "--negative-prompt",
+        default="blurry, bad quality, worst quality, low resolution, text, watermark, signature, deformed, ugly, duplicate, morbid",
+        help="Negative prompt to steer generation away from undesired features",
+    )
     parser.add_argument("--refine", action="store_true", help="Use base + refiner pipeline (higher quality)")
     parser.add_argument("--cpu", action="store_true", help="Force CPU mode (slow, no GPU required)")
     return parser.parse_args()
@@ -148,6 +177,7 @@ def generate(args) -> str:
             # Stage 1: base model produces latents
             latents = base(
                 prompt=args.prompt,
+                negative_prompt=args.negative_prompt,
                 num_inference_steps=args.steps,
                 guidance_scale=args.guidance,
                 width=args.width,
@@ -177,6 +207,7 @@ def generate(args) -> str:
             refiner = load_refiner(text_encoder_2, vae, device)
             image = refiner(
                 prompt=args.prompt,
+                negative_prompt=args.negative_prompt,
                 num_inference_steps=args.steps,
                 guidance_scale=args.guidance,
                 denoising_start=high_noise_frac,
@@ -189,6 +220,7 @@ def generate(args) -> str:
             base = load_base(device)
             image = base(
                 prompt=args.prompt,
+                negative_prompt=args.negative_prompt,
                 num_inference_steps=args.steps,
                 guidance_scale=args.guidance,
                 width=args.width,
@@ -236,8 +268,8 @@ def batch_generate(prompts: list[dict], device: str = "mps", args=None) -> list[
     Each input dict: {"prompt": str, "output": str, "seed": int (optional)}
     Returns list of {"prompt": str, "output": str, "status": "ok"|"error", "error": str|None}
 
-    When args is provided, CLI params (steps, guidance, width, height, refine)
-    are forwarded from it instead of using defaults.
+    When args is provided, CLI params (steps, guidance, width, height, refine,
+    negative_prompt) are forwarded from it instead of using defaults.
     """
     results = []
     for i, item in enumerate(prompts):
@@ -250,6 +282,7 @@ def batch_generate(prompts: list[dict], device: str = "mps", args=None) -> list[
             width=args.width if args else 1024,
             height=args.height if args else 1024,
             refine=args.refine if args else False,
+            negative_prompt=args.negative_prompt if args else "",
             cpu=(device == "cpu"),
         )
         try:
