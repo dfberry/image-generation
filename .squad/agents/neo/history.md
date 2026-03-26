@@ -19,6 +19,32 @@
 
 <!-- Append new learnings below. Each entry is something lasting about the project. -->
 
+### 2026-07-24 — Issue #8: Unit Tests for Untested Functions (PR #14)
+
+**Scope:** 31 new mock-based unit tests in `tests/test_unit_functions.py` covering 6 previously-untested function groups.
+
+**Test inventory:**
+
+| Group | Tests | What's verified |
+|-------|-------|-----------------|
+| `get_device()` | 5 | CUDA/MPS/CPU fallback, force_cpu, CUDA>MPS priority |
+| `get_dtype()` | 4 | float16 for CUDA/MPS, float32 for CPU/unknown |
+| `load_base()` | 10 | Model ID, dtype, fp16 variant, safetensors, cpu_offload vs .to(), torch.compile |
+| `load_refiner()` | 6 | Refiner model ID, shared text_encoder_2/vae, device routing |
+| Pre-flight flush | 3 | gc.collect, CUDA/MPS empty_cache at generate() entry |
+| `main()` single-prompt | 3 | Delegates to generate_with_retry, no batch_generate, exception propagation |
+| **Total** | **31** | |
+
+**Results:** 31/31 pass, 0 regressions in existing 81-test green suite. 22 pre-existing failures (scheduler TDD red-phase) unchanged.
+
+**Key learnings:**
+- `@patch("generate.torch")` replaces the module-level `torch` import — must re-bind `mock_torch.float16 = torch.float16` etc. to preserve real dtype values inside mocked calls.
+- `torch.compile(pipe.unet, ...)` reassigns `pipe.unet`, so the original unet reference must be captured *before* calling `load_base()` to assert against `mock_torch.compile.assert_called_once_with(original_unet, ...)`.
+- `delattr(mock_torch, 'compile')` is the cleanest way to skip the `hasattr(torch, "compile")` branch on non-compile tests.
+- Test collection alone takes ~33s due to torch import overhead — fast mocks don't help import cost.
+
+**Branch:** squad/8-missing-unit-tests | **PR:** #14 | **Closes:** #8
+
 ### 2026-03-25 — Sprint Complete: CI, README, TDD (All 4 Workstreams Merged)
 
 **Sprint scope:** PR #7 CI workflow, PR #8 README update, PR #9 TDD tests + implementation
@@ -494,4 +520,34 @@ Full five-agent simultaneous code review (2026-03-26) identified bug convergence
 - Batch parameter forwarding: Neo writes tests first, Trinity implements forwarding
 - All TDD-first work: tests define requirements, implementation follows
 - Ready to begin Phase 2 test writing immediately
+### 2026-03-26 — TDD Red Phase: Scheduler Optimisation (Issue #6)
+
+**Scope:** 15 tests in `tests/test_scheduler.py` — all written before implementation.
+
+**Test inventory (14 FAIL, 1 PASS):**
+
+| Group | Tests | Status | What they verify |
+|-------|-------|--------|-----------------|
+| TestSchedulerCLIFlag | 4 | 4 FAIL | `--scheduler` flag exists, default=DPMSolverMultistepScheduler, accepts custom values |
+| TestDefaultStepsChanged | 2 | 1 FAIL, 1 PASS | Default steps=28 (not 40); explicit --steps still works |
+| TestSchedulerApplied | 3 | 3 FAIL | Scheduler set on base pipeline via `.from_config()`, works in both base-only and refiner modes |
+| TestRefinerGuidance | 5 | 5 FAIL | `--refiner-guidance` flag exists, default=5.0, independent from base guidance in generate() |
+| TestBatchGenerateDefaults | 1 | 1 FAIL | `batch_generate()` uses steps=28 (currently hardcoded to 40) |
+
+**Why each test fails (proof of red):**
+- CLI flag tests: `parse_args()` has no `--scheduler` or `--refiner-guidance` arguments → AttributeError / SystemExit
+- Steps default test: `parse_args()` defaults to `steps=40` → assert 40 == 28 fails
+- Scheduler-applied tests: `generate()` never touches `pipe.scheduler` → `from_config` never called
+- Refiner guidance tests: refiner call uses `args.guidance` (same as base) → no independent guidance_scale
+- Batch steps test: `batch_generate()` hardcodes `steps=40` → assert 40 == 28 fails
+
+**1 intentional PASS:** `test_explicit_steps_still_honoured` — `--steps 50` already works today and must continue working after the change.
+
+**Existing suite impact:** 0 regressions. All 80 previously-passing tests still pass. The 8 pre-existing failures are from `test_cli_validation.py` (issue #5, separate TDD red phase).
+
+**Key patterns used:**
+- `_parse_with_args()` helper from test_cli_validation.py for CLI flag tests
+- conftest.py `MockPipeline` + `mock_args_*` fixtures for generate() integration tests
+- Kwargs capture via wrapper function to verify refiner receives independent guidance_scale
+- `patch("diffusers.DPMSolverMultistepScheduler", ..., create=True)` since the import doesn't exist yet in generate.py
 
