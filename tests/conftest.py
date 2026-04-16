@@ -28,12 +28,12 @@ class MockPipeline:
         self.vae = MagicMock()
         self.unet = MagicMock()
         self.scheduler = MagicMock()
+        self.safety_checker = None
         self._return_latents = return_latents
 
     def __call__(self, **kwargs):
         result = MagicMock()
         if self._return_latents:
-            # Latents path: images is a tensor-like mock with .cpu()/.to() methods
             latent = MagicMock()
             latent.cpu.return_value = latent
             latent.to.return_value = latent
@@ -46,6 +46,18 @@ class MockPipeline:
         return self
 
     def enable_model_cpu_offload(self):
+        pass
+
+    def enable_attention_slicing(self):
+        pass
+
+    def enable_xformers_memory_efficient_attention(self):
+        pass
+
+    def load_lora_weights(self, *args, **kwargs):
+        pass
+
+    def set_adapters(self, *args, **kwargs):
         pass
 
 
@@ -65,6 +77,9 @@ def mock_args_base(tmp_path):
     args.negative_prompt = ""
     args.scheduler = "DPMSolverMultistepScheduler"
     args.refiner_guidance = 5.0
+    args.lora = None
+    args.lora_weight = 0.8
+    args.refiner_steps = 10
     return args
 
 
@@ -84,6 +99,9 @@ def mock_args_refine(tmp_path):
     args.negative_prompt = ""
     args.scheduler = "DPMSolverMultistepScheduler"
     args.refiner_guidance = 5.0
+    args.lora = None
+    args.lora_weight = 0.8
+    args.refiner_steps = 10
     return args
 
 
@@ -103,6 +121,9 @@ def mock_args_cuda(tmp_path):
     args.negative_prompt = ""
     args.scheduler = "DPMSolverMultistepScheduler"
     args.refiner_guidance = 5.0
+    args.lora = None
+    args.lora_weight = 0.8
+    args.refiner_steps = 10
     return args
 
 
@@ -122,4 +143,7 @@ def mock_args_cuda_refine(tmp_path):
     args.negative_prompt = ""
     args.scheduler = "DPMSolverMultistepScheduler"
     args.refiner_guidance = 5.0
+    args.lora = None
+    args.lora_weight = 0.8
+    args.refiner_steps = 10
     return args
