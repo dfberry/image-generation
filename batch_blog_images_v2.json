@@ -1,0 +1,32 @@
+[
+  {
+    "prompt": "Pen-and-ink watercolor, slate blue, warm sage, charcoal palette, white background, no text. Bellingham Bay at dusk, two lighthouses on opposite shores. Left shines a broad scattered beam, right shines a tight focused beam. Beams reach toward each other but do not connect, gap over water. Pacific Northwest treeline silhouette.",
+    "output": "C:\\Users\\diberry\\project-dfb\\dfberry.github.io\\website\\blog\\media\\2026-04-15-session-storage-decision-guide\\bellingham-bay-two-lighthouses.png",
+    "seed": 42,
+    "negative_prompt": "photorealistic, 3d render, colorful, neon, bright colors, text, words, letters, watermark, signature, blurry, deformed, ugly"
+  },
+  {
+    "prompt": "Pen-and-ink watercolor illustration, 3-color palette: slate blue, warm sage, charcoal on white background, no text. Two rocky cliffs close together inspired by Deception Pass, no bridge. Left cliff has scattered notebooks and loose papers. Right cliff has neat stacked field guides and folded maps. A person stands on the left looking across. Water below, cliff vegetation.",
+    "output": "C:\\Users\\diberry\\project-dfb\\dfberry.github.io\\website\\blog\\media\\2026-04-15-session-storage-decision-guide\\deception-pass-no-bridge.png",
+    "seed": 43,
+    "negative_prompt": "photorealistic, 3d render, colorful, neon, bright colors, text, words, letters, watermark, signature, blurry, deformed, ugly"
+  },
+  {
+    "prompt": "Pen-and-ink watercolor illustration, 3-color palette: slate blue, warm sage, charcoal on white background, no text. Fisherman on a wooden dock in Bellingham Bay sorting morning catch. Fish separated into labeled wooden crates, smaller ones tossed back into water. Early morning fog over bay, faint outline of Lummi Island in background.",
+    "output": "C:\\Users\\diberry\\project-dfb\\dfberry.github.io\\website\\blog\\media\\2026-04-15-session-storage-decision-guide\\bellingham-dock-sorting-catch.png",
+    "seed": 44,
+    "negative_prompt": "photorealistic, 3d render, colorful, neon, bright colors, text, words, letters, watermark, signature, blurry, deformed, ugly"
+  },
+  {
+    "prompt": "Pen-and-ink watercolor illustration, 3-color palette: slate blue, warm sage, charcoal on white background, no text. Nooksack River curving in a wide loop, Mount Baker in background. Upstream: small loose papers and notes float on water surface. At the bend: papers transform into small bound books. Douglas fir and cedar forest lining both banks.",
+    "output": "C:\\Users\\diberry\\project-dfb\\dfberry.github.io\\website\\blog\\media\\2026-04-15-session-storage-decision-guide\\nooksack-river-feedback-loop.png",
+    "seed": 45,
+    "negative_prompt": "photorealistic, 3d render, colorful, neon, bright colors, text, words, letters, watermark, signature, blurry, deformed, ugly"
+  },
+  {
+    "prompt": "Pen-and-ink watercolor scientific illustration, slate blue, warm sage, charcoal palette, white background, no text. Cross-section view: upper half shows Bellingham streets, buildings, trees. Lower half shows underground aquifer, root systems, water channels. Single well shaft connects both layers with water flowing between. Geology cross-hatching.",
+    "output": "C:\\Users\\diberry\\project-dfb\\dfberry.github.io\\website\\blog\\media\\2026-04-15-session-storage-decision-guide\\whatcom-county-surface-and-aquifer.png",
+    "seed": 46,
+    "negative_prompt": "photorealistic, 3d render, colorful, neon, bright colors, text, words, letters, watermark, signature, blurry, deformed, ugly"
+  }
+]

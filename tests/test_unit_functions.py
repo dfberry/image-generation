@@ -168,7 +168,7 @@ class TestLoadBase:
     @patch("generate.torch")
     @patch("generate.DiffusionPipeline")
     def test_load_base_cpu_enables_cpu_offload(self, mock_dp, mock_torch):
-        """CPU device calls enable_model_cpu_offload()."""
+        """CPU device calls pipe.to('cpu') (not cpu_offload which requires GPU)."""
         mock_pipe = MagicMock()
         mock_dp.from_pretrained.return_value = mock_pipe
         mock_torch.float32 = torch.float32
@@ -176,8 +176,8 @@ class TestLoadBase:
 
         load_base("cpu")
 
-        mock_pipe.enable_model_cpu_offload.assert_called_once()
-        mock_pipe.to.assert_not_called()
+        mock_pipe.to.assert_called_once_with("cpu")
+        mock_pipe.enable_model_cpu_offload.assert_not_called()
 
     @patch("generate.torch")
     @patch("generate.DiffusionPipeline")
@@ -286,7 +286,7 @@ class TestLoadRefiner:
     @patch("generate.torch")
     @patch("generate.DiffusionPipeline")
     def test_load_refiner_cpu_enables_offload(self, mock_dp, mock_torch):
-        """CPU device calls enable_model_cpu_offload on refiner."""
+        """CPU device calls refiner.to('cpu') (not cpu_offload which requires GPU)."""
         mock_refiner = MagicMock()
         mock_dp.from_pretrained.return_value = mock_refiner
         mock_torch.float32 = torch.float32
@@ -294,8 +294,8 @@ class TestLoadRefiner:
 
         load_refiner(MagicMock(), MagicMock(), "cpu")
 
-        mock_refiner.enable_model_cpu_offload.assert_called_once()
-        mock_refiner.to.assert_not_called()
+        mock_refiner.to.assert_called_once_with("cpu")
+        mock_refiner.enable_model_cpu_offload.assert_not_called()
 
     @patch("generate.torch")
     @patch("generate.DiffusionPipeline")

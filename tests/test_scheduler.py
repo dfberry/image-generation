@@ -30,9 +30,9 @@ class TestSchedulerCLIFlag:
 
 
 class TestDefaultStepsChanged:
-    def test_default_steps_is_28(self):
+    def test_default_steps_is_22(self):
         args = _parse_with_args(["--prompt", "test"])
-        assert args.steps == 28
+        assert args.steps == 22
 
     def test_explicit_steps_still_honoured(self):
         args = _parse_with_args(["--prompt", "test", "--steps", "50"])
@@ -124,7 +124,7 @@ class TestRefinerGuidance:
 
 
 class TestBatchGenerateDefaults:
-    def test_batch_generate_uses_28_steps(self):
+    def test_batch_generate_uses_22_steps(self):
         import generate as gen
         cap = {}
         def mg(args):
@@ -132,7 +132,7 @@ class TestBatchGenerateDefaults:
             return args.output
         with patch("generate.generate", side_effect=mg):
             gen.batch_generate([{"prompt": "t", "output": "o.png"}], device="cpu")
-        assert cap["steps"] == 28
+        assert cap["steps"] == 22
 
     def test_batch_generate_forwards_scheduler(self):
         import generate as gen

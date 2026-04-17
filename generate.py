@@ -42,11 +42,26 @@ def _non_negative_float(value):
 
 
 def _dimension(value):
-    """Argparse type: image dimension in pixels (>= 64)."""
+    """Argparse type: image dimension in pixels (>= 64, divisible by 8)."""
     ivalue = int(value)
     if ivalue < 64:
         raise argparse.ArgumentTypeError(f"must be >= 64, got {value}")
+    if ivalue % 8 != 0:
+        nearest = ((ivalue + 7) // 8) * 8
+        raise argparse.ArgumentTypeError(
+            f"must be divisible by 8, got {value} (nearest valid: {nearest})"
+        )
     return ivalue
+
+
+def validate_dimensions(width: int, height: int):
+    """Runtime guard: width and height must be divisible by 8."""
+    for name, val in [("width", width), ("height", height)]:
+        if val % 8 != 0:
+            nearest = ((val + 7) // 8) * 8
+            raise ValueError(
+                f"{name} must be divisible by 8, got {val} (nearest valid: {nearest})"
+            )
 
 
 def parse_args():
@@ -59,8 +74,10 @@ def parse_args():
     group.add_argument("--batch-file", dest="batch_file", metavar="PATH",
                        help="JSON file with list of prompt dicts for batch generation")
     parser.add_argument("--output", default=None, help="Output file path")
-    parser.add_argument("--steps", type=_positive_int, default=28, help="Number of inference steps (> 0)")
-    parser.add_argument("--guidance", type=_non_negative_float, default=7.5, help="Guidance scale (>= 0)")
+    parser.add_argument("--steps", type=_positive_int, default=22, help="Number of base inference steps (> 0)")
+    parser.add_argument("--refiner-steps", type=_positive_int, default=10, dest="refiner_steps",
+                        help="Number of refiner inference steps (> 0)")
+    parser.add_argument("--guidance", type=_non_negative_float, default=6.5, help="Guidance scale (>= 0)")
     parser.add_argument("--refiner-guidance", type=_non_negative_float, default=5.0, dest="refiner_guidance",
                         help="Guidance scale for refiner (independent from base)")
     parser.add_argument("--scheduler", type=str, default="DPMSolverMultistepScheduler",
@@ -75,6 +92,10 @@ def parse_args():
     )
     parser.add_argument("--refine", action="store_true", help="Use base + refiner pipeline (higher quality)")
     parser.add_argument("--cpu", action="store_true", help="Force CPU mode (slow, no GPU required)")
+    parser.add_argument("--lora", type=str, default=None,
+                        help="LoRA model ID or path to load (e.g. joachim_s/aether-watercolor-and-ink-sdxl)")
+    parser.add_argument("--lora-weight", type=_non_negative_float, default=0.8, dest="lora_weight",
+                        help="LoRA adapter weight (0.0–1.0)")
     return parser.parse_args()
 
 
@@ -97,6 +118,23 @@ def get_dtype(device: str):
     return torch.float16 if device in ("cuda", "mps") else torch.float32
 
 
+def _apply_performance_opts(pipe, device: str):
+    """Apply torch.compile and memory-efficient attention optimizations."""
+    # torch.compile gives ~1.5-2× speedup on CUDA with torch >= 2.0
+    if device == "cuda" and hasattr(torch, "compile"):
+        print("⚡ Compiling UNet with torch.compile (one-time, ~30s)...")
+        pipe.unet = torch.compile(pipe.unet, mode="reduce-overhead", fullgraph=True)
+
+    # Memory-efficient attention: prefer xFormers, fall back to attention slicing
+    if hasattr(pipe, "enable_xformers_memory_efficient_attention"):
+        try:
+            pipe.enable_xformers_memory_efficient_attention()
+        except Exception:
+            pipe.enable_attention_slicing()
+    else:
+        pipe.enable_attention_slicing()
+
+
 def load_base(device: str) -> DiffusionPipeline:
     """Load SDXL base model."""
     print("📥 Loading SDXL base model (first run downloads ~7GB)...")
@@ -105,20 +143,18 @@ def load_base(device: str) -> DiffusionPipeline:
         "stabilityai/stable-diffusion-xl-base-1.0",
         torch_dtype=dtype,
         use_safetensors=True,
-        # fp16 variant available for CUDA and MPS
         variant="fp16" if device in ("cuda", "mps") else None,
     )
-    if device in ("cpu", "mps"):
-        # CPU offload reduces VRAM pressure; MPS benefits too
+    pipe.safety_checker = None
+
+    if device == "mps":
         pipe.enable_model_cpu_offload()
+    elif device == "cpu":
+        pipe.to("cpu")
     else:
         pipe.to(device)
 
-    # torch.compile gives ~20-30% speedup on CUDA with torch >= 2.0
-    if device == "cuda" and hasattr(torch, "compile"):
-        print("⚡ Compiling UNet with torch.compile (one-time, ~30s)...")
-        pipe.unet = torch.compile(pipe.unet, mode="reduce-overhead", fullgraph=True)
-
+    _apply_performance_opts(pipe, device)
     return pipe
 
 
@@ -128,17 +164,22 @@ def load_refiner(text_encoder_2, vae, device: str) -> DiffusionPipeline:
     dtype = get_dtype(device)
     refiner = DiffusionPipeline.from_pretrained(
         "stabilityai/stable-diffusion-xl-refiner-1.0",
-        # Share components with base to save VRAM
         text_encoder_2=text_encoder_2,
         vae=vae,
         torch_dtype=dtype,
         use_safetensors=True,
         variant="fp16" if device in ("cuda", "mps") else None,
     )
-    if device in ("cpu", "mps"):
+    refiner.safety_checker = None
+
+    if device == "mps":
         refiner.enable_model_cpu_offload()
+    elif device == "cpu":
+        refiner.to("cpu")
     else:
         refiner.to(device)
+
+    _apply_performance_opts(refiner, device)
     return refiner
 
 
@@ -167,11 +208,24 @@ def apply_scheduler(pipeline, scheduler_name: str):
     config = getattr(pipeline.scheduler, 'config', {})
     if not isinstance(config, dict):
         config = {}
+    # Karras sigmas improve quality with DPM++ solvers
+    if scheduler_name == "DPMSolverMultistepScheduler":
+        config["use_karras_sigmas"] = True
     pipeline.scheduler = scheduler_cls.from_config(config)
+
+
+def apply_lora(pipeline, lora: str | None, lora_weight: float = 0.8):
+    """Load LoRA weights into the pipeline if specified."""
+    if lora is None:
+        return
+    print(f"🎨 Loading LoRA: {lora} (weight={lora_weight})")
+    pipeline.load_lora_weights(lora)
+    pipeline.set_adapters(["default"], adapter_weights=[lora_weight])
 
 
 def generate(args) -> str:
     """Run image generation and save to output path."""
+    validate_dimensions(args.width, args.height)
     device = get_device(args.cpu)
 
     # Fix 3: Pre-flight flush — reclaim any GPU memory from a prior generate()
@@ -209,6 +263,7 @@ def generate(args) -> str:
 
             # Apply chosen scheduler to base pipeline
             apply_scheduler(base, args.scheduler)
+            apply_lora(base, getattr(args, 'lora', None), getattr(args, 'lora_weight', 0.8))
 
             # Stage 1: base model produces latents
             latents = base(
@@ -244,7 +299,7 @@ def generate(args) -> str:
             image = refiner(
                 prompt=args.prompt,
                 negative_prompt=args.negative_prompt,
-                num_inference_steps=args.steps,
+                num_inference_steps=getattr(args, 'refiner_steps', 10),
                 guidance_scale=args.refiner_guidance,
                 denoising_start=high_noise_frac,
                 # Move latents back to device for refiner inference.
@@ -257,6 +312,7 @@ def generate(args) -> str:
 
             # Apply chosen scheduler to base pipeline
             apply_scheduler(base, args.scheduler)
+            apply_lora(base, getattr(args, 'lora', None), getattr(args, 'lora_weight', 0.8))
 
             image = base(
                 prompt=args.prompt,
@@ -317,15 +373,18 @@ def batch_generate(prompts: list[dict], device: str = "mps", args=None) -> list[
             prompt=item["prompt"],
             output=item["output"],
             seed=item.get("seed"),
-            steps=args.steps if args else 28,
-            guidance=args.guidance if args else 7.5,
+            steps=args.steps if args else 22,
+            guidance=args.guidance if args else 6.5,
             refiner_guidance=args.refiner_guidance if args else 5.0,
             scheduler=args.scheduler if args else "DPMSolverMultistepScheduler",
             width=args.width if args else 1024,
             height=args.height if args else 1024,
             refine=args.refine if args else False,
-            negative_prompt=args.negative_prompt if args else "",
+            negative_prompt=item.get("negative_prompt", args.negative_prompt if args else ""),
             cpu=(device == "cpu"),
+            lora=item.get("lora", getattr(args, 'lora', None)),
+            lora_weight=item.get("lora_weight", getattr(args, 'lora_weight', 0.8)),
+            refiner_steps=getattr(args, 'refiner_steps', 10),
         )
         try:
             output_path = generate_with_retry(batch_args)
