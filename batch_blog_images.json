@@ -1,0 +1,32 @@
+[
+  {
+    "prompt": "Pen-and-ink illustration, 1200x630px, landscape orientation. Bellingham Bay at dusk with two lighthouses on opposite shores. Left lighthouse shines a broad, scattered beam representing raw session data. Right lighthouse shines a tight, focused beam representing distilled knowledge. The beams reach toward each other but don't connect, a visible gap over the water. Pacific Northwest treeline silhouette along both shores. 3-color palette: slate blue for water and beams, warm sage for trees, charcoal for ink lines. Light watercolor wash, white background. No text.",
+    "seed": 42,
+    "output": "C:\\Users\\diberry\\project-dfb\\dfberry.github.io\\website\\blog\\media\\2026-04-15-session-storage-decision-guide\\bellingham-bay-two-lighthouses.png",
+    "negative_prompt": "blurry, bad quality, text, watermark, signature, deformed, ugly, photorealistic, 3d render"
+  },
+  {
+    "prompt": "Pen-and-ink illustration, 1200x630px, landscape orientation. Two rocky cliff faces close together inspired by Deception Pass, no bridge between them. On the left cliff scattered notebooks loose papers and journals representing raw sessions. On the right cliff a neat stack of field guides and folded maps representing skills and decisions. A person stands on the left side looking across. 3-color palette: slate blue for sky and water below, warm sage for cliff vegetation, charcoal for ink lines and rocks. Light watercolor wash, white background. No text.",
+    "seed": 43,
+    "output": "C:\\Users\\diberry\\project-dfb\\dfberry.github.io\\website\\blog\\media\\2026-04-15-session-storage-decision-guide\\deception-pass-no-bridge.png",
+    "negative_prompt": "blurry, bad quality, text, watermark, signature, deformed, ugly, photorealistic, 3d render"
+  },
+  {
+    "prompt": "Pen-and-ink illustration, 1200x630px, landscape orientation. A fisherman on a wooden dock in Bellingham Bay sorting a morning catch. Fish being separated into labeled wooden crates while smaller ones tossed back into the water. Early morning fog over the bay in the background, faint outline of Lummi Island. 3-color palette: slate blue for water and fog, warm sage for dock wood and crates, charcoal for ink lines and figure. Light watercolor wash, white background. No text.",
+    "seed": 44,
+    "output": "C:\\Users\\diberry\\project-dfb\\dfberry.github.io\\website\\blog\\media\\2026-04-15-session-storage-decision-guide\\bellingham-dock-sorting-catch.png",
+    "negative_prompt": "blurry, bad quality, text, watermark, signature, deformed, ugly, photorealistic, 3d render"
+  },
+  {
+    "prompt": "Pen-and-ink illustration, 1200x630px, landscape orientation. The Nooksack River curving in a wide loop with Mount Baker visible in the background. Along the upstream portion small loose papers and notes float on the water surface. At the bend where the river turns back the papers transform into small bound books. Pacific Northwest forest of Douglas fir and cedar lining both banks. 3-color palette: slate blue for water and mountain, warm sage for forest, charcoal for ink lines. Light watercolor wash, white background. No text.",
+    "seed": 45,
+    "output": "C:\\Users\\diberry\\project-dfb\\dfberry.github.io\\website\\blog\\media\\2026-04-15-session-storage-decision-guide\\nooksack-river-feedback-loop.png",
+    "negative_prompt": "blurry, bad quality, text, watermark, signature, deformed, ugly, photorealistic, 3d render"
+  },
+  {
+    "prompt": "Pen-and-ink illustration, 1200x630px, landscape orientation. Cross-section view of Whatcom County. Upper half shows Bellingham streets small buildings and trees on the surface representing visible team knowledge. Lower half shows underground aquifer root systems and water channels representing invisible platform data. A single well shaft connects the two layers with water visibly flowing between them. Scientific illustration style. 3-color palette: slate blue for water and aquifer, warm sage for surface vegetation and buildings, charcoal for ink lines and geology cross-hatching. Light watercolor wash, white background. No text.",
+    "seed": 46,
+    "output": "C:\\Users\\diberry\\project-dfb\\dfberry.github.io\\website\\blog\\media\\2026-04-15-session-storage-decision-guide\\whatcom-county-surface-and-aquifer.png",
+    "negative_prompt": "blurry, bad quality, text, watermark, signature, deformed, ugly, photorealistic, 3d render"
+  }
+]
