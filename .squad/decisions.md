@@ -188,6 +188,74 @@
 
 ---
 
+### Decision: PR #15 Blocker Fixes & Joel Test Score Revision (2026-04-18)
+
+**Lead:** Morpheus (Lead)  
+**Backend Support:** Trinity (CONTRIBUTING.md fixes)  
+**Date:** 2026-04-18  
+**Context:** Neo's review of PR #15 (squad/joel-test-improvements) flagged 2 blockers and several concerns warranting corrections before merge.
+
+**Fixes Applied:**
+
+1. **Makefile CRLF → LF** ✅
+   - Converted Makefile to LF line endings via PowerShell byte-level write
+   - Added `Makefile text eol=lf` to `.gitattributes` for persistent enforcement on checkout
+
+2. **batch_observability_blog.json removed** ✅
+   - `git rm` removed file containing hardcoded `C:\Users\diberry\...` paths
+   - File was outside Joel Test scope and not part of project design
+
+3. **CI shell quoting** ✅
+   - `.github/workflows/tests.yml` line 26: `pip install ruff>=0.4.0` → `pip install 'ruff>=0.4.0'`
+   - Prevents bash `>=` redirect interpretation in shell contexts
+
+4. **CI uses requirements-dev.txt** ✅
+   - Test job now runs `pip install -r requirements-dev.txt` instead of manually listing packages
+   - Torch CPU install kept separate with special index URL
+   - Aligns CI with local dev environment from CONTRIBUTING.md
+
+5. **ruff.toml clarified** ✅
+   - `line-length = 120` retained at top level (controls formatter width)
+   - Added inline comment explaining that lint rule E501 is separately ignored
+   - Resolved contradiction between format and lint scopes
+
+6. **CONTRIBUTING.md CLI flags corrected** ✅
+   - `--refiner` → `--refine` (matches generate.py actual parameter name)
+   - `--device` → `--cpu` (matches actual CPU selection pattern)
+   - Added missing flags: `--steps`, `--guidance`, `--seed`, `--width`, `--height`
+   - Dev setup changed from `pip install ruff` to `pip install -r requirements-dev.txt`
+
+**Joel Test Score Revision:**
+
+Neo correctly challenged the 10/12 claim. Honest reassessment:
+
+| # | Criterion | Verdict |
+|---|-----------|---------|
+| 1 | Source control | ✅ Yes |
+| 2 | One-step build | ✅ Yes (Makefile, after CRLF fix) |
+| 3 | Daily builds | ✅ Yes (CI on push/PR) |
+| 4 | Bug database | ✅ Yes (GitHub Issues) |
+| 5 | Fix bugs before new code | ✅ Yes (process commitment) |
+| 6 | Up-to-date schedule | ❌ No — spec ≠ schedule |
+| 7 | Spec | ✅ Yes (prompts/examples.md) |
+| 8 | Quiet working conditions | ➖ N/A (solo/AI project) |
+| 9 | Best tools money can buy | ✅ Yes |
+| 10 | Testers | ✅ Yes (Neo + pytest) |
+| 11 | Code samples in interviews | ➖ N/A |
+| 12 | Hallway usability testing | ❌ No — no user testing process |
+
+**Revised score: 9/12** (counting N/A items as pass, #6 and #12 as fail).
+
+**Process Notes:**
+- Morpheus applied all fixes as Lead per Reviewer Rejection Protocol (Trinity locked out as PR author)
+- Coordinator removed stowaway batch_observability_blog_v2.json not caught in initial fix pass
+- Re-squashed to 1 commit (6c10f02) and force-pushed
+- PR #15 title and description updated to reflect 9/12 score
+
+**Verification:** All fixes applied correctly, ruff linting passes clean, README.md and CONTRIBUTING.md now accurate.
+
+---
+
 ## Team Code Review Findings (2026-03-26)
 
 **By:** Morpheus (Lead), Trinity (Backend), Niobe (Image Specialist), Switch (Prompt/LLM), Neo (Tester)

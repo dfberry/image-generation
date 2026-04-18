@@ -7,7 +7,7 @@
 
 ## Key Paths
 
-- `generate.py` — main CLI with --steps, --guidance, --seed, --width, --height, --refiner, --device flags
+- `generate.py` — main CLI with --steps, --guidance, --seed, --width, --height, --refine, --cpu flags
 - `generate_blog_images.sh` — generates 5 blog images (01-05), seeds 42-46
 - `regen_fix.sh` — regenerates images 01, 06, 07, 08 with corrected prompts
 - `prompts/examples.md` — master prompt library, style guide (Latin American folk art, magical realism, tropical palette)
@@ -88,7 +88,15 @@ Trinity's code-level audit converged with Morpheus's architectural review and Ne
 
 <!-- Append new learnings below. Each entry is something lasting about the project. -->
 
-### 2026-07-22 — Joel Test Tier 1: CI, Makefile, ruff, dev deps
+### 2026-04-18 — PR #15: CONTRIBUTING.md CLI Fixes & Dev Setup Alignment
+
+Fixed CONTRIBUTING.md to match actual generate.py CLI and align dev setup with CI:
+1. **CLI flag corrections:** `--refiner` → `--refine`, `--device` → `--cpu` (matched actual parameter names)
+2. **Added missing flags:** `--steps`, `--guidance`, `--seed`, `--width`, `--height` now documented
+3. **Dev setup updated:** Changed from `pip install ruff` to `pip install -r requirements-dev.txt` for consistency with CI workflow
+4. **README Key Paths:** Updated `generate.py` entry to reflect corrected flags
+
+**Result:** CONTRIBUTING.md now accurate and actionable for contributors. Dev environment matches CI environment.
 
 - **CI workflow now triggers on PR and push to main**, not just manual dispatch. Lint job (ruff) gates the test matrix. Concurrency groups cancel stale runs per-branch.
 - **Makefile uses venv-relative paths** (`$(VENV)/bin/python`) so targets work in both local dev and CI without activating the venv.

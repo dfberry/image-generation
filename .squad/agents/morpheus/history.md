@@ -19,6 +19,23 @@
 
 <!-- Append new learnings below. Each entry is something lasting about the project. -->
 
+### 2026-04-18 — PR #15 Blocker Fixes & Joel Test Score Revision (9/12)
+
+Fixed 6 blockers flagged by Neo during PR #15 review:
+1. **Makefile CRLF → LF** — PowerShell byte-level write + `.gitattributes` enforcement
+2. **batch_observability_blog.json removed** — File with hardcoded paths, out of scope
+3. **CI shell quoting** — `pip install 'ruff>=0.4.0'` prevents bash redirect
+4. **CI requirements-dev.txt** — Test job now `pip install -r requirements-dev.txt`
+5. **ruff.toml clarified** — `line-length = 120` at top level, inline comment on E501 ignore
+6. **Joel Test Score Revised: 9/12** — Honest reassessment: #6 (schedule) and #12 (user testing) fail; N/A items pass
+
+**Post-fix coordination:**
+- Coordinator removed stowaway batch_observability_blog_v2.json
+- Re-squashed to 1 commit (6c10f02), force-pushed
+- PR #15 title/description updated to 9/12
+
+**Verification:** ruff clean, CONTRIBUTING.md and README.md now accurate. Ready for merge.
+
 ### 2026-03-27 — Joel Test Assessment (6/12)
 
 Conducted full Joel Test evaluation. **Strengths:** Source control discipline (YES), bug-fix-first TDD culture (YES), testing infrastructure with 53+ tests in ~2s (YES). **Gaps:** CI is manual-dispatch only (no PR triggers), no Makefile/task runner, no linter/formatter/type checker, only 1 GitHub Issue ever filed despite known bugs tracked informally in .squad/decisions.md, no CONTRIBUTING.md or issue templates, no milestones/releases/changelog, no pyproject.toml. Top 4 quick wins identified: (1) add `on: pull_request` to CI, (2) add ruff linting, (3) create Makefile, (4) create issue templates. These would raise score from 6/12 to ~9/12. Assessment written to `.squad/decisions/inbox/morpheus-joel-test-assessment.md`.
