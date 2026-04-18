@@ -19,6 +19,10 @@
 
 <!-- Append new learnings below. Each entry is something lasting about the project. -->
 
+### 2026-03-27 — Joel Test Assessment (6/12)
+
+Conducted full Joel Test evaluation. **Strengths:** Source control discipline (YES), bug-fix-first TDD culture (YES), testing infrastructure with 53+ tests in ~2s (YES). **Gaps:** CI is manual-dispatch only (no PR triggers), no Makefile/task runner, no linter/formatter/type checker, only 1 GitHub Issue ever filed despite known bugs tracked informally in .squad/decisions.md, no CONTRIBUTING.md or issue templates, no milestones/releases/changelog, no pyproject.toml. Top 4 quick wins identified: (1) add `on: pull_request` to CI, (2) add ruff linting, (3) create Makefile, (4) create issue templates. These would raise score from 6/12 to ~9/12. Assessment written to `.squad/decisions/inbox/morpheus-joel-test-assessment.md`.
+
 ### 2026-03-26 — Full Team Code Review: Cross-Cutting Findings
 
 All five team members reviewed the project simultaneously (2026-03-26 code review). Key cross-functional insights:
@@ -297,6 +301,21 @@ Reviewed `squad/pr3-high-memory-fixes` (Trinity's work). Both HIGH-severity issu
 **Conditional Approval:** "After pytest scope is corrected, this PR will be APPROVED."
 
 **Resolution:** Trinity completed TDD green phase (PR #9). All 53 tests now pass. Tested on squad/tdd-batch-oom-tests branch:
+
+### 2026-04-18 — PR #15 Review: Joel Test Improvements (6/12 → 10/12)
+
+Reviewed PR #15 (`squad/joel-test-improvements` → `main`). 33 files changed, 1968 insertions, 576 deletions. **Verdict: APPROVE with non-blocking items.**
+
+**What landed well:** CI pipeline design (PR triggers + concurrency + lint gate), Makefile with correct targets, ruff.toml with sensible defaults, requirements-dev.txt with `-r requirements.txt` include, CONTRIBUTING.md with accurate project info, issue templates, CODEOWNERS. Feature spec (42 functional requirements) and design doc (674 lines) are high-quality — they document actual code behavior, not boilerplate. Lint fixes across 12 test files are clean (unused imports removed, import ordering fixed).
+
+**Issues found (non-blocking):**
+1. **Makefile is Unix-only** — hardcoded `$(VENV)/bin/python` paths won't work on Windows. Project README shows Windows venv activation, so this creates a gap. Not blocking since CI runs Linux.
+2. **ruff.toml contradicts itself** — sets `line-length = 120` but then `ignore = ["E501"]` (line-too-long). Either enforce the limit or don't set it.
+3. **CI doesn't use requirements-dev.txt** — the test job manually installs packages instead of `pip install -r requirements-dev.txt`. The lint job installs ruff directly. This means requirements-dev.txt and CI can drift apart.
+4. **batch_observability_blog.json** snuck in — contains hardcoded Windows paths to another repo. This is user-specific working data, not project infrastructure. Should be in .gitignore or a separate PR.
+5. **PR scope is large** — 33 files is a lot for one PR, but each change is small and thematically coherent (Joel Test improvements). Acceptable for infrastructure work.
+
+**Decisions:** CI runs on PR + push to main. Ruff is the project linter/formatter. Makefile is the task runner. TDD workflow remains enforced.
 ```
 $ python -m pytest tests/ -v 2>&1 | tail -1
 ============================== 53 passed in 2.45s ==============================
@@ -428,3 +447,50 @@ Reviewed Trinity's implementation of OOMError and batch_generate() against 10-po
 - Decisions merged to decisions.md (see Full Team Code Review section)
 - Orchestration logs filed for all 5 agents (morpheus/trinity/neo/niobe/switch)
 - Team ready for Phase 1 quick wins immediately
+
+### 2026-04-18 — PR #15 Architecture Review: Joel Test Improvements
+
+**Scope:** Comprehensive architecture review of PR #15 (squad/joel-test-improvements → main). 33 files changed, 1968 additions, 576 deletions. Claims Joel Test improvement from 6/12 → 10/12.
+
+**What Landed Well:**
+- **CI pipeline design:** PR + push triggers, lint gate, concurrency groups — eliminates manual-dispatch bottleneck
+- **Makefile structure:** Correct targets (setup, test, lint, format, clean), venv-relative paths
+- **ruff.toml:** Sensible defaults (Python 3.10, 120 chars, E/F/W/I rules)
+- **requirements-dev.txt:** Properly chains base requirements + dev tools
+- **CONTRIBUTING.md:** Accurate project setup, TDD workflow documented, PR process clear
+- **Issue templates:** Bug report and feature request templates standardized
+- **Feature spec (docs/feature-specification.md):** 42 functional requirements, documents actual behavior
+- **Design doc (docs/design.md):** 674 lines covering architecture and implementation details
+- **Lint fixes:** 12 test files cleaned (unused imports, import order fixed)
+
+**This Establishes:**
+1. CI triggers on every PR + push to main (gates on lint before tests)
+2. Ruff is the project linter/formatter (single source of truth in ruff.toml)
+3. Makefile is the task runner (developers run `make install-dev`, `make test`, `make lint`)
+4. requirements-dev.txt separates dev dependencies from production
+5. CONTRIBUTING.md + CODEOWNERS + issue templates form the onboarding path
+6. docs/feature-specification.md + docs/design.md document formal spec and architecture
+
+**Issues Found (Non-Blocking — Create Follow-Ups):**
+
+1. **Makefile is Unix-only** — Hardcoded `$(VENV)/bin/python` paths will fail on Windows. Project README documents Windows venv activation (`call venv\Scripts\activate.bat`), so this creates a compatibility gap. Not blocking since CI runs Linux, but affects Windows contributor experience.
+
+2. **ruff.toml self-contradiction** — Sets `line-length = 120` then immediately `ignore = ["E501"]` (line-too-long). Clarify intent: either enforce the limit or don't set it. This confusion will bite contributors who expect linting rules to match config comments.
+
+3. **CI doesn't use requirements-dev.txt** — The test job manually installs packages (`pip install ruff pytest`) instead of sourcing `requirements-dev.txt`. This decoupling guarantees drift between local dev environment and CI over time. Single source of truth principle violated.
+
+4. **batch_observability_blog.json stowaway** — File contains Windows-specific paths (`C:\Users\diberry\...` absolute paths). This is user-specific working data, not project infrastructure. Should either be removed from this PR or moved to .gitignore.
+
+5. **PR scope is large but acceptable** — 33 files is significant, but changes are small and thematically coherent (all Joel Test infrastructure). This is one of few justifiable cases for large PR (infrastructure/setup work). 
+
+**Verdict:** ✅ **APPROVE with non-blocking follow-ups**
+
+**Implementation consensus:**
+- Joel Test mapping (items #1–#5, #7–#11) is correct
+- Infrastructure decisions (CI, Makefile, requirements, linting) are sound
+- Documentation (spec + design) is comprehensive and accurate
+- Create follow-up issues to address the 5 non-blocking items above
+
+---
+
+

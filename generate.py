@@ -15,8 +15,8 @@ import sys
 from datetime import datetime
 from types import SimpleNamespace
 
-import torch
 import diffusers
+import torch
 from diffusers import DiffusionPipeline
 
 

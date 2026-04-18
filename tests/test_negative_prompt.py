@@ -17,8 +17,7 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 
-from generate import parse_args, generate, batch_generate
-
+from generate import batch_generate, generate, parse_args
 
 # ---------------------------------------------------------------------------
 # Helpers

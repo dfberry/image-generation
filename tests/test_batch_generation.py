@@ -15,11 +15,7 @@ Mocking strategy: patch the underlying generate() so no real model loads.
 No GPU required.
 """
 
-import gc
-from types import SimpleNamespace
-from unittest.mock import MagicMock, call, patch
-
-import pytest
+from unittest.mock import patch
 
 # ---------------------------------------------------------------------------
 # Import target — expected to be importable from generate (or batch).
@@ -63,7 +59,7 @@ class TestBatchCallsGeneratePerItem:
 
         with patch("generate.generate") as mock_gen:
             mock_gen.return_value = "out/01.png"
-            results = batch_generate(prompts, device="cpu")
+            batch_generate(prompts, device="cpu")
 
         assert mock_gen.call_count == 1, (
             "batch_generate must call generate() exactly once for a single-item list"
@@ -79,7 +75,7 @@ class TestBatchCallsGeneratePerItem:
 
         with patch("generate.generate") as mock_gen:
             mock_gen.return_value = "out/a.png"
-            results = batch_generate(prompts, device="cpu")
+            batch_generate(prompts, device="cpu")
 
         assert mock_gen.call_count == 3, (
             "batch_generate must call generate() once per item"

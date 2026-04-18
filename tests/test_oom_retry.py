@@ -24,11 +24,9 @@ Mocking strategy:
 """
 
 from types import SimpleNamespace
-from unittest.mock import MagicMock, call, patch
+from unittest.mock import patch
 
 import pytest
-
-import generate as gen
 
 # ---------------------------------------------------------------------------
 # Import targets — expected to exist in generate.py after Trinity implements

@@ -551,3 +551,48 @@ Full five-agent simultaneous code review (2026-03-26) identified bug convergence
 - Kwargs capture via wrapper function to verify refiner receives independent guidance_scale
 - `patch("diffusers.DPMSolverMultistepScheduler", ..., create=True)` since the import doesn't exist yet in generate.py
 
+### 2026-07-25 — Joel Test Improvements: Contributor Templates (#4, #11)
+
+**Scope:** Created 4 files to improve contributor experience (Joel Test items #4 and #11).
+
+**Files created:**
+
+| File | Purpose |
+|------|---------|
+| `.github/ISSUE_TEMPLATE/bug_report.md` | Bug report template with Environment section (Python, OS, GPU) |
+| `.github/ISSUE_TEMPLATE/feature_request.md` | Feature request template with Problem/Solution/Alternatives |
+| `CONTRIBUTING.md` | Full contributor guide: setup, tests, lint, PR process, project structure |
+| `CODEOWNERS` | Code ownership mapping — all paths → @dfberry |
+
+**Key decisions:**
+- No Makefile exists yet, so CONTRIBUTING.md references direct commands (`python -m pytest`, `ruff check`)
+- CONTRIBUTING.md documents TDD-first workflow consistent with team decisions
+- Branch naming convention `squad/{issue}-{slug}` documented per team standard
+- Noted GPU not required for tests — mock infrastructure handles it
+
+### 2026-04-18 — Joel Test Tier 1: Contributor Experience Templates (Items #4, #11)
+
+**Completed and merged (2026-04-18T20:10:27Z).**
+
+- **Issue templates (bug & feature):** Standardized bug reporting (Environment, Steps, Expected vs Actual) and feature requests (Problem, Solution, Alternatives). Reduces triage overhead.
+- **CONTRIBUTING.md:** Full contributor guide covering setup, TDD workflow, testing, linting, PR process, project structure. Includes direct command reference (`python -m pytest tests/ -v`, `ruff check .`).
+- **CODEOWNERS:** All paths mapped to @dfberry as sole maintainer. Enables GitHub review automation.
+- **Branch naming:** Documented `squad/{issue}-{slug}` convention per team standard.
+- **Parallel coordination:** Trinity completed CI/Makefile/Linting simultaneously. CONTRIBUTING.md noted Makefile targets added in parallel — should reference Makefile paths if workflow evolves.
+- **Impact:** Joel Test #4 (bug database) and #11 (new candidate process) addressed. Contributor onboarding path established.
+
+### 2026-07-25 — PR #15 Devil's Advocate Review
+
+**Scope:** Full adversarial review of Joel Test improvement PR (claimed 6/12 → 10/12).
+
+**Key findings:**
+- Makefile uses `$(VENV)/bin/python` (Unix paths) + `\r\n` line endings — broken on both Unix (CRLF) and Windows (path separator). **BLOCKING.**
+- `batch_observability_blog.json` leaks local Windows paths (`C:\Users\diberry\...`). **BLOCKING.**
+- CI doesn't use `requirements-dev.txt` — deps duplicated between CI YAML and dev file, will drift.
+- ruff.toml selects E501 (line length) then immediately ignores it — confusing config.
+- 674-line design.md + 352-line spec added with no verification process — high staleness risk.
+- Joel Test score inflation: #6 (schedule) and #12 (hallway testing) claims are debatable; real score closer to 8–9/12.
+- Test lint changes verified safe: only removed unused imports/vars, no logic changes.
+- Single monolithic commit makes it impossible to revert individual components.
+
+**Verdict:** REQUEST CHANGES — Makefile CRLF issue and leaked local paths must be fixed.

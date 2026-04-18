@@ -527,6 +527,71 @@ All 75 tests fail to collect without `pip install torch --index-url https://down
 
 ---
 
+---
+
+### PR #15: Joel Test Improvements — Architecture Review (Morpheus)
+
+**Date:** 2026-04-18  
+**Decision:** APPROVE with non-blocking follow-ups  
+
+**What This Establishes:**
+1. CI triggers on PR + push (no manual-dispatch only)
+2. Ruff is the project linter, configured in ruff.toml, enforced in CI
+3. Makefile is the task runner (setup, test, lint, format, clean)
+4. requirements-dev.txt separates dev dependencies from production
+5. CONTRIBUTING.md + CODEOWNERS + issue templates provide onboarding
+6. docs/feature-specification.md + docs/design.md document formal spec and architecture
+
+**Non-Blocking Follow-Ups:**
+- [ ] Fix Makefile for cross-platform (Windows venv paths)
+- [ ] Resolve ruff.toml contradiction (line-length=120 vs ignore E501)
+- [ ] Align CI install steps with requirements-dev.txt
+- [ ] Remove or .gitignore batch_observability_blog.json (user-specific data)
+
+---
+
+### PR #15: Devil's Advocate Review (Neo)
+
+**Date:** 2026-04-18  
+**Decision:** REQUEST CHANGES — 2 blockers, 4 concerns  
+
+**Merge Blockers:**
+1. **Makefile CRLF line endings** — Current file has `\r\n` which breaks `make` on Linux/macOS. Fix: enforce LF via `.gitattributes` or convert to LF before merge.
+2. **batch_observability_blog.json leaks local paths** — File contains `C:\Users\diberry\...` absolute paths exposing machine-specific home directory structure. Either remove from PR or use only relative paths.
+
+**Non-Blocking Concerns:**
+1. **CI drift** — `.github/workflows/tests.yml` hardcodes deps (`pip install ruff pytest`) instead of sourcing `requirements-dev.txt`. Guarantees local dev ≠ CI environment over time.
+2. **Joel Test score inflated** — PR claims 10/12 but items #6 (schedule) and #12 (hallway testing) are unsubstantiated. Recommend revision to 8–9/12.
+3. **ruff.toml confusing** — `line-length = 120` contradicts `ignore = ["E501"]` (line-too-long). Clarify intent.
+4. **Docs lack freshness cadence** — design.md and feature-specification.md have no "Last Verified" maintenance dates. Will become liabilities without staleness review process.
+
+**Verification:** All 5 ruff fixes lint clean; no new failures introduced.
+
+---
+
+### PR #15: Fact-Check Technical Claims (Trinity)
+
+**Date:** 2026-04-18  
+**Decision:** Non-blocking. Merge as-is with follow-up issues for corrections.
+
+**Claim Verification Results: 31/35**
+
+| Status | Count | Notes |
+|--------|-------|-------|
+| ✅ Verified | 31 | Joel Test mapping, memory cleanup, device selection, Makefile targets |
+| ❌ False | 2 | CLI flags wrong, CI pip quoting missing |
+| ⚠️ Partial | 1 | Dev setup incomplete |
+| ❓ Unverifiable | 1 | Hallway testing—no evidence |
+
+**False Claims (must fix in follow-up):**
+1. **CONTRIBUTING.md L113 CLI flags** — Lists `--refiner` and `--device` but actual flags are `--refine` and `--cpu`. Also missing: `--prompt`, `--batch-file`, `--output`, `--refiner-steps`, `--refiner-guidance`, `--scheduler`, `--negative-prompt`, `--lora`, `--lora-weight`.
+2. **CI shell quoting bug** — `.github/workflows/tests.yml` L26: `pip install ruff>=0.4.0` needs quoting to prevent bash redirect. Should be `pip install 'ruff>=0.4.0'`.
+
+**Partial Claim (must fix in follow-up):**
+- **CONTRIBUTING.md L119–120 dev setup** — Recommends `pip install pytest ruff` instead of `pip install -r requirements-dev.txt`. True but incomplete; should reference requirements-dev.txt for full setup.
+
+---
+
 ## Governance
 
 - All meaningful changes require team consensus

@@ -2,8 +2,10 @@
 
 import sys
 from unittest.mock import MagicMock, patch
+
 import pytest
-from generate import parse_args, apply_scheduler, SUPPORTED_SCHEDULERS
+
+from generate import apply_scheduler, parse_args
 
 
 def _parse_with_args(cli_args):
@@ -135,8 +137,9 @@ class TestBatchGenerateDefaults:
         assert cap["steps"] == 22
 
     def test_batch_generate_forwards_scheduler(self):
-        import generate as gen
         from types import SimpleNamespace
+
+        import generate as gen
         cap = {}
         def mg(args):
             cap["scheduler"] = args.scheduler
