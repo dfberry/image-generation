@@ -19,6 +19,12 @@
 
 <!-- Append new learnings below. Each entry is something lasting about the project. -->
 
+### 2026-04-18 — PR #15 Re-Review: Joel Test Improvements
+
+**Scope:** Verified Makefile LF enforcement, removed local-path JSON batch files, CI uses requirements-dev.txt, CONTRIBUTING flags corrected, and ruff install quoting fixed.
+
+**Result:** All prior blockers resolved; no new issues surfaced in the re-review.
+
 ### 2026-07-24 — Issue #8: Unit Tests for Untested Functions (PR #14)
 
 **Scope:** 31 new mock-based unit tests in `tests/test_unit_functions.py` covering 6 previously-untested function groups.
@@ -596,3 +602,20 @@ Full five-agent simultaneous code review (2026-03-26) identified bug convergence
 - Single monolithic commit makes it impossible to revert individual components.
 
 **Verdict:** REQUEST CHANGES — Makefile CRLF issue and leaked local paths must be fixed.
+
+### 2026-04-18 — PR #15 Re-Review: Blocker Fixes Verified
+
+**Task:** Re-review PR #15 after blocker remediation.
+
+**Blockers addressed:**
+- Makefile LF enforcement: ✅ Fixed
+- Batch file local paths: ✅ Removed
+- CI requirements: ✅ Uses requirements-dev.txt
+- CONTRIBUTING flags: ✅ Corrected
+- ruff install quoting: ✅ Fixed
+
+**New issues:** None found.
+
+**Non-blocking items:** Docs freshness (674-line design.md + 352-line spec staleness) remains open but does not block merge.
+
+**Verdict:** ✅ APPROVE — All critical blockers fixed, no regressions introduced.

@@ -3,7 +3,7 @@
 > **Document type:** Feature specification (user-facing behavior)
 > **Status:** Living document
 > **Applies to:** `generate.py` (root module)
-> **Last verified against:** commit on `main` branch
+> **Last verified against:** commit `6c10f02` (2026-04-18)
 
 ---
 
