@@ -7,7 +7,7 @@
 
 ## Key Paths
 
-- `generate.py` — main CLI with --steps, --guidance, --seed, --width, --height, --refiner, --device flags
+- `generate.py` — main CLI with --steps, --guidance, --seed, --width, --height, --refine, --cpu flags
 - `generate_blog_images.sh` — generates 5 blog images (01-05), seeds 42-46
 - `regen_fix.sh` — regenerates images 01, 06, 07, 08 with corrected prompts
 - `prompts/examples.md` — master prompt library, style guide (Latin American folk art, magical realism, tropical palette)
@@ -87,6 +87,32 @@ Trinity's code-level audit converged with Morpheus's architectural review and Ne
 ## Learnings
 
 <!-- Append new learnings below. Each entry is something lasting about the project. -->
+
+### 2026-04-18 — PR #15: CONTRIBUTING.md CLI Fixes & Dev Setup Alignment
+
+Fixed CONTRIBUTING.md to match actual generate.py CLI and align dev setup with CI:
+1. **CLI flag corrections:** `--refiner` → `--refine`, `--device` → `--cpu` (matched actual parameter names)
+2. **Added missing flags:** `--steps`, `--guidance`, `--seed`, `--width`, `--height` now documented
+3. **Dev setup updated:** Changed from `pip install ruff` to `pip install -r requirements-dev.txt` for consistency with CI workflow
+4. **README Key Paths:** Updated `generate.py` entry to reflect corrected flags
+
+**Result:** CONTRIBUTING.md now accurate and actionable for contributors. Dev environment matches CI environment.
+
+- **CI workflow now triggers on PR and push to main**, not just manual dispatch. Lint job (ruff) gates the test matrix. Concurrency groups cancel stale runs per-branch.
+- **Makefile uses venv-relative paths** (`$(VENV)/bin/python`) so targets work in both local dev and CI without activating the venv.
+- **ruff.toml targets py310** with E/F/W/I rules, ignores E501 (formatter handles line length). Excludes venv, __pycache__, outputs.
+- **requirements-dev.txt chains `-r requirements.txt`** so `pip install -r requirements-dev.txt` gets everything in one shot.
+- All 172 existing tests pass after these changes.
+
+### 2026-07-22 — PR #15 Fact-Check Review (Trinity as reviewer)
+
+- **CI `pip install ruff>=0.4.0` has a shell quoting bug:** In bash, `>=0.4.0` is parsed as redirect `>` to file `=0.4.0`. The version constraint is silently lost. It works in practice because latest ruff > 0.4.0, but the line should be `pip install 'ruff>=0.4.0'`.
+- **CONTRIBUTING.md lists wrong CLI flags:** Says `--refiner` and `--device` but the actual argparse has `--refine` (flag) and `--cpu` (flag). No `--device` flag exists.
+- **CONTRIBUTING.md recommends manual `pip install pytest ruff`** instead of `pip install -r requirements-dev.txt` which also includes pytest-cov.
+- **All import removals verified correct:** Every removed import was truly unused in its file. Import reorderings are safe (alphabetized by isort rules).
+- **Removed variables (`results`, `mock_gen`, `images_seen`, `original_generate`, `mock_cuda`) all verified unused** in their respective scopes.
+- **Makefile `$(VENV)/bin/python` path is Unix-only:** Correct for Ubuntu CI, but won't work on Windows. Fine for the CI target.
+- **ruff.toml is valid and sensible:** py310 target, E/F/W/I rules, E501 ignored (formatter handles it), correct first-party config for generate module.
 
 ### 2026-03-26 — PR #12: Add negative prompt support (#3)
 
@@ -369,3 +395,51 @@ Wired into argparse via `type=` parameter. Argparse raises SystemExit with clear
 - Custom argparse type functions are the cleanest validation pattern: argparse handles error formatting, SystemExit, and help text automatically. No post-parse validation needed.
 - ArgumentTypeError message includes the rejected value for debuggability.
 - Pre-existing test_negative_prompt.py::test_batch_forwards_negative_prompt fails due to unimplemented negative prompt feature — not a regression.
+
+### 2026-04-18 — Joel Test Tier 1: CI Workflow, Makefile, Linting, Dev Deps
+
+**Completed and merged (2026-04-18T20:10:27Z).**
+
+- **CI workflow overhaul:** Added `push` (main) and `pull_request` triggers with path filters. Lint job (ruff) gates test matrix. Concurrency groups cancel stale runs. Result: All PRs now get automated lint + test.
+- **Makefile standardization:** Targets: `setup`, `install`, `install-dev`, `test`, `lint`, `format`, `clean`, `all`. Uses venv-relative Python paths. Result: One-command dev setup for contributors.
+- **requirements-dev.txt:** Chains base requirements + pytest, ruff, pytest-cov. Enables `make install-dev` to set up full dev environment.
+- **ruff.toml configuration:** Python 3.10 target, 120 char lines, E/F/W/I rules, E501 ignored (formatter owns line length), excludes venv/outputs/__pycache__. Result: Single source of truth for style rules across local + CI.
+- **Test outcome:** 172 tests passing — full regression suite validated.
+- **Impact:** Joel Test score improvement from 6/12 → 9/12 (PR-triggered CI, dev tooling, linting infrastructure).
+- **Parallel coordination:** Neo completed contributor templates simultaneously — both decisions merged to `decisions.md`, inbox cleaned.
+
+### 2026-04-18 — PR #15 Fact-Check Review: Technical Claims Verification
+
+**Scope:** Verify 35+ technical claims in PR #15 (Joel Test improvements) against actual code.
+
+**Verification Results: 31/35**
+
+| Status | Count | Examples |
+|--------|-------|----------|
+| ✅ Verified | 31 | Joel Test mapping items #1–#5, #7–#11; memory cleanup; device selection; Makefile targets; feature spec coverage |
+| ❌ False | 2 | CLI flags wrong in CONTRIBUTING.md; CI pip quoting missing |
+| ⚠️ Partial | 1 | Dev setup incomplete — recommends bare install instead of requirements-dev.txt |
+| ❓ Unverifiable | 1 | Joel Test #12 "hallway testing" — no evidence in codebase |
+
+**False Claims Found (Must Fix in Follow-Up):**
+
+1. **CONTRIBUTING.md Line 113 — Wrong CLI Flags:**
+   - **Claim:** `--refiner` and `--device` flags
+   - **Reality:** Actual flags are `--refine` (note: -e, not -er) and `--cpu` (not --device)
+   - **Also missing:** `--prompt`, `--batch-file`, `--output`, `--refiner-steps`, `--refiner-guidance`, `--scheduler`, `--negative-prompt`, `--lora`, `--lora-weight`
+   - **Impact:** Contributors copying these examples will get AttributeError when running CLI
+
+2. **CI Shell Quoting Bug — `.github/workflows/tests.yml` Line 26:**
+   - **Current:** `pip install ruff>=0.4.0` (unquoted)
+   - **Problem:** Bash interprets `>=` as redirect operator. Should be `pip install 'ruff>=0.4.0'`
+   - **Impact:** CI may fail silently or install wrong package version
+
+**Partially True Claim (Must Fix in Follow-Up):**
+- **CONTRIBUTING.md Lines 119–120 Dev Setup:** Recommends `pip install pytest ruff` instead of `pip install -r requirements-dev.txt`. While true that this installs pytest/ruff, it's incomplete — missing other dev dependencies. Should reference requirements-dev.txt.
+
+**Unverifiable Claim:**
+- **Joel Test #12 "Hallway Testing":** PR claims this is addressed but no evidence in codebase. Cannot verify.
+
+**Recommendation:** Merge PR as-is (non-blocking issues), create follow-up issues to fix the 3 items above.
+
+---

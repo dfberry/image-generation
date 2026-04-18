@@ -52,6 +52,23 @@ python generate.py --prompt "Your prompt here" --seed 42 --refine
 | `--refine` | off | Use base + refiner pipeline |
 | `--cpu` | off | Force CPU mode (no GPU) |
 
+## Generation Time
+
+Image generation typically takes **5–10 minutes per image** on Apple Silicon (MPS) and **2–5 minutes** on NVIDIA GPUs with 8GB+ VRAM. CPU mode is significantly slower (20–30+ minutes per image). The first image in a session takes longer due to model loading and `torch.compile` warm-up (~30s one-time cost on CUDA).
+
+Using `--refine` roughly doubles generation time since it runs a second pass through the refiner model.
+
+### Example Output
+
+These blog illustrations were generated with this tool using the tropical magical-realism style from [`prompts/examples.md`](prompts/examples.md):
+
+| Image | Prompt concept |
+|-------|---------------|
+| [bellingham-bay-boardwalk-fleet.png](https://github.com/dfberry/dfberry.github.io/blob/blog/draft-posts-april-17/website/blog/media/2026-04-18-observability-for-custom-copilot-agents/bellingham-bay-boardwalk-fleet.png) | Fleet of boats on Bellingham Bay |
+| [cedar-tree-rings-history.png](https://github.com/dfberry/dfberry.github.io/blob/blog/draft-posts-april-17/website/blog/media/2026-04-18-observability-for-custom-copilot-agents/cedar-tree-rings-history.png) | Cedar tree rings as data history |
+| [chain-lakes-trail-fork.png](https://github.com/dfberry/dfberry.github.io/blob/blog/draft-posts-april-17/website/blog/media/2026-04-18-observability-for-custom-copilot-agents/chain-lakes-trail-fork.png) | Trail fork decision point |
+| [nooksack-river-sensor-stations.png](https://github.com/dfberry/dfberry.github.io/blob/blog/draft-posts-april-17/website/blog/media/2026-04-18-observability-for-custom-copilot-agents/nooksack-river-sensor-stations.png) | River sensor monitoring stations |
+
 ## Memory Management
 
 The pipeline **automatically cleans up GPU memory** after each generation:

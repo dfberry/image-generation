@@ -19,8 +19,7 @@ Mocking strategy: patch torch pipeline loading to raise OOM at the right moment.
 No GPU required.
 """
 
-import gc
-from unittest.mock import MagicMock, call, patch
+from unittest.mock import MagicMock, patch
 
 import pytest
 import torch

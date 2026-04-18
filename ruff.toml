@@ -1,0 +1,10 @@
+target-version = "py310"
+line-length = 120  # applies to formatter; lint rule E501 is ignored below
+exclude = ["venv", "__pycache__", "outputs"]
+
+[lint]
+select = ["E", "F", "W", "I"]
+ignore = ["E501"]
+
+[lint.isort]
+known-first-party = ["generate"]

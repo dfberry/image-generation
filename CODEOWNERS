@@ -1,0 +1,12 @@
+# Default owner
+* @dfberry
+
+# Core generation pipeline
+generate.py @dfberry
+generate_blog_images.sh @dfberry
+
+# Tests
+tests/ @dfberry
+
+# Prompts and style
+prompts/ @dfberry

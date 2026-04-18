@@ -23,8 +23,7 @@ from unittest.mock import patch
 
 import pytest
 
-from generate import OOMError, generate_with_retry, batch_generate
-
+from generate import OOMError, batch_generate, generate_with_retry
 
 # ---------------------------------------------------------------------------
 # Helpers
@@ -206,7 +205,7 @@ class TestBatchUsesRetryWrapper:
         prompts = [{"prompt": "test", "output": "out.png"}]
 
         with patch("generate.generate_with_retry", return_value="out.png") as mock_retry, \
-             patch("generate.generate", return_value="out.png") as mock_gen:
+             patch("generate.generate", return_value="out.png"):
             batch_generate(prompts, device="cpu")
 
         assert mock_retry.call_count >= 1, (

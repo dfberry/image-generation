@@ -1,3 +1,5 @@
+Makefile text eol=lf
+
 .squad/decisions.md merge=union
 .squad/agents/*/history.md merge=union
 .squad/log/** merge=union

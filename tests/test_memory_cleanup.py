@@ -8,14 +8,12 @@ Coverage:
 No GPU required: all external calls are patched.
 """
 
-import gc
-from unittest.mock import MagicMock, call, patch
+from unittest.mock import MagicMock, patch
 
 import pytest
 
 import generate as gen
-from tests.conftest import MockImage, MockPipeline
-
+from tests.conftest import MockPipeline
 
 # ---------------------------------------------------------------------------
 # Helpers
@@ -44,7 +42,7 @@ class TestExceptionSafety:
         base = _make_base_pipeline()
         with patch("generate.load_base", return_value=base), \
              patch("generate.gc") as mock_gc, \
-             patch("generate.torch.cuda.empty_cache") as mock_cuda, \
+             patch("generate.torch.cuda.empty_cache"), \
              patch("generate.torch.backends.mps.is_available", return_value=False), \
              patch("generate.torch.cuda.is_available", return_value=False), \
              patch("generate.torch.backends.mps.is_available", return_value=False):
@@ -156,9 +154,7 @@ class TestExceptionSafety:
     def test_generate_image_nulled_in_finally(self, mock_args_base):
         """generate() should set image = None in finally so PIL buffer is released."""
         base = _make_base_pipeline()
-        images_seen = []
 
-        original_generate = gen.generate
 
         with patch("generate.load_base", return_value=base), \
              patch("generate.gc"), \
@@ -207,6 +203,7 @@ class TestExceptionSafety:
     def test_accelerate_version_floor(self):
         """accelerate>=0.24.0 is required for CPU offload hook deregistration."""
         import importlib.metadata as meta
+
         from packaging.version import Version
 
         try:

@@ -2,8 +2,7 @@
 Shared fixtures and mock utilities for generate.py regression tests.
 """
 
-import types
-from unittest.mock import MagicMock, patch
+from unittest.mock import MagicMock
 
 import pytest
 

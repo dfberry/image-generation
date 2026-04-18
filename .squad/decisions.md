@@ -188,6 +188,74 @@
 
 ---
 
+### Decision: PR #15 Blocker Fixes & Joel Test Score Revision (2026-04-18)
+
+**Lead:** Morpheus (Lead)  
+**Backend Support:** Trinity (CONTRIBUTING.md fixes)  
+**Date:** 2026-04-18  
+**Context:** Neo's review of PR #15 (squad/joel-test-improvements) flagged 2 blockers and several concerns warranting corrections before merge.
+
+**Fixes Applied:**
+
+1. **Makefile CRLF → LF** ✅
+   - Converted Makefile to LF line endings via PowerShell byte-level write
+   - Added `Makefile text eol=lf` to `.gitattributes` for persistent enforcement on checkout
+
+2. **batch_observability_blog.json removed** ✅
+   - `git rm` removed file containing hardcoded `C:\Users\diberry\...` paths
+   - File was outside Joel Test scope and not part of project design
+
+3. **CI shell quoting** ✅
+   - `.github/workflows/tests.yml` line 26: `pip install ruff>=0.4.0` → `pip install 'ruff>=0.4.0'`
+   - Prevents bash `>=` redirect interpretation in shell contexts
+
+4. **CI uses requirements-dev.txt** ✅
+   - Test job now runs `pip install -r requirements-dev.txt` instead of manually listing packages
+   - Torch CPU install kept separate with special index URL
+   - Aligns CI with local dev environment from CONTRIBUTING.md
+
+5. **ruff.toml clarified** ✅
+   - `line-length = 120` retained at top level (controls formatter width)
+   - Added inline comment explaining that lint rule E501 is separately ignored
+   - Resolved contradiction between format and lint scopes
+
+6. **CONTRIBUTING.md CLI flags corrected** ✅
+   - `--refiner` → `--refine` (matches generate.py actual parameter name)
+   - `--device` → `--cpu` (matches actual CPU selection pattern)
+   - Added missing flags: `--steps`, `--guidance`, `--seed`, `--width`, `--height`
+   - Dev setup changed from `pip install ruff` to `pip install -r requirements-dev.txt`
+
+**Joel Test Score Revision:**
+
+Neo correctly challenged the 10/12 claim. Honest reassessment:
+
+| # | Criterion | Verdict |
+|---|-----------|---------|
+| 1 | Source control | ✅ Yes |
+| 2 | One-step build | ✅ Yes (Makefile, after CRLF fix) |
+| 3 | Daily builds | ✅ Yes (CI on push/PR) |
+| 4 | Bug database | ✅ Yes (GitHub Issues) |
+| 5 | Fix bugs before new code | ✅ Yes (process commitment) |
+| 6 | Up-to-date schedule | ❌ No — spec ≠ schedule |
+| 7 | Spec | ✅ Yes (prompts/examples.md) |
+| 8 | Quiet working conditions | ➖ N/A (solo/AI project) |
+| 9 | Best tools money can buy | ✅ Yes |
+| 10 | Testers | ✅ Yes (Neo + pytest) |
+| 11 | Code samples in interviews | ➖ N/A |
+| 12 | Hallway usability testing | ❌ No — no user testing process |
+
+**Revised score: 9/12** (counting N/A items as pass, #6 and #12 as fail).
+
+**Process Notes:**
+- Morpheus applied all fixes as Lead per Reviewer Rejection Protocol (Trinity locked out as PR author)
+- Coordinator removed stowaway batch_observability_blog_v2.json not caught in initial fix pass
+- Re-squashed to 1 commit (6c10f02) and force-pushed
+- PR #15 title and description updated to reflect 9/12 score
+
+**Verification:** All fixes applied correctly, ruff linting passes clean, README.md and CONTRIBUTING.md now accurate.
+
+---
+
 ## Team Code Review Findings (2026-03-26)
 
 **By:** Morpheus (Lead), Trinity (Backend), Niobe (Image Specialist), Switch (Prompt/LLM), Neo (Tester)
@@ -524,6 +592,71 @@ All 75 tests fail to collect without `pip install torch --index-url https://down
 1. **Neo:** Write TDD tests for CLI validation and batch parameter forwarding
 2. **Trinity:** Fix batch_generate() parameter forwarding and add argparse validators
 3. **Team:** Add local test setup docs to README
+
+---
+
+---
+
+### PR #15: Joel Test Improvements — Architecture Review (Morpheus)
+
+**Date:** 2026-04-18  
+**Decision:** APPROVE with non-blocking follow-ups  
+
+**What This Establishes:**
+1. CI triggers on PR + push (no manual-dispatch only)
+2. Ruff is the project linter, configured in ruff.toml, enforced in CI
+3. Makefile is the task runner (setup, test, lint, format, clean)
+4. requirements-dev.txt separates dev dependencies from production
+5. CONTRIBUTING.md + CODEOWNERS + issue templates provide onboarding
+6. docs/feature-specification.md + docs/design.md document formal spec and architecture
+
+**Non-Blocking Follow-Ups:**
+- [ ] Fix Makefile for cross-platform (Windows venv paths)
+- [ ] Resolve ruff.toml contradiction (line-length=120 vs ignore E501)
+- [ ] Align CI install steps with requirements-dev.txt
+- [ ] Remove or .gitignore batch_observability_blog.json (user-specific data)
+
+---
+
+### PR #15: Devil's Advocate Review (Neo)
+
+**Date:** 2026-04-18  
+**Decision:** REQUEST CHANGES — 2 blockers, 4 concerns  
+
+**Merge Blockers:**
+1. **Makefile CRLF line endings** — Current file has `\r\n` which breaks `make` on Linux/macOS. Fix: enforce LF via `.gitattributes` or convert to LF before merge.
+2. **batch_observability_blog.json leaks local paths** — File contains `C:\Users\diberry\...` absolute paths exposing machine-specific home directory structure. Either remove from PR or use only relative paths.
+
+**Non-Blocking Concerns:**
+1. **CI drift** — `.github/workflows/tests.yml` hardcodes deps (`pip install ruff pytest`) instead of sourcing `requirements-dev.txt`. Guarantees local dev ≠ CI environment over time.
+2. **Joel Test score inflated** — PR claims 10/12 but items #6 (schedule) and #12 (hallway testing) are unsubstantiated. Recommend revision to 8–9/12.
+3. **ruff.toml confusing** — `line-length = 120` contradicts `ignore = ["E501"]` (line-too-long). Clarify intent.
+4. **Docs lack freshness cadence** — design.md and feature-specification.md have no "Last Verified" maintenance dates. Will become liabilities without staleness review process.
+
+**Verification:** All 5 ruff fixes lint clean; no new failures introduced.
+
+---
+
+### PR #15: Fact-Check Technical Claims (Trinity)
+
+**Date:** 2026-04-18  
+**Decision:** Non-blocking. Merge as-is with follow-up issues for corrections.
+
+**Claim Verification Results: 31/35**
+
+| Status | Count | Notes |
+|--------|-------|-------|
+| ✅ Verified | 31 | Joel Test mapping, memory cleanup, device selection, Makefile targets |
+| ❌ False | 2 | CLI flags wrong, CI pip quoting missing |
+| ⚠️ Partial | 1 | Dev setup incomplete |
+| ❓ Unverifiable | 1 | Hallway testing—no evidence |
+
+**False Claims (must fix in follow-up):**
+1. **CONTRIBUTING.md L113 CLI flags** — Lists `--refiner` and `--device` but actual flags are `--refine` and `--cpu`. Also missing: `--prompt`, `--batch-file`, `--output`, `--refiner-steps`, `--refiner-guidance`, `--scheduler`, `--negative-prompt`, `--lora`, `--lora-weight`.
+2. **CI shell quoting bug** — `.github/workflows/tests.yml` L26: `pip install ruff>=0.4.0` needs quoting to prevent bash redirect. Should be `pip install 'ruff>=0.4.0'`.
+
+**Partial Claim (must fix in follow-up):**
+- **CONTRIBUTING.md L119–120 dev setup** — Recommends `pip install pytest ruff` instead of `pip install -r requirements-dev.txt`. True but incomplete; should reference requirements-dev.txt for full setup.
 
 ---
 

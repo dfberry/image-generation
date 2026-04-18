@@ -7,20 +7,18 @@ Tests for SDXL pipeline enhancements:
 """
 
 import argparse
-import json
 from types import SimpleNamespace
-from unittest.mock import MagicMock, patch, call
+from unittest.mock import MagicMock, patch
 
 import pytest
 
 from generate import (
     _dimension,
-    validate_dimensions,
-    parse_args,
-    generate,
     batch_generate,
+    generate,
+    parse_args,
+    validate_dimensions,
 )
-
 
 # ============================================================
 # Phase 1: Dimension validation
@@ -111,7 +109,7 @@ class TestLoRALoading:
     @patch("generate.load_base")
     @patch("generate.get_device", return_value="cpu")
     def test_lora_loaded_when_specified(self, mock_device, mock_load):
-        from conftest import MockPipeline, MockImage
+        from conftest import MockPipeline
         pipe = MockPipeline()
         pipe.load_lora_weights = MagicMock()
         pipe.set_adapters = MagicMock()
