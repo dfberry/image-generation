@@ -11,11 +11,13 @@ Feature contract under test:
     Each input dict: {"prompt": str, "output": str, "seed": int (optional)}
     Each output dict: {"prompt": str, "output": str, "status": "ok"|"error", "error": str|None}
 
-Mocking strategy: patch the underlying generate() so no real model loads.
+Mocking strategy: patch generate_with_retry() so no real model loads.
 No GPU required.
 """
 
-from unittest.mock import patch
+from unittest.mock import MagicMock, patch
+
+import pytest
 
 # ---------------------------------------------------------------------------
 # Import target — expected to be importable from generate (or batch).
@@ -29,6 +31,32 @@ except ImportError:
         from batch import batch_generate
     except ImportError:
         batch_generate = None  # Will cause tests to fail with clear AttributeError
+
+
+# ---------------------------------------------------------------------------
+# Module-wide fixture: suppress _ensure_heavy_imports so tests run without torch
+# ---------------------------------------------------------------------------
+@pytest.fixture(autouse=True)
+def _suppress_heavy_imports():
+    """Prevent batch_generate from triggering real torch/diffusers imports."""
+    import generate as gen_mod
+
+    # Must patch _ensure_heavy_imports FIRST — the module's __getattr__ calls it,
+    # so any attribute access on 'generate' (including for patch resolution) would
+    # trigger the real import of torch/diffusers.
+    with patch("generate._ensure_heavy_imports"):
+        mock_torch = MagicMock()
+        # Use vars() to bypass __getattr__ and check module __dict__ directly
+        had_torch = "torch" in vars(gen_mod)
+        original_torch = vars(gen_mod).get("torch")
+        gen_mod.torch = mock_torch
+        try:
+            yield
+        finally:
+            if had_torch:
+                gen_mod.torch = original_torch
+            elif "torch" in vars(gen_mod):
+                del gen_mod.torch
 
 
 # ---------------------------------------------------------------------------
@@ -47,42 +75,42 @@ def _make_prompts(*items):
 
 
 # ---------------------------------------------------------------------------
-# Test 1 — batch_generate calls generate() once per prompt item
+# Test 1 — batch_generate calls generate_with_retry() once per prompt item
 # ---------------------------------------------------------------------------
 
 class TestBatchCallsGeneratePerItem:
-    """batch_generate must delegate to generate() exactly N times for N prompts."""
+    """batch_generate must delegate to generate_with_retry() exactly N times for N prompts."""
 
     def test_single_prompt_calls_generate_once(self):
-        """One prompt → generate() called exactly once."""
+        """One prompt → generate_with_retry() called exactly once."""
         prompts = _make_prompts(("a tropical scene", "out/01.png"))
 
-        with patch("generate.generate") as mock_gen:
+        with patch("generate.generate_with_retry") as mock_gen:
             mock_gen.return_value = "out/01.png"
             batch_generate(prompts, device="cpu")
 
         assert mock_gen.call_count == 1, (
-            "batch_generate must call generate() exactly once for a single-item list"
+            "batch_generate must call generate_with_retry() exactly once for a single-item list"
         )
 
     def test_three_prompts_calls_generate_three_times(self):
-        """Three prompts → generate() called exactly three times."""
+        """Three prompts → generate_with_retry() called exactly three times."""
         prompts = _make_prompts(
             ("prompt A", "out/a.png"),
             ("prompt B", "out/b.png"),
             ("prompt C", "out/c.png"),
         )
 
-        with patch("generate.generate") as mock_gen:
+        with patch("generate.generate_with_retry") as mock_gen:
             mock_gen.return_value = "out/a.png"
             batch_generate(prompts, device="cpu")
 
         assert mock_gen.call_count == 3, (
-            "batch_generate must call generate() once per item"
+            "batch_generate must call generate_with_retry() once per item"
         )
 
     def test_generate_called_with_correct_args_per_item(self):
-        """generate() must receive the right prompt and output for each item."""
+        """generate_with_retry() must receive the right prompt and output for each item."""
         prompts = _make_prompts(
             ("mountain sunrise", "out/01.png", 42),
             ("ocean waves", "out/02.png", 99),
@@ -94,7 +122,7 @@ class TestBatchCallsGeneratePerItem:
             captured_args.append(args)
             return args.output
 
-        with patch("generate.generate", side_effect=capture):
+        with patch("generate.generate_with_retry", side_effect=capture):
             batch_generate(prompts, device="cpu")
 
         assert len(captured_args) == 2
@@ -113,10 +141,10 @@ class TestBatchCallsGeneratePerItem:
 # ---------------------------------------------------------------------------
 
 class TestMemoryFlushBetweenItems:
-    """gc.collect and cache clears must interleave with generate() calls."""
+    """gc.collect and cache clears must interleave with generate_with_retry() calls."""
 
     def test_gc_collect_fires_between_items(self):
-        """gc.collect() must be called between each generate() invocation."""
+        """gc.collect() must be called between each generate_with_retry() invocation."""
         prompts = _make_prompts(
             ("scene one", "out/01.png"),
             ("scene two", "out/02.png"),
@@ -130,7 +158,7 @@ class TestMemoryFlushBetweenItems:
         def track_gc():
             call_log.append(("gc.collect",))
 
-        with patch("generate.generate", side_effect=track_generate), \
+        with patch("generate.generate_with_retry", side_effect=track_generate), \
              patch("generate.gc") as mock_gc:
             mock_gc.collect.side_effect = track_gc
             batch_generate(prompts, device="cpu")
@@ -139,12 +167,12 @@ class TestMemoryFlushBetweenItems:
         gen_positions = [i for i, e in enumerate(call_log) if e[0] == "generate"]
         gc_positions  = [i for i, e in enumerate(call_log) if e[0] == "gc.collect"]
 
-        assert len(gen_positions) == 2, "Expected two generate() calls"
+        assert len(gen_positions) == 2, "Expected two generate_with_retry() calls"
         assert any(
             gen_positions[0] < gc_pos < gen_positions[1]
             for gc_pos in gc_positions
         ), (
-            "gc.collect() must fire between generate() call 1 and generate() call 2, "
+            "gc.collect() must fire between generate_with_retry() call 1 and call 2, "
             "not just at the end"
         )
 
@@ -163,7 +191,7 @@ class TestMemoryFlushBetweenItems:
         def track_cuda():
             call_log.append(("cuda.empty_cache",))
 
-        with patch("generate.generate", side_effect=track_generate), \
+        with patch("generate.generate_with_retry", side_effect=track_generate), \
              patch("generate.torch") as mock_torch:
             mock_torch.cuda.empty_cache.side_effect = track_cuda
             mock_torch.cuda.is_available.return_value = True
@@ -194,7 +222,7 @@ class TestMemoryFlushBetweenItems:
         def track_mps():
             call_log.append(("mps.empty_cache",))
 
-        with patch("generate.generate", side_effect=track_generate), \
+        with patch("generate.generate_with_retry", side_effect=track_generate), \
              patch("generate.torch") as mock_torch:
             mock_torch.mps.empty_cache.side_effect = track_mps
             mock_torch.cuda.is_available.return_value = False
@@ -230,7 +258,7 @@ class TestPartialFailureHandling:
                 raise RuntimeError("inference exploded")
             return args.output
 
-        with patch("generate.generate", side_effect=selective_fail), \
+        with patch("generate.generate_with_retry", side_effect=selective_fail), \
              patch("generate.gc"):
             results = batch_generate(prompts, device="cpu")
 
@@ -252,7 +280,7 @@ class TestPartialFailureHandling:
                 raise ValueError("bad prompt rejected")
             return args.output
 
-        with patch("generate.generate", side_effect=selective_fail), \
+        with patch("generate.generate_with_retry", side_effect=selective_fail), \
              patch("generate.gc"):
             results = batch_generate(prompts, device="cpu")
 
@@ -266,7 +294,7 @@ class TestPartialFailureHandling:
         """Error entries must capture the exception message — no silent failures."""
         prompts = _make_prompts(("exploding prompt", "out/01.png"))
 
-        with patch("generate.generate", side_effect=RuntimeError("VRAM exploded")), \
+        with patch("generate.generate_with_retry", side_effect=RuntimeError("VRAM exploded")), \
              patch("generate.gc"):
             results = batch_generate(prompts, device="cpu")
 
@@ -278,14 +306,14 @@ class TestPartialFailureHandling:
 
 
 # ---------------------------------------------------------------------------
-# Test 4 — Empty prompts list returns empty results without calling generate
+# Test 4 — Empty prompts list returns empty results without calling generate_with_retry
 # ---------------------------------------------------------------------------
 
 class TestEmptyBatch:
 
     def test_empty_list_returns_empty_results(self):
         """batch_generate([]) must return [] immediately."""
-        with patch("generate.generate") as mock_gen:
+        with patch("generate.generate_with_retry") as mock_gen:
             results = batch_generate([], device="cpu")
 
         assert results == [], "Empty input must produce empty output"
@@ -293,7 +321,7 @@ class TestEmptyBatch:
 
     def test_empty_list_does_not_call_gc(self):
         """No-op batches should not run memory cleanup."""
-        with patch("generate.generate"), \
+        with patch("generate.generate_with_retry"), \
              patch("generate.gc") as mock_gc:
             batch_generate([], device="cpu")
 
@@ -314,7 +342,7 @@ class TestResultOrdering:
             ("third",  "out/03.png"),
         )
 
-        with patch("generate.generate", side_effect=lambda a: a.output), \
+        with patch("generate.generate_with_retry", side_effect=lambda a: a.output), \
              patch("generate.gc"):
             results = batch_generate(prompts, device="cpu")
 
@@ -326,7 +354,7 @@ class TestResultOrdering:
         """Every successful result dict must have an 'output' key."""
         prompts = _make_prompts(("a scene", "out/img.png"))
 
-        with patch("generate.generate", return_value="out/img.png"), \
+        with patch("generate.generate_with_retry", return_value="out/img.png"), \
              patch("generate.gc"):
             results = batch_generate(prompts, device="cpu")
 
@@ -338,7 +366,7 @@ class TestResultOrdering:
         """Every successful result must have status='ok'."""
         prompts = _make_prompts(("a scene", "out/img.png"))
 
-        with patch("generate.generate", return_value="out/img.png"), \
+        with patch("generate.generate_with_retry", return_value="out/img.png"), \
              patch("generate.gc"):
             results = batch_generate(prompts, device="cpu")
 
@@ -348,7 +376,7 @@ class TestResultOrdering:
         """Each result dict must echo back the prompt string."""
         prompts = _make_prompts(("tropical magic realism", "out/01.png"))
 
-        with patch("generate.generate", return_value="out/01.png"), \
+        with patch("generate.generate_with_retry", return_value="out/01.png"), \
              patch("generate.gc"):
             results = batch_generate(prompts, device="cpu")
 
@@ -368,7 +396,7 @@ class TestAllItemsFail:
             ("bad 2", "out/02.png"),
         )
 
-        with patch("generate.generate", side_effect=RuntimeError("always fails")), \
+        with patch("generate.generate_with_retry", side_effect=RuntimeError("always fails")), \
              patch("generate.gc"):
             # Must NOT raise — must return error list
             results = batch_generate(prompts, device="cpu")
@@ -383,7 +411,7 @@ class TestAllItemsFail:
         """Error results must not fabricate a successful output_path."""
         prompts = _make_prompts(("bad", "out/01.png"))
 
-        with patch("generate.generate", side_effect=ValueError("total failure")), \
+        with patch("generate.generate_with_retry", side_effect=ValueError("total failure")), \
              patch("generate.gc"):
             results = batch_generate(prompts, device="cpu")
 
