@@ -233,6 +233,11 @@ SUPPORTED_SCHEDULERS = [
 
 def apply_scheduler(pipeline, scheduler_name: str):
     """Override the pipeline's scheduler by name, using its existing config."""
+    if scheduler_name not in SUPPORTED_SCHEDULERS:
+        raise ValueError(
+            f"'{scheduler_name}' is not a supported scheduler. "
+            f"Valid options: {', '.join(SUPPORTED_SCHEDULERS)}"
+        )
     _ensure_heavy_imports()
     if not hasattr(diffusers, scheduler_name):
         raise ValueError(
@@ -409,6 +414,37 @@ def _validate_output_path(output: str) -> None:
         raise ValueError(msg)
 
 
+def _validate_batch_item(item: dict, index: int) -> str | None:
+    """Validate a single batch item dict.
+
+    Returns None if valid, or an error message string if invalid.
+    Prints warnings for unexpected keys (does not fail).
+    """
+    _REQUIRED_KEYS = {"prompt", "output"}
+    _KNOWN_KEYS = {
+        "prompt", "output", "seed", "negative_prompt",
+        "lora", "lora_weight", "scheduler", "refiner_steps",
+    }
+
+    # Check required keys exist
+    for key in _REQUIRED_KEYS:
+        if key not in item:
+            return f"Batch item {index}: missing required key '{key}'"
+
+    # Check types
+    if not isinstance(item["prompt"], str):
+        return f"Batch item {index}: 'prompt' must be str, got {type(item['prompt']).__name__}"
+    if not isinstance(item["output"], str):
+        return f"Batch item {index}: 'output' must be str, got {type(item['output']).__name__}"
+
+    # Warn on unexpected keys
+    unexpected = set(item.keys()) - _KNOWN_KEYS
+    if unexpected:
+        print(f"⚠ Batch item {index}: unexpected keys ignored: {', '.join(sorted(unexpected))}")
+
+    return None
+
+
 def batch_generate(prompts: list[dict], device: str = None, args=None) -> list[dict]:
     """
     Generate images for a list of prompt dicts, flushing GPU memory between items.
@@ -418,6 +454,8 @@ def batch_generate(prompts: list[dict], device: str = None, args=None) -> list[d
 
     When args is provided, CLI params (steps, guidance, width, height, refine,
     negative_prompt) are forwarded from it instead of using defaults.
+
+    Per-item overrides: scheduler, refiner_steps, lora, lora_weight, negative_prompt.
     """
     _ensure_heavy_imports()
 
@@ -427,6 +465,17 @@ def batch_generate(prompts: list[dict], device: str = None, args=None) -> list[d
 
     results = []
     for i, item in enumerate(prompts):
+        # --- Schema validation (Issue #29) ---
+        validation_error = _validate_batch_item(item, i)
+        if validation_error:
+            results.append({
+                "prompt": item.get("prompt", "<missing>"),
+                "output": item.get("output", "<missing>"),
+                "status": "error",
+                "error": validation_error,
+            })
+            continue
+
         try:
             _validate_output_path(item["output"])
         except ValueError as exc:
@@ -446,7 +495,7 @@ def batch_generate(prompts: list[dict], device: str = None, args=None) -> list[d
                 steps=args.steps if args else 22,
                 guidance=args.guidance if args else 6.5,
                 refiner_guidance=args.refiner_guidance if args else 5.0,
-                scheduler=args.scheduler if args else "DPMSolverMultistepScheduler",
+                scheduler=item.get("scheduler", args.scheduler if args else "DPMSolverMultistepScheduler"),
                 width=args.width if args else 1024,
                 height=args.height if args else 1024,
                 refine=args.refine if args else False,
@@ -454,7 +503,7 @@ def batch_generate(prompts: list[dict], device: str = None, args=None) -> list[d
                 cpu=(device == "cpu"),
                 lora=item.get("lora", getattr(args, 'lora', None)),
                 lora_weight=item.get("lora_weight", getattr(args, 'lora_weight', 0.8)),
-                refiner_steps=getattr(args, 'refiner_steps', 10),
+                refiner_steps=item.get("refiner_steps", getattr(args, 'refiner_steps', 10)),
             )
             output_path = generate_with_retry(batch_args)
             results.append({
