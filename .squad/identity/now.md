@@ -1,21 +1,23 @@
 ---
 updated_at: 2026-04-19
-focus_area: Repo restructure into multi-tool layout
+focus_area: Multi-tool repo structure complete; PR #84 pending merge
 active_issues: []
 ---
 
 # What We're Focused On
 
-Repo restructured into multi-tool layout. Image generation moved to `image-generation/` subfolder. Empty `mermaid-diagrams/` created for future diagram tool. CI, CODEOWNERS, .gitignore updated for new paths.
+Repo restructured into multi-tool layout (PR #84, squad-approved). Image generation lives in `image-generation/` subfolder. Empty `mermaid-diagrams/` created for future diagram tool. CI, CODEOWNERS, .gitignore, doc paths all updated.
 
-## Restructure (2026-04-19)
+## Restructure Complete (2026-04-19)
 
 - **Branch:** `squad/repo-restructure-subfolders`
+- **PR:** #84 (labeled squad-approved)
 - **Layout:** `image-generation/` (active), `mermaid-diagrams/` (planned), shared infra at root
-- **CI:** Updated `working-directory: image-generation` for lint, install, test steps
-- **Tests:** conftest.py updated with sys.path insert for cross-directory imports
+- **CI:** `working-directory: image-generation` for lint, install, test steps
+- **Tests:** 161 pass, zero new failures; conftest.py sys.path fix for imports
+- **Commits:** 387283b (Trinity — restructure), 6f4fd49 (Coordinator — doc path fixes)
 
-## Review Summary (2026-04-19)
+## Prior Review Summary (2026-04-19)
 
 - **Overall grade:** B- (pipeline A-, code quality B+, docs D+, prompts C+)
 - **Findings:** 5 CRITICAL, 7 HIGH, 22 MEDIUM, 12 LOW, 12 INFO
