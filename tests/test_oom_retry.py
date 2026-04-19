@@ -254,7 +254,7 @@ class TestOomDefaultRetryCountIs2:
 class TestOomRetryPrintsWarning:
     """A warning is printed on each retry containing the new step count."""
 
-    def test_oom_retry_prints_warning(self, capsys):
+    def test_oom_retry_prints_warning(self, caplog):
         assert generate_with_retry is not None, (
             "generate_with_retry not found in generate.py"
         )
@@ -264,13 +264,11 @@ class TestOomRetryPrintsWarning:
 
         with patch("generate.generate") as mock_gen:
             mock_gen.side_effect = [oom, success_result]
-            generate_with_retry(args, max_retries=2)
+            with caplog.at_level("WARNING", logger="generate"):
+                generate_with_retry(args, max_retries=2)
 
-        captured = capsys.readouterr()
-        output = captured.out + captured.err
-
-        assert "20" in output, (
-            f"Expected retry warning to mention new steps (20) in stdout/stderr, got: '{output}'"
+        assert "20" in caplog.text, (
+            f"Expected retry warning to mention new steps (20) in log output, got: '{caplog.text}'"
         )
 
 

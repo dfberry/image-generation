@@ -12,11 +12,14 @@ from __future__ import annotations
 import argparse
 import gc
 import json
+import logging
 import os
 import sys
 from datetime import datetime
 from pathlib import Path
 from types import SimpleNamespace
+
+logger = logging.getLogger(__name__)
 
 # ---------------------------------------------------------------------------
 # Lazy imports: torch, diffusers, and DiffusionPipeline are NOT imported at
@@ -134,12 +137,13 @@ def get_device(force_cpu: bool) -> str:
     if force_cpu:
         return "cpu"
     if torch.cuda.is_available():
-        print("✅ CUDA GPU detected")
+        logger.info("CUDA GPU detected")
         return "cuda"
-    if hasattr(torch.backends, "mps") and torch.backends.mps.is_available():
-        print("✅ Apple Silicon (MPS) detected")
+    mps_backend = getattr(torch.backends, "mps", None)
+    if mps_backend is not None and mps_backend.is_available():
+        logger.info("Apple Silicon (MPS) detected")
         return "mps"
-    print("⚠️  No GPU detected — falling back to CPU (slow)")
+    logger.warning("No GPU detected — falling back to CPU (slow)")
     return "cpu"
 
 
@@ -154,7 +158,7 @@ def _apply_performance_opts(pipe, device: str):
     _ensure_heavy_imports()
     # torch.compile gives ~1.5-2× speedup on CUDA with torch >= 2.0
     if device == "cuda" and hasattr(torch, "compile"):
-        print("⚡ Compiling UNet with torch.compile (one-time, ~30s)...")
+        logger.info("Compiling UNet with torch.compile (one-time, ~30s)...")
         # fullgraph=False (default) is safer: fullgraph=True can cause compilation
         # failures with dynamic control flow in complex diffusion models.  The
         # speed difference is negligible for SDXL; remove this flag only if you
@@ -162,9 +166,10 @@ def _apply_performance_opts(pipe, device: str):
         pipe.unet = torch.compile(pipe.unet, mode="reduce-overhead")
 
     # Memory-efficient attention: prefer xFormers, fall back to attention slicing
-    if hasattr(pipe, "enable_xformers_memory_efficient_attention"):
+    xformers_fn = getattr(pipe, "enable_xformers_memory_efficient_attention", None)
+    if xformers_fn is not None:
         try:
-            pipe.enable_xformers_memory_efficient_attention()
+            xformers_fn()
         except Exception:
             pipe.enable_attention_slicing()
     else:
@@ -174,7 +179,7 @@ def _apply_performance_opts(pipe, device: str):
 def load_base(device: str) -> DiffusionPipeline:
     """Load SDXL base model."""
     _ensure_heavy_imports()
-    print("📥 Loading SDXL base model (first run downloads ~7GB)...")
+    logger.info("Loading SDXL base model (first run downloads ~7GB)...")
     dtype = get_dtype(device)
     pipe = DiffusionPipeline.from_pretrained(
         "stabilityai/stable-diffusion-xl-base-1.0",
@@ -201,7 +206,7 @@ def load_base(device: str) -> DiffusionPipeline:
 def load_refiner(text_encoder_2, vae, device: str) -> DiffusionPipeline:
     """Load SDXL refiner, sharing text encoder and VAE from base."""
     _ensure_heavy_imports()
-    print("📥 Loading SDXL refiner model...")
+    logger.info("Loading SDXL refiner model...")
     dtype = get_dtype(device)
     refiner = DiffusionPipeline.from_pretrained(
         "stabilityai/stable-diffusion-xl-refiner-1.0",
@@ -248,12 +253,12 @@ def apply_scheduler(pipeline, scheduler_name: str):
             f"Valid options: {', '.join(SUPPORTED_SCHEDULERS)}"
         )
     _ensure_heavy_imports()
-    if not hasattr(diffusers, scheduler_name):
+    scheduler_cls = getattr(diffusers, scheduler_name, None)
+    if scheduler_cls is None:
         raise ValueError(
             f"Unknown scheduler: {scheduler_name}. "
             f"Available: {', '.join(SUPPORTED_SCHEDULERS)}"
         )
-    scheduler_cls = getattr(diffusers, scheduler_name)
     config = getattr(pipeline.scheduler, 'config', {})
     if not isinstance(config, dict):
         config = {}
@@ -267,7 +272,7 @@ def apply_lora(pipeline, lora: str | None, lora_weight: float = 0.8):
     """Load LoRA weights into the pipeline if specified."""
     if lora is None:
         return
-    print(f"🎨 Loading LoRA: {lora} (weight={lora_weight})")
+    logger.info("Loading LoRA: %s (weight=%s)", lora, lora_weight)
     pipeline.load_lora_weights(lora)
     pipeline.set_adapters(["default"], adapter_weights=[lora_weight])
 
@@ -342,7 +347,8 @@ def generate(args) -> str:
     gc.collect()
     if torch.cuda.is_available():
         torch.cuda.empty_cache()
-    if hasattr(torch.backends, "mps") and torch.backends.mps.is_available():
+    mps_backend = getattr(torch.backends, "mps", None)
+    if mps_backend is not None and mps_backend.is_available():
         torch.mps.empty_cache()
 
     # Set up generator for reproducible output
@@ -352,7 +358,7 @@ def generate(args) -> str:
         # so bind the generator to CPU to avoid a device mismatch.
         generator_device = "cpu" if device in ("cpu", "mps") else device
         generator = torch.Generator(device=generator_device).manual_seed(args.seed)
-        print(f"🌱 Seed: {args.seed}")
+        logger.info("Seed: %s", args.seed)
 
     # Resolve output path
     output_path = args.output
@@ -363,10 +369,15 @@ def generate(args) -> str:
 
     base = refiner = latents = text_encoder_2 = vae = image = None
     try:
-        if args.refine:
-            print(f"🎨 Running base + refiner pipeline ({args.steps} steps total)...")
-            base = _load_pipeline(device, args)
+        # Shared setup: load base pipeline regardless of refiner usage
+        logger.info(
+            "Running %s (%d steps)...",
+            "base + refiner pipeline" if args.refine else "base model",
+            args.steps,
+        )
+        base = _load_pipeline(device, args)
 
+        if args.refine:
             # Stage 1: base model produces latents
             latents = _run_inference(base, args, generator, for_refiner=True)
 
@@ -392,18 +403,14 @@ def generate(args) -> str:
                 latents, text_encoder_2, vae, device, args, generator,
             )
         else:
-            print(f"🎨 Running base model ({args.steps} steps)...")
-            base = _load_pipeline(device, args)
             image = _run_inference(base, args, generator)
 
         if image is not None:
             image.save(output_path)
-            print(f"✅ Saved: {output_path}")
+            logger.info("Saved: %s", output_path)
     except Exception as exc:
-        _is_cuda_oom = (
-            hasattr(torch.cuda, "OutOfMemoryError")
-            and isinstance(exc, torch.cuda.OutOfMemoryError)
-        )
+        _cuda_oom_cls = getattr(torch.cuda, "OutOfMemoryError", None)
+        _is_cuda_oom = _cuda_oom_cls is not None and isinstance(exc, _cuda_oom_cls)
         _is_mps_oom = isinstance(exc, RuntimeError) and "out of memory" in str(exc).lower()
         if _is_cuda_oom or _is_mps_oom:
             raise OOMError(
@@ -418,14 +425,16 @@ def generate(args) -> str:
         gc.collect()
         if torch.cuda.is_available():
             torch.cuda.empty_cache()
-        if hasattr(torch.backends, "mps") and torch.backends.mps.is_available():
+        mps_backend = getattr(torch.backends, "mps", None)
+        if mps_backend is not None and mps_backend.is_available():
             torch.mps.empty_cache()
         # Fix 2: torch.compile (used on CUDA in load_base) populates a process-global
         # dynamo cache that survives del base. Reset it to prevent accumulation across
         # repeated generate() calls. If torch.compile is added for other devices later,
         # broaden this guard accordingly.
-        if device == "cuda" and hasattr(torch, "_dynamo"):
-            torch._dynamo.reset()
+        dynamo = getattr(torch, "_dynamo", None)
+        if device == "cuda" and dynamo is not None:
+            dynamo.reset()
 
     return output_path
 
@@ -472,7 +481,7 @@ def _validate_batch_item(item: dict, index: int) -> str | None:
     # Warn on unexpected keys
     unexpected = set(item.keys()) - _KNOWN_KEYS
     if unexpected:
-        print(f"⚠ Batch item {index}: unexpected keys ignored: {', '.join(sorted(unexpected))}")
+        logger.warning("Batch item %d: unexpected keys ignored: %s", index, ", ".join(sorted(unexpected)))
 
     return None
 
@@ -557,7 +566,8 @@ def batch_generate(prompts: list[dict], device: str = None, args=None) -> list[d
             gc.collect()
             if torch.cuda.is_available():
                 torch.cuda.empty_cache()
-            if hasattr(torch.backends, "mps") and torch.backends.mps.is_available():
+            mps_backend = getattr(torch.backends, "mps", None)
+            if mps_backend is not None and mps_backend.is_available():
                 torch.mps.empty_cache()
 
     return results
@@ -584,29 +594,33 @@ def generate_with_retry(args, max_retries: int = 2) -> str:
                     f"Out of GPU memory after {max_retries} retries. Last attempt used {current_steps} steps."
                 )
             current_steps = max(1, current_steps // 2)
-            print(f"OOM: retrying with {current_steps} steps")
+            logger.warning("OOM: retrying with %d steps", current_steps)
 
 
 def main():
     args = parse_args()
-    if hasattr(args, 'batch_file') and args.batch_file:
+    if getattr(args, 'batch_file', None):
         try:
             with open(args.batch_file) as f:
                 prompts = json.load(f)
         except FileNotFoundError:
-            print(f"Error: batch file not found: {args.batch_file}", file=sys.stderr)
+            logger.error("Batch file not found: %s", args.batch_file)
             sys.exit(1)
         except json.JSONDecodeError as e:
-            print(f"Error: invalid JSON in batch file: {e}", file=sys.stderr)
+            logger.error("Invalid JSON in batch file: %s", e)
             sys.exit(1)
         device = "cpu" if args.cpu else get_device(False)
         results = batch_generate(prompts, device=device, args=args)
         for r in results:
             status = r['status']
-            print(f"[{status}] {r['prompt'][:50]} → {r.get('output', r.get('error', ''))}")
+            logger.info("[%s] %s → %s", status, r['prompt'][:50], r.get('output', r.get('error', '')))
     else:
         generate_with_retry(args)
 
 
 if __name__ == "__main__":
+    logging.basicConfig(
+        level=logging.INFO,
+        format="%(levelname)s: %(message)s",
+    )
     main()
