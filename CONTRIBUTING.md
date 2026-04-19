@@ -131,6 +131,56 @@ contains(fromJSON('["diberry","dfberry"]'), github.actor)
 > default, but restricting the actor list prevents CI resource usage from
 > unknown forks or accounts.
 
+## GitHub Token Scopes and Permissions
+
+### Workflow Token Requirements
+
+This repository uses GitHub Actions with the following permission models:
+
+#### `.github/workflows/tests.yml` — Run Tests
+- **Permissions:** `{}` (empty/minimal)
+- **Actions Used:** `actions/checkout`, `actions/setup-python`
+- **Purpose:** Linting and unit tests on PR/manual dispatch
+- **Note:** Minimal permissions are intentional — no external writes are needed
+
+#### `.github/workflows/squad-issue-assign.yml` — Squad Issue Assign
+- **Permissions:**
+  - `issues: write` — to create comments and assign issues
+  - `contents: read` — to read `.squad/team.md`
+- **Actions Used:** `actions/checkout`, `actions/github-script`
+- **Special Token:** `COPILOT_ASSIGN_TOKEN` (when assigning `@copilot` agent)
+  - Scope: `repo` (full repository access)
+  - Used for: Assigning the GitHub Copilot SWE agent to issues
+  - Storage: GitHub Actions Secret (repo-level)
+  - **Note:** This is a Personal Access Token (PAT) and should be created with minimal scopes
+
+#### `.github/workflows/squad-triage.yml` — Squad Triage
+- **Permissions:**
+  - `issues: write` — to create comments and add labels
+  - `contents: read` — to read `.squad/team.md` and routing rules
+- **Actions Used:** `actions/checkout`, `actions/github-script`
+- **Purpose:** Automated issue routing based on capability matching
+
+#### `.github/workflows/sync-squad-labels.yml`
+- **Actions Used:** `actions/checkout`
+- **Purpose:** Sync squad member labels and metadata
+
+#### `.github/workflows/squad-heartbeat.yml`
+- **Actions Used:** `actions/checkout`
+- **Purpose:** Periodic health check for squad workflow infrastructure
+
+### Setting up `COPILOT_ASSIGN_TOKEN`
+
+If you need to enable `@copilot` agent assignment:
+
+1. Generate a Personal Access Token (PAT) from your GitHub account
+2. Recommended scopes:
+   - `repo` — full repository access (required for agent assignment)
+3. Store as a GitHub Actions Secret named `COPILOT_ASSIGN_TOKEN` at the repository level
+4. The secret will be available to workflows that explicitly request it via `github-token`
+
+**Security Note:** This token should be rotated periodically and created with the minimum necessary scopes for the agent to function.
+
 ## Key Details
 
 - **Image pipeline:** Stable Diffusion XL (SDXL) via HuggingFace `diffusers`
