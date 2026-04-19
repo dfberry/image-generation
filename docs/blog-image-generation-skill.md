@@ -9,7 +9,7 @@ tools:
     description: "Run generation scripts and monitor output"
     when: "Executing generate_blog_images.sh and tailing logs"
   - name: "image-generation project"
-    description: "Python 3.14 + HuggingFace diffusers SDXL pipeline"
+    description: "Python 3.10+ + HuggingFace diffusers SDXL pipeline"
     when: "Generating images via generate.py with custom prompts"
 ---
 
@@ -42,7 +42,7 @@ source venv/bin/activate
 - Device: Apple Silicon MPS (auto-detected by HuggingFace diffusers)
 
 **Stack:**
-- Python 3.14 + HuggingFace diffusers 0.37.0 + SDXL Base 1.0
+- Python 3.10+ + HuggingFace diffusers 0.37.0 + SDXL Base 1.0
 
 ### 1. Read the Blog Post and Map Images to Sections
 
@@ -247,7 +247,7 @@ warm luminous atmosphere suggesting hope and renewal
 - Include text, brand logos, or Disney characters
 - Use prompts with words like "sign", "label", "menu", "banner", or "banner text" without also adding `no letters or text anywhere` — SDXL will render garbled characters
 - Ignore the color palette in pursuit of photorealism
-- Run `nohup bash script.sh` (causes Python 3.14 fatal errors)
+- Run `nohup bash script.sh` (causes fatal errors with unbuffered I/O)
 - Place images randomly; map them to narrative moments first
 - Write 50+ word prompts; SDXL performs better with 15-25 words of detail
 - Skip alt text or use vague descriptions ("image", "picture", "graphic")
