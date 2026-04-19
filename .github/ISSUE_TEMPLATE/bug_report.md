@@ -12,7 +12,7 @@ A clear and concise description of what the bug is.
 
 ## Steps to Reproduce
 
-1. Run command: `python generate.py ...`
+1. Run command: `cd image-generation && python generate.py ...`
 2. With arguments: `--steps X --guidance Y --seed Z`
 3. Observe: ...
 
