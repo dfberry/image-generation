@@ -7,6 +7,8 @@ Model: stabilityai/stable-diffusion-xl-base-1.0
 License: CreativeML Open RAIL++-M
 """
 
+from __future__ import annotations
+
 import argparse
 import gc
 import json
@@ -16,9 +18,35 @@ from datetime import datetime
 from pathlib import Path
 from types import SimpleNamespace
 
-import diffusers
-import torch
-from diffusers import DiffusionPipeline
+# ---------------------------------------------------------------------------
+# Lazy imports: torch, diffusers, and DiffusionPipeline are NOT imported at
+# module level so that ``import generate`` succeeds without the GPU stack.
+# Every function that needs them calls ``_ensure_heavy_imports()`` first.
+# Tests can ``@patch("generate.torch")`` etc. as before — the patched value
+# lands in globals() before the guard runs, so the real import is skipped.
+# ---------------------------------------------------------------------------
+
+
+def _ensure_heavy_imports():
+    """Populate module globals with torch / diffusers on first real use."""
+    global torch, diffusers, DiffusionPipeline
+    if "torch" not in globals():
+        import torch
+    if "diffusers" not in globals():
+        import diffusers
+    if "DiffusionPipeline" not in globals():
+        from diffusers import DiffusionPipeline
+
+
+def __getattr__(name):
+    """PEP 562 module ``__getattr__`` — lets external code (including
+    ``unittest.mock.patch``) access ``generate.torch`` and friends without
+    them being eagerly imported at module level.
+    """
+    if name in ("torch", "diffusers", "DiffusionPipeline"):
+        _ensure_heavy_imports()
+        return globals()[name]
+    raise AttributeError(f"module {__name__!r} has no attribute {name!r}")
 
 
 class OOMError(RuntimeError):
@@ -102,6 +130,7 @@ def parse_args():
 
 def get_device(force_cpu: bool) -> str:
     """Detect best available device."""
+    _ensure_heavy_imports()
     if force_cpu:
         return "cpu"
     if torch.cuda.is_available():
@@ -116,11 +145,13 @@ def get_device(force_cpu: bool) -> str:
 
 def get_dtype(device: str):
     """Float16 on GPU, float32 on CPU."""
+    _ensure_heavy_imports()
     return torch.float16 if device in ("cuda", "mps") else torch.float32
 
 
 def _apply_performance_opts(pipe, device: str):
     """Apply torch.compile and memory-efficient attention optimizations."""
+    _ensure_heavy_imports()
     # torch.compile gives ~1.5-2× speedup on CUDA with torch >= 2.0
     if device == "cuda" and hasattr(torch, "compile"):
         print("⚡ Compiling UNet with torch.compile (one-time, ~30s)...")
@@ -138,6 +169,7 @@ def _apply_performance_opts(pipe, device: str):
 
 def load_base(device: str) -> DiffusionPipeline:
     """Load SDXL base model."""
+    _ensure_heavy_imports()
     print("📥 Loading SDXL base model (first run downloads ~7GB)...")
     dtype = get_dtype(device)
     pipe = DiffusionPipeline.from_pretrained(
@@ -161,6 +193,7 @@ def load_base(device: str) -> DiffusionPipeline:
 
 def load_refiner(text_encoder_2, vae, device: str) -> DiffusionPipeline:
     """Load SDXL refiner, sharing text encoder and VAE from base."""
+    _ensure_heavy_imports()
     print("📥 Loading SDXL refiner model...")
     dtype = get_dtype(device)
     refiner = DiffusionPipeline.from_pretrained(
@@ -200,6 +233,7 @@ SUPPORTED_SCHEDULERS = [
 
 def apply_scheduler(pipeline, scheduler_name: str):
     """Override the pipeline's scheduler by name, using its existing config."""
+    _ensure_heavy_imports()
     if not hasattr(diffusers, scheduler_name):
         raise ValueError(
             f"Unknown scheduler: {scheduler_name}. "
@@ -226,6 +260,7 @@ def apply_lora(pipeline, lora: str | None, lora_weight: float = 0.8):
 
 def generate(args) -> str:
     """Run image generation and save to output path."""
+    _ensure_heavy_imports()
     validate_dimensions(args.width, args.height)
     device = get_device(args.cpu)
 
@@ -384,6 +419,9 @@ def batch_generate(prompts: list[dict], device: str = None, args=None) -> list[d
     When args is provided, CLI params (steps, guidance, width, height, refine,
     negative_prompt) are forwarded from it instead of using defaults.
     """
+    _ensure_heavy_imports()
+
+    # Auto-detect device when not explicitly provided
     if device is None:
         device = get_device(force_cpu=False)
 
@@ -400,24 +438,24 @@ def batch_generate(prompts: list[dict], device: str = None, args=None) -> list[d
             })
             continue
 
-        batch_args = SimpleNamespace(
-            prompt=item["prompt"],
-            output=item["output"],
-            seed=item.get("seed"),
-            steps=args.steps if args else 22,
-            guidance=args.guidance if args else 6.5,
-            refiner_guidance=args.refiner_guidance if args else 5.0,
-            scheduler=args.scheduler if args else "DPMSolverMultistepScheduler",
-            width=args.width if args else 1024,
-            height=args.height if args else 1024,
-            refine=args.refine if args else False,
-            negative_prompt=item.get("negative_prompt", args.negative_prompt if args else ""),
-            cpu=(device == "cpu"),
-            lora=item.get("lora", getattr(args, 'lora', None)),
-            lora_weight=item.get("lora_weight", getattr(args, 'lora_weight', 0.8)),
-            refiner_steps=getattr(args, 'refiner_steps', 10),
-        )
         try:
+            batch_args = SimpleNamespace(
+                prompt=item["prompt"],
+                output=item["output"],
+                seed=item.get("seed"),
+                steps=args.steps if args else 22,
+                guidance=args.guidance if args else 6.5,
+                refiner_guidance=args.refiner_guidance if args else 5.0,
+                scheduler=args.scheduler if args else "DPMSolverMultistepScheduler",
+                width=args.width if args else 1024,
+                height=args.height if args else 1024,
+                refine=args.refine if args else False,
+                negative_prompt=item.get("negative_prompt", args.negative_prompt if args else ""),
+                cpu=(device == "cpu"),
+                lora=item.get("lora", getattr(args, 'lora', None)),
+                lora_weight=item.get("lora_weight", getattr(args, 'lora_weight', 0.8)),
+                refiner_steps=getattr(args, 'refiner_steps', 10),
+            )
             output_path = generate_with_retry(batch_args)
             results.append({
                 "prompt": item["prompt"],
