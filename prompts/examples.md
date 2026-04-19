@@ -200,15 +200,15 @@ A luminous gift box overflowing with glowing scrolls, colorful ceremonial banner
 
 ## Prompt 03 — Inner Source Bridge (Standards travel with the code)
 ```
-A sturdy bridge woven from golden circuit patterns and luminous tropical flowers spanning between two vibrant village squares, one village on each side connected by the glowing pathway, people crossing freely carrying colorful glowing lanterns, deep teal and emerald green palette with warm gold accents, Latin American folk art style, magical realism illustration, birds carrying light particles between the villages, sense of effortless knowledge transfer, no text
+A sturdy bridge woven from golden circuit patterns and luminous tropical flowers spanning between two vibrant village squares, one village on each side connected by the glowing pathway, distant silhouettes carrying colorful glowing lanterns across the bridge, deep teal and emerald green palette with warm gold accents, Latin American folk art style, magical realism illustration, birds carrying light particles between the villages, sense of effortless knowledge transfer, no text
 ```
-**Alt text:** A luminous bridge of tropical flowers and circuit patterns connecting two team villages, representing how Brady's standards and conventions automatically travel with cloned repos—contributors conform without friction.
+**Alt text:** A luminous bridge of tropical flowers and circuit patterns connecting two team villages with distant silhouettes carrying lanterns, representing how Brady's standards and conventions automatically travel with cloned repos—contributors conform without friction.
 
 ## Prompt 04 — Contributor Experimentation (Cheap to try ideas)
 ```
-A figure standing in a blooming tropical garden surrounded by floating translucent thought bubbles showing different colorful architectural diagrams, each bubble glowing with teal, magenta, or emerald light, the figure gesturing towards the bubbles as if testing ideas, lush foliage in warm coral and amber tones, Latin American folk art style, magical realism illustration, playful and experimental mood, light particles connecting the bubbles to a glowing decisions scroll in the center, no text
+A distant silhouette standing in a blooming tropical garden surrounded by floating translucent thought bubbles showing different colorful architectural diagrams, each bubble glowing with teal, magenta, or emerald light, lush foliage in warm coral and amber tones, Latin American folk art style, magical realism illustration, playful and experimental mood, light particles connecting the bubbles to a glowing decisions scroll in the center, no text
 ```
-**Alt text:** A contributor in a blooming garden surrounded by glowing thought bubbles showing architectural ideas, representing how a committed Squad makes experimentation cheap—test approaches against decisions.md before building.
+**Alt text:** A distant silhouette in a blooming garden surrounded by glowing thought bubbles showing architectural ideas, representing how a committed Squad makes experimentation cheap—test approaches against decisions.md before building.
 
 ## Prompt 05 — Knowledge Persistence (What stays when contributors leave)
 ```
@@ -352,24 +352,24 @@ python generate.py --prompt "Latin American folk art style, magical realism illu
 **Concept:** Validating your approach with the squad team before you build
 
 ```
-Latin American folk art style, magical realism illustration of a cheerful traveler leaning over a bright hotel lobby table covered in illustrated maps, tropical plants in terracotta pots, gold and teal tilework glowing in warm sunlight, no text
+Latin American folk art style, magical realism illustration of a distant silhouette of a traveler at a bright hotel lobby table covered in illustrated maps, tropical plants in terracotta pots, gold and teal tilework glowing in warm sunlight, no text
 ```
 **Seed:** 45
-**Alt text:** A cheerful traveler leaning over maps spread across a bright hotel lobby table surrounded by tropical plants and gold tilework, representing how contributors can plan and validate their approach with the squad team before writing a line of code
+**Alt text:** A distant silhouette of a traveler at a bright hotel lobby table covered in maps surrounded by tropical plants and gold tilework, representing how contributors can plan and validate their approach with the squad team before writing a line of code
 
 ```bash
-python generate.py --prompt "Latin American folk art style, magical realism illustration of a cheerful traveler leaning over a bright hotel lobby table covered in illustrated maps, tropical plants in terracotta pots, gold and teal tilework glowing in warm sunlight, no text" --output "outputs/04.png" --seed 45
+python generate.py --prompt "Latin American folk art style, magical realism illustration of a distant silhouette of a traveler at a bright hotel lobby table covered in illustrated maps, tropical plants in terracotta pots, gold and teal tilework glowing in warm sunlight, no text" --output "outputs/04.png" --seed 45
 ```
 
 ### Image 05 — Hotel Staff Passing Knowledge (05-ceremonies-circle.png)
 **Concept:** Knowledge compounds over time; what stays when contributors leave
 
 ```
-Latin American folk art style, magical realism illustration of three uniformed hotel staff in a sunlit lobby, one passing a glowing golden key and journal to a smiling newcomer, magenta and emerald uniforms, mosaic tile floor, no text
+Latin American folk art style, magical realism illustration of three backlit figures in hotel uniforms in a sunlit lobby, a glowing golden key and journal exchanged between them, magenta and emerald uniforms, mosaic tile floor, no text
 ```
 **Seed:** 46
-**Alt text:** Three hotel staff in a sunlit lobby passing a golden key and journal to a smiling newcomer in magenta and emerald uniforms, representing how institutional knowledge is preserved and passed on rather than lost when contributors move on
+**Alt text:** Three backlit figures in hotel uniforms in a sunlit lobby with a glowing golden key and journal exchanged between them, representing how institutional knowledge is preserved and passed on rather than lost when contributors move on
 
 ```bash
-python generate.py --prompt "Latin American folk art style, magical realism illustration of three uniformed hotel staff in a sunlit lobby, one passing a glowing golden key and journal to a smiling newcomer, magenta and emerald uniforms, mosaic tile floor, no text" --output "outputs/05.png" --seed 46
+python generate.py --prompt "Latin American folk art style, magical realism illustration of three backlit figures in hotel uniforms in a sunlit lobby, a glowing golden key and journal exchanged between them, magenta and emerald uniforms, mosaic tile floor, no text" --output "outputs/05.png" --seed 46
 ```

@@ -21,27 +21,27 @@ python3 - <<'EOF' > "$BATCH_FILE"
 import json
 prompts = [
     {
-        "prompt": "Latin American folk art illustration of a brightly painted seaplane gliding toward a colorful wooden dock, turquoise water below, coral and gold pennants waving from palm trees lining the pier, warm afternoon light",
+        "prompt": "Latin American folk art style, magical realism illustration of a brightly painted seaplane gliding toward a colorful wooden dock, turquoise water below, coral and gold pennants waving from palm trees lining the pier, warm afternoon light, no text",
         "output": "outputs/01.png",
         "seed": 42,
     },
     {
-        "prompt": "Folk art illustration of a vibrant resort welcome hamper overflowing with maps, golden keys, and tropical fruit at a painted hotel door, magenta and teal ribbons, luminous warm light",
+        "prompt": "Latin American folk art style, magical realism illustration of a vibrant resort welcome hamper overflowing with maps, golden keys, and tropical fruit at a painted hotel door, magenta and teal ribbons, luminous warm light, no text",
         "output": "outputs/02.png",
         "seed": 43,
     },
     {
-        "prompt": "Latin American folk art illustration of an arched footbridge covered in painted flowers and folk patterns connecting two colorful resort islands over bright turquoise water, golden sunrise glow",
+        "prompt": "Latin American folk art style, magical realism illustration of an arched footbridge covered in painted flowers and folk patterns connecting two colorful resort islands over bright turquoise water, golden sunrise glow, no text",
         "output": "outputs/03.png",
         "seed": 44,
     },
     {
-        "prompt": "Folk art illustration of a cheerful traveler leaning over a bright hotel lobby table covered in illustrated maps, tropical plants in terracotta pots, gold and teal tilework glowing in warm sunlight",
+        "prompt": "Latin American folk art style, magical realism illustration of a distant silhouette of a traveler at a bright hotel lobby table covered in illustrated maps, tropical plants in terracotta pots, gold and teal tilework glowing in warm sunlight, no text",
         "output": "outputs/04.png",
         "seed": 45,
     },
     {
-        "prompt": "Latin American folk art illustration of three uniformed hotel staff in a sunlit lobby, one passing a glowing golden key and journal to a smiling newcomer, magenta and emerald uniforms, mosaic tile floor",
+        "prompt": "Latin American folk art style, magical realism illustration of three backlit figures in hotel uniforms in a sunlit lobby, a glowing golden key and journal exchanged between them, magenta and emerald uniforms, mosaic tile floor, no text",
         "output": "outputs/05.png",
         "seed": 46,
     },
