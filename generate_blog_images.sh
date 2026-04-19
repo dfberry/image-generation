@@ -17,7 +17,7 @@ source venv/bin/activate
 BATCH_FILE="batch_prompts_$$.json"
 
 # Build the JSON prompts array via Python (avoids jq dependency)
-python3 - <<'EOF' > "$BATCH_FILE"
+python - <<'EOF' > "$BATCH_FILE"
 import json
 prompts = [
     {
@@ -49,7 +49,7 @@ prompts = [
 print(json.dumps(prompts, indent=2))
 EOF
 
-python3 -u generate.py --batch-file "$BATCH_FILE" 2>&1 | tee -a generation.log
+python -u generate.py --batch-file "$BATCH_FILE" 2>&1 | tee -a generation.log
 
 rm -f "$BATCH_FILE"
 
