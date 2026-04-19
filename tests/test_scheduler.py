@@ -6,6 +6,7 @@ from unittest.mock import MagicMock, patch
 import pytest
 
 from generate import apply_scheduler, parse_args
+from tests.conftest import MockPipeline
 
 
 def _parse_with_args(cli_args):
@@ -44,7 +45,6 @@ class TestDefaultStepsChanged:
 class TestSchedulerApplied:
     def test_base_pipeline_scheduler_is_set(self, mock_args_base):
         mock_args_base.scheduler = "DPMSolverMultistepScheduler"
-        from tests.conftest import MockPipeline
         base = MockPipeline(return_latents=False)
         base.scheduler = MagicMock()
         mock_scheduler_cls = MagicMock()
@@ -61,7 +61,6 @@ class TestSchedulerApplied:
 
     def test_refiner_path_also_sets_scheduler_on_base(self, mock_args_refine):
         mock_args_refine.scheduler = "DPMSolverMultistepScheduler"
-        from tests.conftest import MockPipeline
         base = MockPipeline(return_latents=True)
         base.scheduler = MagicMock()
         base.scheduler.config = {"some": "config"}
@@ -97,7 +96,6 @@ class TestRefinerGuidance:
         mock_args_refine.scheduler = "DPMSolverMultistepScheduler"
         mock_args_refine.refiner_guidance = 5.0
         mock_args_refine.guidance = 7.5
-        from tests.conftest import MockPipeline
         base = MockPipeline(return_latents=True)
         base.scheduler = MagicMock()
         base.scheduler.config = {}
@@ -106,7 +104,7 @@ class TestRefinerGuidance:
         mock_image = MagicMock()
         refiner_result = MagicMock()
         refiner_result.images = [mock_image]
-        refiner = MagicMock()
+        refiner = MagicMock(spec=MockPipeline())
         refiner.return_value = refiner_result
         refiner.text_encoder_2 = MagicMock()
         refiner.vae = MagicMock()
@@ -132,7 +130,7 @@ class TestBatchGenerateDefaults:
         def mg(args):
             cap["steps"] = args.steps
             return args.output
-        with patch("generate.generate", side_effect=mg):
+        with patch("generate.generate_with_retry", side_effect=mg):
             gen.batch_generate([{"prompt": "t", "output": "o.png"}], device="cpu")
         assert cap["steps"] == 22
 
@@ -147,26 +145,23 @@ class TestBatchGenerateDefaults:
         cli = SimpleNamespace(steps=28, guidance=7.5, refiner_guidance=5.0,
             scheduler="EulerDiscreteScheduler", width=1024, height=1024,
             refine=False, negative_prompt="", cpu=True)
-        with patch("generate.generate", side_effect=mg):
+        with patch("generate.generate_with_retry", side_effect=mg):
             gen.batch_generate([{"prompt": "t", "output": "o.png"}], device="cpu", args=cli)
         assert cap["scheduler"] == "EulerDiscreteScheduler"
 
 
 class TestInvalidSchedulerHandling:
     def test_invalid_scheduler_raises_value_error(self):
-        from tests.conftest import MockPipeline
         p = MockPipeline(return_latents=False)
         with pytest.raises(ValueError, match="Unknown scheduler"):
             apply_scheduler(p, "NotARealScheduler")
 
     def test_invalid_scheduler_error_lists_available(self):
-        from tests.conftest import MockPipeline
         p = MockPipeline(return_latents=False)
         with pytest.raises(ValueError, match="DPMSolverMultistepScheduler"):
             apply_scheduler(p, "FakeScheduler123")
 
     def test_invalid_scheduler_does_not_raise_attribute_error(self):
-        from tests.conftest import MockPipeline
         p = MockPipeline(return_latents=False)
         try:
             apply_scheduler(p, "CompletelyBogusScheduler")
@@ -178,7 +173,6 @@ class TestInvalidSchedulerHandling:
 
     def test_invalid_scheduler_in_generate_raises_value_error(self, mock_args_base):
         mock_args_base.scheduler = "TotallyFakeScheduler"
-        from tests.conftest import MockPipeline
         base = MockPipeline(return_latents=False)
         import generate as gen
         with patch("generate.load_base", return_value=base), \

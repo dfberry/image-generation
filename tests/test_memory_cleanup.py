@@ -311,7 +311,7 @@ class TestLatentsTensorHandling:
 
     def _make_base_with_latent(self, latent_mock):
         """Return a MagicMock pipeline that yields latent_mock as its output."""
-        base = MagicMock()
+        base = MagicMock(spec=MockPipeline())
         base.text_encoder_2 = MagicMock()
         base.vae = MagicMock()
         call_result = MagicMock()

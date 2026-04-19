@@ -18,6 +18,7 @@ from unittest.mock import MagicMock, patch
 import pytest
 
 from generate import batch_generate, generate, parse_args
+from tests.conftest import MockPipeline
 
 # ---------------------------------------------------------------------------
 # Helpers
@@ -51,7 +52,7 @@ def _make_mock_pipeline(return_latents=False):
     Mimics conftest.MockPipeline but uses MagicMock so we can inspect
     call_args after generate() runs.
     """
-    pipe = MagicMock()
+    pipe = MagicMock(spec=MockPipeline())
     pipe.text_encoder_2 = MagicMock()
     pipe.vae = MagicMock()
     pipe.unet = MagicMock()
