@@ -17,6 +17,12 @@ source venv/bin/activate  # Windows: venv\Scripts\activate
 pip install -r requirements.txt
 ```
 
+**For reproducible builds in CI/CD**, use `requirements.lock` which pins all dependencies to exact versions:
+
+```bash
+pip install -r requirements.lock
+```
+
 **Dependency versions:** Pinned to known-good releases:
 - `torch>=2.1.0`
 - `diffusers>=0.21.0`

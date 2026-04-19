@@ -28,6 +28,16 @@ pip install -r requirements.txt
 pip install -r requirements-dev.txt
 ```
 
+### Reproducible Builds
+
+For reproducible builds in CI/CD environments, use `requirements.lock` which pins all dependencies to exact versions:
+
+```bash
+pip install -r requirements.lock
+```
+
+See [`requirements.lock`](requirements.lock) for the complete pinned dependency list.
+
 ## Running Tests
 
 ```bash
