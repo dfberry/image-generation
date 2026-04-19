@@ -155,7 +155,11 @@ def _apply_performance_opts(pipe, device: str):
     # torch.compile gives ~1.5-2× speedup on CUDA with torch >= 2.0
     if device == "cuda" and hasattr(torch, "compile"):
         print("⚡ Compiling UNet with torch.compile (one-time, ~30s)...")
-        pipe.unet = torch.compile(pipe.unet, mode="reduce-overhead", fullgraph=True)
+        # fullgraph=False (default) is safer: fullgraph=True can cause compilation
+        # failures with dynamic control flow in complex diffusion models.  The
+        # speed difference is negligible for SDXL; remove this flag only if you
+        # have benchmarked the specific model and confirmed no graph breaks.
+        pipe.unet = torch.compile(pipe.unet, mode="reduce-overhead")
 
     # Memory-efficient attention: prefer xFormers, fall back to attention slicing
     if hasattr(pipe, "enable_xformers_memory_efficient_attention"):
@@ -338,7 +342,7 @@ def generate(args) -> str:
     gc.collect()
     if torch.cuda.is_available():
         torch.cuda.empty_cache()
-    if torch.backends.mps.is_available():
+    if hasattr(torch.backends, "mps") and torch.backends.mps.is_available():
         torch.mps.empty_cache()
 
     # Set up generator for reproducible output
@@ -377,9 +381,9 @@ def generate(args) -> str:
 
             del base
             base = None
-            if device == "mps":
+            if hasattr(torch.backends, "mps") and torch.backends.mps.is_available():
                 torch.mps.empty_cache()
-            if device == "cuda":
+            if torch.cuda.is_available():
                 torch.cuda.empty_cache()
             gc.collect()
 
@@ -412,8 +416,9 @@ def generate(args) -> str:
         del base, refiner, latents, text_encoder_2, vae
         image = None
         gc.collect()
-        torch.cuda.empty_cache()
-        if torch.backends.mps.is_available():
+        if torch.cuda.is_available():
+            torch.cuda.empty_cache()
+        if hasattr(torch.backends, "mps") and torch.backends.mps.is_available():
             torch.mps.empty_cache()
         # Fix 2: torch.compile (used on CUDA in load_base) populates a process-global
         # dynamo cache that survives del base. Reset it to prevent accumulation across
@@ -550,8 +555,9 @@ def batch_generate(prompts: list[dict], device: str = None, args=None) -> list[d
         # Flush GPU memory between items (not needed after the last item)
         if i < len(prompts) - 1:
             gc.collect()
-            torch.cuda.empty_cache()
-            if torch.backends.mps.is_available():
+            if torch.cuda.is_available():
+                torch.cuda.empty_cache()
+            if hasattr(torch.backends, "mps") and torch.backends.mps.is_available():
                 torch.mps.empty_cache()
 
     return results
