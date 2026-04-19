@@ -177,6 +177,7 @@ def load_base(device: str) -> DiffusionPipeline:
         torch_dtype=dtype,
         use_safetensors=True,
         variant="fp16" if device in ("cuda", "mps") else None,
+        revision="main",  # TODO: Replace "main" with specific commit SHA for full reproducibility
     )
     pipe.safety_checker = None
 
@@ -203,6 +204,7 @@ def load_refiner(text_encoder_2, vae, device: str) -> DiffusionPipeline:
         torch_dtype=dtype,
         use_safetensors=True,
         variant="fp16" if device in ("cuda", "mps") else None,
+        revision="main",  # TODO: Replace "main" with specific commit SHA for full reproducibility
     )
     refiner.safety_checker = None
 
