@@ -1,32 +1,32 @@
 [
   {
-    "prompt": "Pen-and-ink watercolor, slate blue, warm sage, charcoal palette, white background, no text. Bellingham Bay at dusk, two lighthouses on opposite shores. Left shines a broad scattered beam, right shines a tight focused beam. Beams reach toward each other but do not connect, gap over water. Pacific Northwest treeline silhouette.",
+    "prompt": "Two glowing lighthouses on opposite shores of a tropical bay at dusk, left lighthouse shines a broad scattered beam of coral light, right lighthouse shines a tight focused beam of warm gold, beams reach toward each other but do not connect leaving a luminous gap over teal water, dense emerald foliage along both shores with magenta bougainvillea, Latin American folk art style, magical realism illustration, warm amber sunset glow, no text",
     "output": "C:\\Users\\diberry\\project-dfb\\dfberry.github.io\\website\\blog\\media\\2026-04-15-session-storage-decision-guide\\bellingham-bay-two-lighthouses.png",
     "seed": 42,
-    "negative_prompt": "photorealistic, 3d render, colorful, neon, bright colors, text, words, letters, watermark, signature, blurry, deformed, ugly"
+    "negative_prompt": "blurry, bad quality, worst quality, low resolution, text, watermark, signature, deformed, ugly, duplicate, morbid"
   },
   {
-    "prompt": "Pen-and-ink watercolor illustration, 3-color palette: slate blue, warm sage, charcoal on white background, no text. Two rocky cliffs close together inspired by Deception Pass, no bridge. Left cliff has scattered notebooks and loose papers. Right cliff has neat stacked field guides and folded maps. A person stands on the left looking across. Water below, cliff vegetation.",
+    "prompt": "Two rocky cliff faces close together with no bridge between them, left cliff covered in scattered glowing notebooks and loose papers, right cliff holds a neat stack of luminous field guides and folded maps, a distant silhouette stands on the left cliff looking across, deep teal water below, emerald tropical vines climbing the rocks, magenta and coral wildflowers, Latin American folk art style, magical realism illustration, warm gold light filtering through foliage, no text",
     "output": "C:\\Users\\diberry\\project-dfb\\dfberry.github.io\\website\\blog\\media\\2026-04-15-session-storage-decision-guide\\deception-pass-no-bridge.png",
     "seed": 43,
-    "negative_prompt": "photorealistic, 3d render, colorful, neon, bright colors, text, words, letters, watermark, signature, blurry, deformed, ugly"
+    "negative_prompt": "blurry, bad quality, worst quality, low resolution, text, watermark, signature, deformed, ugly, duplicate, morbid"
   },
   {
-    "prompt": "Pen-and-ink watercolor illustration, 3-color palette: slate blue, warm sage, charcoal on white background, no text. Fisherman on a wooden dock in Bellingham Bay sorting morning catch. Fish separated into labeled wooden crates, smaller ones tossed back into water. Early morning fog over bay, faint outline of Lummi Island in background.",
+    "prompt": "A distant silhouette of a fisherman on a weathered wooden dock sorting a glowing morning catch, fish separated into colorful wooden crates while smaller ones return to teal water, warm gold lanterns hanging from dock posts, emerald tropical plants along the shore, magenta and coral dawn sky, Latin American folk art style, magical realism illustration, soft amber morning light over the bay, no text",
     "output": "C:\\Users\\diberry\\project-dfb\\dfberry.github.io\\website\\blog\\media\\2026-04-15-session-storage-decision-guide\\bellingham-dock-sorting-catch.png",
     "seed": 44,
-    "negative_prompt": "photorealistic, 3d render, colorful, neon, bright colors, text, words, letters, watermark, signature, blurry, deformed, ugly"
+    "negative_prompt": "blurry, bad quality, worst quality, low resolution, text, watermark, signature, deformed, ugly, duplicate, morbid"
   },
   {
-    "prompt": "Pen-and-ink watercolor illustration, 3-color palette: slate blue, warm sage, charcoal on white background, no text. Nooksack River curving in a wide loop, Mount Baker in background. Upstream: small loose papers and notes float on water surface. At the bend: papers transform into small bound books. Douglas fir and cedar forest lining both banks.",
+    "prompt": "A winding tropical river curving in a wide loop with a luminous mountain in the background, upstream small glowing papers and notes float on teal water, at the bend the papers magically transform into small bound books with golden spines, dense emerald and coral tropical forest lining both banks, magenta flowers trailing into the water, Latin American folk art style, magical realism illustration, warm amber light, no text",
     "output": "C:\\Users\\diberry\\project-dfb\\dfberry.github.io\\website\\blog\\media\\2026-04-15-session-storage-decision-guide\\nooksack-river-feedback-loop.png",
     "seed": 45,
-    "negative_prompt": "photorealistic, 3d render, colorful, neon, bright colors, text, words, letters, watermark, signature, blurry, deformed, ugly"
+    "negative_prompt": "blurry, bad quality, worst quality, low resolution, text, watermark, signature, deformed, ugly, duplicate, morbid"
   },
   {
-    "prompt": "Pen-and-ink watercolor scientific illustration, slate blue, warm sage, charcoal palette, white background, no text. Cross-section view: upper half shows Bellingham streets, buildings, trees. Lower half shows underground aquifer, root systems, water channels. Single well shaft connects both layers with water flowing between. Geology cross-hatching.",
+    "prompt": "Cross-section view of a tropical village, upper half shows colorful buildings and emerald trees on the surface with magenta and teal market stalls, lower half reveals a luminous underground aquifer with glowing gold root systems and water channels, a single well shaft connects both layers with water visibly flowing between them as light particles, coral and amber earth tones, Latin American folk art style, magical realism illustration, warm diffused golden light, no text",
     "output": "C:\\Users\\diberry\\project-dfb\\dfberry.github.io\\website\\blog\\media\\2026-04-15-session-storage-decision-guide\\whatcom-county-surface-and-aquifer.png",
     "seed": 46,
-    "negative_prompt": "photorealistic, 3d render, colorful, neon, bright colors, text, words, letters, watermark, signature, blurry, deformed, ugly"
+    "negative_prompt": "blurry, bad quality, worst quality, low resolution, text, watermark, signature, deformed, ugly, duplicate, morbid"
   }
 ]
