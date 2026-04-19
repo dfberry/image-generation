@@ -247,7 +247,6 @@ class TestEntryPointFlush:
             mock_gc.collect.side_effect = track_gc
             gen.generate(mock_args_cuda)
 
-        # BEFORE FIX: mock_gc.collect.assert_called(), "gc.collect() should fire before load_base on CUDA"
         assert mock_gc.collect.called, "gc.collect() should fire before load_base on CUDA"
         gc_idx = next((i for i, e in enumerate(call_log) if e == "gc"), -1)
         lb_idx = next((i for i, e in enumerate(call_log) if e == "load_base"), len(call_log))
@@ -273,7 +272,6 @@ class TestEntryPointFlush:
             mock_cuda.side_effect = track_cuda_flush
             gen.generate(mock_args_cuda)
 
-        # BEFORE FIX: mock_cuda.assert_called(), "torch.cuda.empty_cache() should fire before load_base"
         assert mock_cuda.called, "torch.cuda.empty_cache() should fire before load_base"
         flush_idx = next((i for i, e in enumerate(call_log) if e == "cuda_flush"), -1)
         lb_idx = next((i for i, e in enumerate(call_log) if e == "load_base"), len(call_log))
@@ -299,7 +297,6 @@ class TestEntryPointFlush:
             mock_mps.side_effect = track_mps_flush
             gen.generate(mock_args_base)
 
-        # BEFORE FIX: mock_mps.assert_called(), "torch.mps.empty_cache() should fire before load_base"
         assert mock_mps.called, "torch.mps.empty_cache() should fire before load_base"
         flush_idx = next((i for i, e in enumerate(call_log) if e == "mps_flush"), -1)
         lb_idx = next((i for i, e in enumerate(call_log) if e == "load_base"), len(call_log))
