@@ -87,10 +87,10 @@ illustrated in rich jewel tones of {palette colors}
 
 **Example prompts:**
 ```
-Latin American magical realism illustration of hands emerging from soil, 
-reaching toward the sky, woven with golden threads and emerald vines, 
+Hands emerging from soil reaching toward the sky, woven with golden threads and emerald vines, 
 teal and magenta auras surrounding them, folk art textile patterns adorning their palms, 
-warm and luminous atmosphere, illustrated in rich jewel tones
+Latin American folk art style, magical realism illustration, warm and luminous atmosphere, 
+illustrated in rich jewel tones, no text
 ```
 
 **Update tracking:**
@@ -116,12 +116,12 @@ Edit `generate_blog_images.sh` in the image-generation project:
 # Monitor: tail -f generation.log
 
 python -u generate.py \
-  --prompt "Latin American magical realism illustration of..." \
+  --prompt "Latin American folk art style, magical realism illustration of..." \
   --output "outputs/01.png" \
   --seed 42
 
 python -u generate.py \
-  --prompt "Latin American magical realism illustration of..." \
+  --prompt "Latin American folk art style, magical realism illustration of..." \
   --output "outputs/02.png" \
   --seed 43
 
@@ -220,20 +220,19 @@ Co-authored-by: Pepa <pepa@encanto>"
 
 **Image 1 prompt:**
 ```
-Latin American magical realism illustration of interlocking hands in a circle,
-palms glowing with warm gold and coral light, intricate folk art patterns 
-flowing across skin and into the ground as roots, teal and emerald energy
-spiraling upward, surrounded by luminous seed pods and woven textile designs,
-painted in rich jewel tones with deep magenta shadows and golden highlights
+Interlocking hands in a circle glowing with warm gold and coral light, intricate folk art patterns 
+flowing across skin and into the ground as roots, teal and emerald energy spiraling upward, 
+surrounded by luminous seed pods and woven textile designs, Latin American folk art style, 
+magical realism illustration, deep magenta shadows and golden highlights, no text
 ```
 
 **Image 2 prompt:**
 ```
-Illustration of a garden transforming from storm to light: dark clouds breaking
-apart above, revealing teal and magenta auroras, below ground roots glow with
-coral and gold energy, new shoots sprouting upward with emerald leaves,
-folk art motifs of protection and growth woven into the landscape,
-warm luminous atmosphere suggesting hope and renewal
+A garden transforming from storm to light: dark clouds breaking apart above revealing teal and 
+magenta auroras, below ground roots glow with coral and gold energy, new shoots sprouting upward 
+with emerald leaves, folk art motifs of protection and growth woven into the landscape, 
+Latin American folk art style, magical realism illustration, warm luminous atmosphere suggesting 
+hope and renewal, no text
 ```
 
 **Alt texts:**
