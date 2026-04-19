@@ -15,7 +15,7 @@ tools:
 
 ## Context
 
-When a blog post needs custom, thematic imagery aligned to the site's tropical magical-realism aesthetic. Use this skill to generate images that match the visual palette and emotional tone of the content, then integrate them into the post with proper alt text.
+When a blog post needs custom, thematic imagery aligned to the site's tropical magical-realism style. Use this skill to generate images that match the visual palette and emotional tone of the content, then integrate them into the post with proper alt text.
 
 **When to use:**
 - Creating images for a new blog post
@@ -207,7 +207,7 @@ git add website/blog/media/{post-slug}/ website/blog/{post-filename}.md
 git commit -m "Add custom SDXL images for [post-title]
 
 Generated 5 images using Stable Diffusion XL with tropical 
-magical-realism aesthetic. Images placed in sections [list sections].
+magical-realism style. Images placed in sections [list sections].
 
 Co-authored-by: Pepa <pepa@encanto>"
 ```
