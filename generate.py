@@ -13,6 +13,7 @@ import json
 import os
 import sys
 from datetime import datetime
+from pathlib import Path
 from types import SimpleNamespace
 
 import diffusers
@@ -357,7 +358,23 @@ def generate(args) -> str:
     return output_path
 
 
-def batch_generate(prompts: list[dict], device: str = "mps", args=None) -> list[dict]:
+def _validate_output_path(output: str) -> None:
+    """Reject output paths that escape the working directory.
+
+    Raises ValueError for:
+    - Paths containing '..' segments (directory traversal)
+    - Absolute paths (Unix or Windows)
+    """
+    parts = Path(output).parts
+    if ".." in parts:
+        msg = f"Directory traversal blocked: '{output}' contains '..'"
+        raise ValueError(msg)
+    if os.path.isabs(output) or output.startswith("/") or (output and output[0] == os.sep):
+        msg = f"Absolute path blocked: '{output}'"
+        raise ValueError(msg)
+
+
+def batch_generate(prompts: list[dict], device: str = None, args=None) -> list[dict]:
     """
     Generate images for a list of prompt dicts, flushing GPU memory between items.
 
@@ -367,8 +384,22 @@ def batch_generate(prompts: list[dict], device: str = "mps", args=None) -> list[
     When args is provided, CLI params (steps, guidance, width, height, refine,
     negative_prompt) are forwarded from it instead of using defaults.
     """
+    if device is None:
+        device = get_device(force_cpu=False)
+
     results = []
     for i, item in enumerate(prompts):
+        try:
+            _validate_output_path(item["output"])
+        except ValueError as exc:
+            results.append({
+                "prompt": item["prompt"],
+                "output": item["output"],
+                "status": "error",
+                "error": str(exc),
+            })
+            continue
+
         batch_args = SimpleNamespace(
             prompt=item["prompt"],
             output=item["output"],
