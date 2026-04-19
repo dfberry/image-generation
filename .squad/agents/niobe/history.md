@@ -42,3 +42,21 @@
 **Key paths:** `generate.py` (pipeline), `generate_blog_images.sh` (batch script), `prompts/examples.md` (parameter recommendations), `tests/conftest.py` (mock infrastructure).
 
 **Team has already fixed:** try/finally cleanup (PR#4), entry-point VRAM flush (PR#5), latents CPU transfer (PR#5), dynamo reset (PR#5), PIL leak (PR#6), version floors (PR#4). Memory management is now solid.
+
+### D2 Pipeline & GPU Safety Review — 2026-03-27
+
+**Scope:** Full D2 (Pipeline & GPU) audit of `generate.py` — 16-point checklist.
+
+**Verdict:** SOUND — 0 CRITICAL, 1 HIGH, 3 MEDIUM, 3 LOW, 5 INFO.
+
+**Key findings:**
+- HIGH: `batch_generate()` still defaults `device="mps"` — platform-specific API defect (L360)
+- MEDIUM: `safety_checker = None` undocumented on both pipelines (L148, L173)
+- MEDIUM: `torch.compile(fullgraph=True)` is fragile to diffusers updates (L126)
+- LOW: Inconsistent cache flush guarding (finally unconditional vs pre-flight guarded)
+- LOW: Inconsistent `hasattr(torch.backends, "mps")` usage across call sites
+- All HIGH findings from initial review (2026-03-26) confirmed FIXED through PRs #4–#8.
+
+**What passed cleanly:** Device detection order, dtype selection, fp16 variant logic, MPS-only cpu_offload, xFormers fallback chain, scheduler config preservation, Karras sigmas scoping, LoRA loading, latents CPU transfer, generator device binding, OOM detection, 80/20 refiner split, cpu_offload/generator safety.
+
+**Report:** `.squad/decisions/inbox/niobe-pipeline-review.md`

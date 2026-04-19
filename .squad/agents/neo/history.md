@@ -19,6 +19,38 @@
 
 <!-- Append new learnings below. Each entry is something lasting about the project. -->
 
+### 2026-07-25 — D3 Test Coverage & Quality Audit
+
+**Scope:** Full read-only audit of 11 test files (conftest.py + 10 test modules) against generate.py.
+
+**Test inventory (11 files, ~143 tests estimated from source):**
+
+| File | Tests | Focus |
+|------|-------|-------|
+| test_unit_functions.py | 31 | get_device, get_dtype, load_base, load_refiner, preflight, main() |
+| test_memory_cleanup.py | 22 | Exception safety, entry flush, latents, dynamo, global state |
+| test_batch_generation.py | 17 | batch_generate() contract (STALE — patches wrong function) |
+| test_oom_handling.py | 14 | OOMError re-raise, cleanup on OOM, MPS/CUDA |
+| test_oom_retry.py | 12 | generate_with_retry() halving, floor, non-OOM |
+| test_batch_cli.py | 10 | --batch-file parsing, JSON handling, main() batch path |
+| test_cli_validation.py | 11 | Steps, width, height, guidance validation edges |
+| test_pipeline_enhancements.py | 14 | _dimension, validate_dimensions, LoRA, batch neg prompt, guidance default |
+| test_scheduler.py | 15 | Scheduler CLI, apply_scheduler, refiner guidance, invalid scheduler |
+| test_negative_prompt.py | 7 | --negative-prompt CLI, base/refiner pipeline, batch forwarding |
+| test_bug_fixes.py | 10 | Retry mutation bug, batch CLI param forwarding, retry wrapper |
+
+**Key findings (13 total, see .squad/decisions/inbox/neo-test-coverage-audit.md):**
+
+- **D3-001 (HIGH):** 9/11 test modules fail to collect without `diffusers` installed — module-level import blocks all test execution in lightweight environments
+- **D3-010 (HIGH):** test_batch_generation.py (17 tests) patches `generate.generate` but batch_generate() calls `generate_with_retry()` — stale mocks testing wrong code path
+- **D3-004 (MEDIUM):** Zero `MagicMock(spec=...)` usage across entire suite — typos in mock assertions would pass silently
+- **D3-005 (MEDIUM):** `_positive_int()` and `_non_negative_float()` have no direct unit tests
+- **D3-006 (MEDIUM):** 4 of 16 CLI flags (--seed, --output, --refine, --refiner-steps) lack argparse-level tests
+- **D3-002 (INFO):** Commented-out silent tuple bugs exist but are already fixed in active code
+- **D3-003 (LOW):** One `assert False` in test_scheduler.py:173 should be `pytest.fail()`
+
+**Overall grade: B-** — strong foundation, meaningful gaps in mock specificity and one high-severity stale test file.
+
 ### 2026-04-18 — PR #15 Re-Review: Joel Test Improvements
 
 **Scope:** Verified Makefile LF enforcement, removed local-path JSON batch files, CI uses requirements-dev.txt, CONTRIBUTING flags corrected, and ruff install quoting fixed.
@@ -619,3 +651,20 @@ Full five-agent simultaneous code review (2026-03-26) identified bug convergence
 **Non-blocking items:** Docs freshness (674-line design.md + 352-line spec staleness) remains open but does not block merge.
 
 **Verdict:** ✅ APPROVE — All critical blockers fixed, no regressions introduced.
+
+### 2026-07-26 — D6 Security Review
+
+**Scope:** Full read-only security audit of codebase (Phase 3, Dimension D6). Reviewed generate.py, generate_blog_images.sh, 5 GitHub Actions workflows, CODEOWNERS, .gitignore, requirements.txt, and 3 batch JSON files.
+
+**Findings (10 total):**
+
+| Severity | Count | Key IDs |
+|----------|-------|---------|
+| HIGH | 1 | D6-002 (batch output path traversal) |
+| MEDIUM | 4 | D6-001 (unpinned HF models), D6-003 (scheduler not whitelisted), D6-004 (LoRA arbitrary load), D6-007 (batch JSON no schema validation) |
+| LOW | 3 | D6-005 (safety checker off), D6-006 (>= version pins), D6-008 (PAT scope) |
+| INFO | 2 | D6-009 (no secrets found), D6-010 (CI permissions exemplary) |
+
+**Key insight:** No hardcoded secrets, no command injection, no eval/pickle/subprocess in production code. Primary risk surface is untrusted batch JSON files (path traversal + schema validation) and supply-chain (unpinned HF model revisions + floating dependency versions).
+
+**Output:** `.squad/decisions/inbox/neo-security-review.md`

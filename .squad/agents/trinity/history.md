@@ -98,6 +98,20 @@ Fixed CONTRIBUTING.md to match actual generate.py CLI and align dev setup with C
 
 **Result:** CONTRIBUTING.md now accurate and actionable for contributors. Dev environment matches CI environment.
 
+### 2026-04-18 — D1+D7 Code Quality & CI/DevOps Review
+
+Read-only audit of generate.py, shell scripts, Makefile, CI workflow, and config files.
+
+**Key findings (5 MEDIUM, 5 LOW, 5 INFO):**
+- `generate()` has 5+ responsibilities — extractable but readable as-is
+- `batch_generate()` inconsistently supports per-item overrides (lora yes, scheduler/refiner_steps no)
+- 15 `print()` calls with no `logging` module — blocks future --verbose/--quiet
+- Makefile Unix-only (hardcoded `venv/bin/` paths, `find` command) — won't work on Windows
+- CI actor allowlist has only 2 entries (both same maintainer); no coverage report despite pytest-cov installed
+- Ruff passes clean. Error messages are actionable. CI lint→test ordering correct.
+
+Full report: `.squad/decisions/inbox/trinity-code-quality-review.md`
+
 - **CI workflow now triggers on PR and push to main**, not just manual dispatch. Lint job (ruff) gates the test matrix. Concurrency groups cancel stale runs per-branch.
 - **Makefile uses venv-relative paths** (`$(VENV)/bin/python`) so targets work in both local dev and CI without activating the venv.
 - **ruff.toml targets py310** with E/F/W/I rules, ignores E501 (formatter handles line length). Excludes venv, __pycache__, outputs.
