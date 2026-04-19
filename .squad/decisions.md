@@ -695,7 +695,27 @@ All 75 tests fail to collect without `pip install torch --index-url https://down
 - Single source of truth for prompts (resolve satellite drift)
 - Batch JSON trust model (trusted vs. untrusted input)
 - Pen-and-ink aesthetic status (official alt style or abandoned?)
-- Test collection strategy (lazy-import diffusers or require full GPU stack?)
+- Test collection strategy (lazy-import diffusers or require full GPU stack?) → **Resolved by PR #65**
+
+---
+
+### Decision: Lazy Imports for GPU-Free Test Collection (2026-04-19)
+
+**By:** Neo (Tester)
+**PR:** #65 — `squad/32-lazy-diffusers-import`
+**Closes:** Issue #32
+
+**Decision:** Defer `import torch`, `import diffusers`, and `from diffusers import DiffusionPipeline` from module-level to first real use via a `_ensure_heavy_imports()` function in `generate.py`. Add PEP 562 `__getattr__` for mock.patch compatibility.
+
+**Rationale:** Module-level `import diffusers` blocked `pytest --collect-only` on machines without a full GPU stack. This was identified as a test infrastructure barrier in the codebase review synthesis. The lazy-import approach was chosen over requiring GPU deps for collection because it:
+1. Preserves full backward compatibility with 40+ existing `@patch("generate.torch")` decorators (zero test changes)
+2. Uses `"torch" not in globals()` guard so mock.patch sets the Mock before the guard runs, skipping the real import
+3. Enables `pytest --collect-only` without torch/diffusers installed
+4. Only touches `generate.py` (1 file, +80/−21 lines) — minimal blast radius
+
+**Verification:** 172 tests pass, 0 regressions, ruff clean.
+
+**Files Modified:** `generate.py`
 
 ---
 
