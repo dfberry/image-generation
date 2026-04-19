@@ -165,7 +165,7 @@ class TestInvalidSchedulerHandling:
         p = MockPipeline(return_latents=False)
         try:
             apply_scheduler(p, "CompletelyBogusScheduler")
-            assert False, "Expected ValueError"
+            pytest.fail("Expected ValueError for bogus scheduler name")
         except ValueError:
             pass
         except AttributeError:
