@@ -34,8 +34,8 @@ pip install -r requirements-dev.txt
 # Run the full test suite
 python -m pytest tests/ -v
 
-# Run a specific test file
-python -m pytest tests/test_generate.py -v
+# Run a specific test file (example)
+python -m pytest tests/test_cli_validation.py -v
 
 # Run with short output
 python -m pytest tests/
