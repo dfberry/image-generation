@@ -107,6 +107,30 @@ image-generation/
 └── .squad/                     # AI team memory and decisions
 ```
 
+## CI Actor Allowlist
+
+The CI workflow (`.github/workflows/tests.yml`) restricts who can trigger test runs
+to a known set of GitHub usernames. The check uses `github.actor` against a JSON list:
+
+```yaml
+contains(fromJSON('["diberry","dfberry"]'), github.actor)
+```
+
+### Adding a new contributor to the allowlist
+
+1. Open `.github/workflows/tests.yml`.
+2. Find the `if:` condition on the `lint` job.
+3. Add the new GitHub username to the JSON array — for example, change
+   `'["diberry","dfberry"]'` to `'["diberry","dfberry","new-user"]'`.
+4. The username must appear in **both** `contains()` calls in that condition
+   (one for `workflow_dispatch`, one for `pull_request`).
+5. Commit the change to `main` (or include it in a PR that an existing
+   allowlisted contributor can merge).
+
+> **Why an allowlist?** The workflow has no `permissions:` grants beyond the
+> default, but restricting the actor list prevents CI resource usage from
+> unknown forks or accounts.
+
 ## Key Details
 
 - **Image pipeline:** Stable Diffusion XL (SDXL) via HuggingFace `diffusers`
