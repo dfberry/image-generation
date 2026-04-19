@@ -31,22 +31,22 @@ make install
 
 ```bash
 # From raw syntax
-mermaid-gen --syntax "flowchart TD\n    A[Start] --> B[End]"
+mermaid-diagram --syntax "flowchart TD\n    A[Start] --> B[End]"
 
 # From a .mmd file
-mermaid-gen --file diagram.mmd --format svg
+mermaid-diagram --file diagram.mmd --format svg
 
 # Using a template
-mermaid-gen --template flowchart-simple --param steps="Start,Process,End"
+mermaid-diagram --template flowchart_simple --param steps="Start,Process,End"
 
 # List available templates
-mermaid-gen --list-templates
+mermaid-diagram --list-templates
 ```
 
 ### Python API
 
 ```python
-from mermaidgen import MermaidGenerator, TemplateRegistry, MermaidValidator
+from mermaidgen import MermaidGenerator, default_registry, MermaidValidator
 
 # Validate syntax
 MermaidValidator.validate("flowchart TD\n    A --> B")
@@ -56,11 +56,10 @@ gen = MermaidGenerator(output_dir="outputs")
 path = gen.from_syntax("flowchart TD\n    A[Start] --> B[End]", fmt="png")
 
 # Generate from template
-path = gen.from_template("flowchart-simple", steps="Start,Process,End")
+path = gen.from_template("flowchart_simple", params={"steps": ["Start", "Process", "End"]})
 
 # List templates
-registry = TemplateRegistry()
-for t in registry.list_available():
+for t in default_registry.list_available():
     print(f"{t['name']}: {t['description']}")
 ```
 
@@ -68,10 +67,10 @@ for t in registry.list_available():
 
 | Name | Description |
 |------|-------------|
-| `flowchart-simple` | Linear flowchart from a list of steps |
-| `sequence-api` | Sequence diagram for API calls (client → server → database) |
-| `class-inheritance` | Class diagram with inheritance relationships |
-| `er-database` | Entity-relationship diagram from entity names |
+| `flowchart_simple` | Linear flowchart from a list of steps |
+| `sequence_api` | Sequence diagram for API calls (client → server → database) |
+| `class_inheritance` | Class diagram with inheritance relationships |
+| `er_database` | Entity-relationship diagram from entity names |
 
 ## Development
 
