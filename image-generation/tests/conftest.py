@@ -2,6 +2,14 @@
 Shared fixtures and mock utilities for generate.py regression tests.
 """
 
+import os
+import sys
+
+# Ensure the image-generation/ package root is on sys.path so
+# `import generate` resolves regardless of the working directory
+# from which pytest is invoked (repo root or image-generation/).
+sys.path.insert(0, os.path.join(os.path.dirname(__file__), ".."))
+
 from unittest.mock import MagicMock
 
 import pytest

@@ -1,0 +1,20 @@
+[
+  {
+    "prompt": "Split watercolor illustration of a rustic farmhouse restaurant kitchen in Bellingham Washington Pacific Northwest style, LEFT side shows a single overwhelmed chef surrounded by piling orders with salmon burning on the grill and a dessert collapsing and dirty dishes stacking up and an empty dining room visible through the pass window, stressed posture too many pans, RIGHT side shows the same kitchen now alive and coordinated with one person at the grill and another plating dessert and someone restocking from a garden crate and a floor manager visible through the pass checking on diners, calm and coordinated, muted PNW palette slate blue warm wood sage green copper pans, soft watercolor texture with fog through windows showing evergreen treeline, no text no words no letters",
+    "output": "C:\\Users\\diberry\\project-dfb\\dfberry.github.io\\website\\blog\\media\\2026-04-19-you-have-a-team\\farmhouse-kitchen-solo-vs-team.png",
+    "seed": 101,
+    "negative_prompt": "blurry, bad quality, worst quality, low resolution, text, watermark, signature, deformed, ugly, duplicate, morbid, words, letters, writing"
+  },
+  {
+    "prompt": "Watercolor close-up of a well-worn recipe book open on a wooden shelf in a rustic Whatcom County farmhouse kitchen, handwritten notes in the margins with dates and initials, a hand holding a pen writing a newer note, behind the book mason jars of preserved ingredients line the shelf, morning light through a rain-streaked window with evergreen branches visible outside, warm wood tones cream pages ink blue handwriting, soft watercolor with visible brushstrokes, Pacific Northwest atmosphere, no text no words no letters",
+    "output": "C:\\Users\\diberry\\project-dfb\\dfberry.github.io\\website\\blog\\media\\2026-04-19-you-have-a-team\\recipe-book-institutional-memory.png",
+    "seed": 102,
+    "negative_prompt": "blurry, bad quality, worst quality, low resolution, text, watermark, signature, deformed, ugly, duplicate, morbid, words, letters, writing"
+  },
+  {
+    "prompt": "Watercolor bird-eye view of a busy restaurant kitchen during dinner service in Whatcom County Pacific Northwest style, the pass pickup window is center frame with order tickets clipped above it and the head chef stands here calling out orders, around the kitchen a grill station with salmon searing and one cook focused and a pastry corner with dessert being plated by another cook and a prep station with vegetables from a farm crate being chopped, through the pass window the floor manager is visible checking on a table, warm kitchen light copper and wood steam rising, evergreen dusk visible through a back door propped open, PNW watercolor palette warm amber interior cool blue-green exterior, no text no words no letters",
+    "output": "C:\\Users\\diberry\\project-dfb\\dfberry.github.io\\website\\blog\\media\\2026-04-19-you-have-a-team\\dinner-rush-coordinated-stations.png",
+    "seed": 103,
+    "negative_prompt": "blurry, bad quality, worst quality, low resolution, text, watermark, signature, deformed, ugly, duplicate, morbid, words, letters, writing"
+  }
+]
