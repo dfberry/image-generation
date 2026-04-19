@@ -648,7 +648,6 @@ image-generation/
 ├── ruff.toml                      # Linter config (Python 3.10+, 120 char lines)
 ├── batch_blog_images.json         # Example batch file
 ├── batch_blog_images_v2.json      # Variant batch file
-├── batch_observability_blog.json  # Another batch file
 ├── batch_session_storage.json     # Another batch file
 ├── generate_blog_images.sh        # Shell wrapper for batch generation
 ├── outputs/                       # Default output directory
