@@ -159,16 +159,16 @@ class TestBatchSchemaValidation:
         assert results[0]["status"] == "error"
         assert "output" in results[0]["error"].lower()
 
-    def test_unexpected_keys_warns(self, capsys):
-        """Unexpected keys should print a warning but not fail."""
+    def test_unexpected_keys_warns(self, caplog):
+        """Unexpected keys should log a warning but not fail."""
         items = [{"prompt": "test", "output": "out/01.png", "bogus_key": True}]
         with _patch_heavy(), \
              patch("generate.generate_with_retry", side_effect=lambda a: a.output):
-            results = batch_generate(items, device="cpu")
+            with caplog.at_level("WARNING", logger="generate"):
+                results = batch_generate(items, device="cpu")
 
         assert results[0]["status"] == "ok"
-        captured = capsys.readouterr()
-        assert "bogus_key" in captured.out
+        assert "bogus_key" in caplog.text
 
 
 # ===================================================================
