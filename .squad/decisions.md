@@ -719,6 +719,28 @@ All 75 tests fail to collect without `pip install torch --index-url https://down
 
 ---
 
+### Architecture: Repo Restructure into Multi-Tool Layout (2026-04-19)
+
+**By:** Morpheus (Lead), Trinity (Backend), Neo (Tester)
+**PR:** #84 — `squad/repo-restructure-subfolders`
+**Commits:** 387283b, 6f4fd49
+
+**Decision:** Restructure the repository from a flat single-tool layout into a multi-tool architecture:
+1. Move all image-generation files into `image-generation/` subfolder
+2. Create empty `mermaid-diagrams/` folder for future diagram tool
+3. Keep shared infrastructure (`.squad/`, `.github/`, root configs) at root
+4. CI uses `working-directory: image-generation` per-step for tool-specific commands
+5. Each tool subfolder owns its own venv (`VENV := venv` relative to subfolder)
+6. Tests stay with their tool, using `conftest.py` `sys.path.insert` for import resolution
+
+**Rationale:** The repo was a flat single-tool layout that couldn't scale to multiple tools. Moving image-gen into a subfolder enables future tools (mermaid diagrams, etc.) to coexist without namespace conflicts. The `working-directory` CI approach keeps all paths relative and natural within each tool folder.
+
+**Verification:** Neo confirmed 161 tests pass, zero new failures. All 14 test files discovered. conftest.py sys.path fix works from any working directory. Morpheus reviewed and approved the architecture as production-ready for multi-tool expansion.
+
+**Inbox sources:** `morpheus-repo-restructure.md`, `trinity-repo-restructure.md`, `neo-restructure-verification.md`, `morpheus-restructure-review.md`
+
+---
+
 ## Governance
 
 - All meaningful changes require team consensus

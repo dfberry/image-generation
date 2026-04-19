@@ -24,17 +24,24 @@ When you are directed to work as a specific agent, read their charter and histor
 
 ## Project Context
 
-**image-generation** is a Python CLI tool that uses Stable Diffusion XL (SDXL) to generate blog post illustrations with a tropical magical-realism aesthetic.
+This is a multi-tool media generation repo. Each tool lives in its own subfolder.
+
+### image-generation/
+
+Python CLI tool that uses Stable Diffusion XL (SDXL) to generate blog post illustrations with a tropical magical-realism aesthetic.
 
 **Key files:**
-- `generate.py` — main CLI (--steps, --guidance, --seed, --width, --height, --refiner, --device)
-- `generate_blog_images.sh` — batch generation script (5 blog images, seeds 42–46)
-- `regen_fix.sh`, `regen_new.sh`, `regen_345.sh` — targeted regeneration scripts
-- `prompts/examples.md` — master prompt library and style guide
-- `outputs/` — generated 1024×1024 PNG images
-- `requirements.txt` — Python dependencies (diffusers, transformers, torch, Pillow)
+- `image-generation/generate.py` — main CLI (--steps, --guidance, --seed, --width, --height, --refiner, --device)
+- `image-generation/generate_blog_images.sh` — batch generation script (5 blog images, seeds 42–46)
+- `image-generation/prompts/examples.md` — master prompt library and style guide
+- `image-generation/outputs/` — generated 1024×1024 PNG images
+- `image-generation/requirements.txt` — Python dependencies (diffusers, transformers, torch, Pillow)
 
 **Stack:** Python 3.10+, diffusers, transformers, torch, Pillow. GPU-first (CUDA/MPS/CPU fallback).
+
+### mermaid-diagrams/
+
+(Planned) Diagram generation from text descriptions.
 
 ## Making Decisions
 

@@ -22,9 +22,9 @@ models/
 weights/
 
 # Generated images — don't commit outputs
-outputs/*.png
-outputs/*.jpg
-outputs/*.webp
+image-generation/outputs/*.png
+image-generation/outputs/*.jpg
+image-generation/outputs/*.webp
 
 # Jupyter
 .ipynb_checkpoints/

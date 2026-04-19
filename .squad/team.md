@@ -23,6 +23,6 @@
 ## Project Context
 
 - **Owner:** dfberry
-- **Project:** image-generation — Python AI image generation tool using Stable Diffusion XL. Generates blog illustrations with tropical magical-realism aesthetic.
+- **Project:** Multi-tool media generation suite. Contains `image-generation/` (Python AI image gen with Stable Diffusion XL) and `mermaid-diagrams/` (planned). Shared infrastructure at root (.squad/, .github/, CODEOWNERS).
 - **Stack:** Python 3.10+, diffusers, transformers, torch, Pillow
 - **Created:** 2026-03-23
