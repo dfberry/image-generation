@@ -178,6 +178,8 @@ def load_base(device: str) -> DiffusionPipeline:
         use_safetensors=True,
         variant="fp16" if device in ("cuda", "mps") else None,
     )
+    # SDXL does not ship a safety checker module. Setting to None avoids
+    # a lookup error and is appropriate for this blog-illustration use case.
     pipe.safety_checker = None
 
     if device == "mps":
@@ -204,6 +206,7 @@ def load_refiner(text_encoder_2, vae, device: str) -> DiffusionPipeline:
         use_safetensors=True,
         variant="fp16" if device in ("cuda", "mps") else None,
     )
+    # SDXL refiner also has no safety checker; disable for consistency.
     refiner.safety_checker = None
 
     if device == "mps":
