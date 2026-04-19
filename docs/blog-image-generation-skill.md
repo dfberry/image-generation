@@ -32,7 +32,7 @@ When a blog post needs custom, thematic imagery aligned to the site's tropical m
 
 **Environment setup** (one-time):
 ```bash
-cd /Users/geraldinefberry/repos/my_repos/image-generation
+cd <project-root>
 source venv/bin/activate
 ```
 
@@ -140,7 +140,7 @@ generate → show to user → await approval → move → generate next
 
 **Generate command (per image):**
 ```bash
-cd /Users/geraldinefberry/repos/my_repos/image-generation
+cd <project-root>
 source venv/bin/activate
 python -u generate.py \
   --prompt "..." \
@@ -161,8 +161,8 @@ python -u generate.py \
 **Immediately after the user approves each image**, copy it to the blog media folder with its final name. Do NOT wait until all images are done.
 
 ```bash
-cp /Users/geraldinefberry/repos/my_repos/image-generation/outputs/NN-new.png \
-   /Users/geraldinefberry/repos/my_repos/dfberry.github.io/website/blog/media/{post-slug}/{final-name}.png
+cp ./outputs/NN-new.png \
+   <blog-repo>/website/blog/media/{post-slug}/{final-name}.png
 ```
 
 **Naming convention:** `NN-descriptive-slug.png` (e.g., `01-friction-wall.png`, `02-squad-gift.png`)
@@ -201,7 +201,7 @@ Each image in the Markdown/MDX should have descriptive alt text:
 ### 7. Commit Images and Updated Post
 
 ```bash
-cd /Users/geraldinefberry/repos/my_repos/dfberry.github.io
+cd <blog-repo>
 
 git add website/blog/media/{post-slug}/ website/blog/{post-filename}.md
 git commit -m "Add custom SDXL images for [post-title]
