@@ -63,6 +63,28 @@
 
 **Dependency:** `generate.py` does not yet accept `--negative-prompt`. This documentation is ready for Trinity to reference when implementing the CLI flag.
 
+### D4 Prompt Library Audit (2026-04-16)
+
+**Scope:** Full audit of `prompts/examples.md` (10 canonical prompts + style guide), `docs/blog-image-generation-skill.md`, `generate_blog_images.sh`, and `batch_blog_images*.json` files.
+
+**Key findings:**
+
+1. **Style guide is solid.** The expanded guide (issue #7) is internally consistent — palette rules, anchor requirements, SDXL tips, negative prompt strategy, template system, and do's/don'ts all align. No contradictions found.
+
+2. **3 prompts FAIL figure silhouette rule.** Prompts 04 (original), V04, and V05 use visible human figures with arm action verbs ("gesturing," "leaning over," "passing"), violating the style guide's silhouette/backlighting mandate. Prompts 03 and 05 are borderline (visible figures but no action verbs).
+
+3. **Shell script prompts are stale (CRITICAL).** All 5 prompts in `generate_blog_images.sh` are pre-issue-#7 versions — missing `magical realism` anchor and `no text` guard. Running the script produces weaker outputs.
+
+4. **Batch JSON files use an entirely different aesthetic.** `batch_blog_images.json` and `_v2.json` use pen-and-ink watercolor with a Pacific Northwest palette (slate blue, warm sage, charcoal) — zero overlap with the canonical tropical magical-realism style. This alternate style is undocumented.
+
+5. **Skill doc examples don't follow the style guide.** 3 example prompts in `docs/blog-image-generation-skill.md` use wrong anchors, feature hand anatomy, and one drops the anchor entirely.
+
+6. **Prompt 02 uses `aesthetic` instead of `style` in anchor.** Minor but violates the "exact wording" rule.
+
+7. **Vacation prompts V01 and V03 use <3 canonical palette colors.** V03 is the worst — only "golden" is explicitly named from the palette.
+
+**Report location:** `.squad/decisions/inbox/switch-prompt-audit.md` (12 findings, per-prompt pass/fail table, priority recommendations).
+
 ### Style Guide Expansion & Prompt Template System (issue #7, 2026-03-26)
 
 **What was done:** Expanded `prompts/examples.md` from a 4-line style guide into a comprehensive prompt engineering reference (+272 lines). Branch: `squad/7-style-guide-templates`.

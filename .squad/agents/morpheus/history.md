@@ -19,6 +19,68 @@
 
 <!-- Append new learnings below. Each entry is something lasting about the project. -->
 
+### 2026-07-26 — Phase 4 Codebase Review Synthesis Complete
+
+Synthesized all 6 review reports (D1-D7) into a prioritized executive report. **58 total findings** across 7 dimensions from 4 reviewers (Trinity, Niobe, Neo, Switch, Morpheus).
+
+**Overall grade: B-** — Core engine earns A-/B+ but documentation (D+) and prompt drift (C+) drag the score down.
+
+**Key cross-cutting themes discovered:**
+1. **Stale satellite files** — Shell script prompts, batch JSONs, README defaults, and history.md all drifted from their canonical sources. Root cause: no single-source-of-truth enforcement for shared data (prompts, CLI defaults, file listings).
+2. **Input validation gaps** — Batch JSON output path traversal (D6-002), unwhitelisted scheduler instantiation (D6-003), no batch schema validation (D6-007). Multiple vectors accept untrusted input.
+3. **Test infrastructure barriers** — Module-level `import diffusers` blocks test collection (9/11 modules), stale patches in test_batch_generation.py test the wrong function, no coverage reporting in CI.
+4. **Human figure style violations** — 4 canonical prompts and 3 doc examples violate the silhouette/backlighting rule, producing SDXL arm/hand distortion.
+5. **Supply chain risks** — Models, dependencies, and Actions all use unpinned or loosely pinned versions.
+
+**Prioritized action items:** 7 P0 (fix now), 10 P1 (this sprint), 13 P2 (next sprint), 16 P3 (backlog).
+
+**Top 3 fixes for immediate impact:**
+1. Fix README Options table (wrong defaults, missing 7 flags) — every user affected
+2. Sanitize batch JSON output paths — security vulnerability
+3. Sync shell script prompts with canonical library — off-brand image generation
+
+**Key learning:** The biggest project risk isn't code quality — it's the gap between what docs say and what code does. Establishing single-source-of-truth patterns for CLI defaults, prompt text, and file inventories would prevent most of the drift found across D4/D5/D7.
+
+**Report written to:** `.squad/decisions/inbox/morpheus-codebase-review-synthesis.md`
+
+### 2026-04-19 — D5 Documentation Accuracy Review Complete
+
+Performed thorough documentation accuracy review (Phase 2). **17 findings**: 4 CRITICAL, 4 HIGH, 5 MEDIUM, 1 LOW, 3 INFO.
+
+**Critical issues:**
+- README Options table has wrong defaults (`--steps` 40→22, `--guidance` 7.5→6.5) and is missing 8 of 16 CLI flags
+- README says "22 tests" but the suite has 170 test functions across 11 files
+- `docs/blog-image-generation-skill.md` says Python 3.14 (impossible version; project requires 3.10+)
+
+**Key positive findings:**
+- `docs/feature-specification.md` §4.1 is the most accurate and complete CLI reference — use it as source of truth
+- `docs/design.md` architecture matches code accurately (minor stale file layout entry)
+- CONTRIBUTING.md §Key Details has the most accurate flag list of any doc
+
+**Internal doc issues:**
+- history.md Key Paths says `--refiner`/`--device` (actual: `--refine`/`--cpu`) and references nonexistent `regen_fix.sh`
+- CONTRIBUTING.md references nonexistent `tests/test_generate.py`
+
+**Findings written to:** `.squad/decisions/inbox/morpheus-doc-accuracy-review.md`
+
+### 2026-04-19 — Codebase Review Plan Designed
+
+Designed a 7-dimension, 4-phase review plan covering: Code Quality (Trinity), SDXL Pipeline & GPU Safety (Niobe), Test Coverage (Neo), Prompt Library (Switch), Documentation Accuracy (Morpheus), Security (Neo), and CI/DevOps (Trinity).
+
+**Key inventory findings during analysis:**
+- Test suite has grown to **170 tests** across 11 files (~2,700 lines) — well beyond the 22/53 documented in README
+- README Options table is severely stale: missing 7 CLI flags, wrong defaults for `--steps` (40 vs 22) and `--guidance` (7.5 vs 6.5)
+- CONTRIBUTING.md references nonexistent `tests/test_generate.py`
+- `docs/blog-image-generation-skill.md` says Python 3.14 (should be 3.10+) and has hardcoded macOS paths
+- pytest-cov is in dev dependencies but no coverage config exists
+- Makefile uses Unix paths exclusively — won't work on Windows
+
+**Execution model:** Phase 1 runs 4 agents in parallel (Trinity/Niobe/Neo/Switch). Phase 2-3 are gated sequential reviews (docs, then security). Phase 4 is synthesis. Total estimated wall clock: ~18 min.
+
+**Proposed 3 new skills:** `codebase-review`, `test-coverage-audit`, `doc-accuracy-check` — reusable checklists for future reviews.
+
+**Plan written to:** `.squad/decisions/inbox/morpheus-codebase-review-plan.md`
+
 ### 2026-04-18 — PR #15 Blocker Fixes & Joel Test Score Revision (9/12)
 
 Fixed 6 blockers flagged by Neo during PR #15 review:

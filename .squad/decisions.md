@@ -660,6 +660,45 @@ All 75 tests fail to collect without `pip install torch --index-url https://down
 
 ---
 
+### Codebase Review — Full 7-Dimension Audit (2026-04-19)
+
+**By:** Morpheus (Lead), with Trinity, Niobe, Neo, Switch
+
+**Status:** Complete — awaiting P0 triage and GitHub issue creation
+
+**Decision:** A comprehensive codebase review was conducted across 7 dimensions (D1–D7) covering code quality, SDXL pipeline safety, test coverage, prompt library, documentation accuracy, security, and CI/DevOps. The review produced **58 findings** with an overall grade of **B-**.
+
+**Synthesis report:** `.squad/decisions/inbox/morpheus-codebase-review-synthesis.md`
+
+**Dimension reviews (inbox):**
+
+| File | Reviewer | Dimension | Findings |
+|------|----------|-----------|----------|
+| `trinity-code-quality-review.md` | Trinity | D1 Code Quality + D7 CI/DevOps | 0C, 0H, 5M, 5L, 5I |
+| `niobe-pipeline-review.md` | Niobe | D2 Pipeline & GPU Safety | 0C, 1H, 2M, 3L, 5I |
+| `neo-test-coverage-audit.md` | Neo | D3 Test Coverage & Quality | 0C, 2H, 3M, 4L, 2I |
+| `switch-prompt-audit.md` | Switch | D4 Prompt Library | 1C, 3H, 5M, 1L, 2I |
+| `morpheus-doc-accuracy-review.md` | Morpheus | D5 Documentation Accuracy | 4C, 4H, 5M, 1L, 3I |
+| `neo-security-review.md` | Neo | D6 Security & Supply Chain | 0C, 1H, 4M, 3L, 2I |
+| `morpheus-codebase-review-plan.md` | Morpheus | Review plan & checklists | — |
+
+**Key themes identified:**
+1. **Stale satellite files** — Shell script prompts, batch JSONs, README defaults, and history.md all drifted from their canonical sources.
+2. **Input validation gaps** — Batch JSON path traversal, unwhitelisted scheduler instantiation, no schema validation.
+3. **Test infrastructure barriers** — Module-level `import diffusers` blocks test collection; stale test patches in batch tests.
+4. **Human figure style violations** — 4 canonical prompts violate silhouette/backlighting rule.
+5. **Supply chain risks** — Unpinned HuggingFace model revisions, floor-only dependency pins, no lock file.
+
+**P0 action items (7):** Fix README defaults/flags/test count, sync shell script prompts, sanitize batch output paths, fix Python version in skill doc, rewrite figure prompts, fix batch_generate() default device.
+
+**Squad decision candidates surfaced by synthesis:**
+- Single source of truth for prompts (resolve satellite drift)
+- Batch JSON trust model (trusted vs. untrusted input)
+- Pen-and-ink aesthetic status (official alt style or abandoned?)
+- Test collection strategy (lazy-import diffusers or require full GPU stack?)
+
+---
+
 ## Governance
 
 - All meaningful changes require team consensus
