@@ -177,7 +177,10 @@ def load_base(device: str) -> DiffusionPipeline:
         torch_dtype=dtype,
         use_safetensors=True,
         variant="fp16" if device in ("cuda", "mps") else None,
+        revision="main",  # TODO: Replace "main" with specific commit SHA for full reproducibility
     )
+    # SDXL does not ship a safety checker module. Setting to None avoids
+    # a lookup error and is appropriate for this blog-illustration use case.
     pipe.safety_checker = None
 
     if device == "mps":
@@ -203,7 +206,9 @@ def load_refiner(text_encoder_2, vae, device: str) -> DiffusionPipeline:
         torch_dtype=dtype,
         use_safetensors=True,
         variant="fp16" if device in ("cuda", "mps") else None,
+        revision="main",  # TODO: Replace "main" with specific commit SHA for full reproducibility
     )
+    # SDXL refiner also has no safety checker; disable for consistency.
     refiner.safety_checker = None
 
     if device == "mps":
@@ -263,6 +268,65 @@ def apply_lora(pipeline, lora: str | None, lora_weight: float = 0.8):
     pipeline.set_adapters(["default"], adapter_weights=[lora_weight])
 
 
+# ---------------------------------------------------------------------------
+# Internal helpers — extracted from generate() so each sub-responsibility has
+# a focused, testable function.  All prefixed with underscore (module-internal).
+# ---------------------------------------------------------------------------
+
+# Base+refiner split: 80 % of steps on base, 20 % on refiner.
+_HIGH_NOISE_FRAC = 0.8
+
+
+def _load_pipeline(device, args):
+    """Load the base SDXL pipeline with scheduler and optional LoRA applied."""
+    base = load_base(device)
+    apply_scheduler(base, args.scheduler)
+    apply_lora(base, getattr(args, 'lora', None), getattr(args, 'lora_weight', 0.8))
+    return base
+
+
+def _run_inference(pipe, args, generator, for_refiner=False):
+    """Run the base inference step.
+
+    When *for_refiner* is True the pipeline produces latents (not a decoded
+    image) so they can be handed to the refiner stage.
+    """
+    kwargs = dict(
+        prompt=args.prompt,
+        negative_prompt=args.negative_prompt,
+        num_inference_steps=args.steps,
+        guidance_scale=args.guidance,
+        width=args.width,
+        height=args.height,
+        generator=generator,
+    )
+    if for_refiner:
+        kwargs["denoising_end"] = _HIGH_NOISE_FRAC
+        kwargs["output_type"] = "latent"
+        return pipe(**kwargs).images          # raw latent tensor
+    return pipe(**kwargs).images[0]           # decoded PIL image
+
+
+def _run_refiner(latents, text_encoder_2, vae, device, args, generator):
+    """Load the SDXL refiner and run the refinement pass.
+
+    Returns ``(refiner_pipeline, image)`` so the caller can track the
+    refiner object for cleanup.
+    """
+    refiner = load_refiner(text_encoder_2, vae, device)
+    image = refiner(
+        prompt=args.prompt,
+        negative_prompt=args.negative_prompt,
+        num_inference_steps=getattr(args, 'refiner_steps', 10),
+        guidance_scale=args.refiner_guidance,
+        denoising_start=_HIGH_NOISE_FRAC,
+        # Move latents back to device for refiner inference.
+        image=latents.to(device) if device in ("cuda", "mps") else latents,
+        generator=generator,
+    ).images[0]
+    return refiner, image
+
+
 def generate(args) -> str:
     """Run image generation and save to output path."""
     _ensure_heavy_imports()
@@ -293,31 +357,14 @@ def generate(args) -> str:
         timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
         output_path = f"outputs/image_{timestamp}.png"
 
-    # Base+refiner split: 80% of steps on base, 20% on refiner
-    high_noise_frac = 0.8
-
     base = refiner = latents = text_encoder_2 = vae = image = None
     try:
         if args.refine:
             print(f"🎨 Running base + refiner pipeline ({args.steps} steps total)...")
-            base = load_base(device)
-
-            # Apply chosen scheduler to base pipeline
-            apply_scheduler(base, args.scheduler)
-            apply_lora(base, getattr(args, 'lora', None), getattr(args, 'lora_weight', 0.8))
+            base = _load_pipeline(device, args)
 
             # Stage 1: base model produces latents
-            latents = base(
-                prompt=args.prompt,
-                negative_prompt=args.negative_prompt,
-                num_inference_steps=args.steps,
-                guidance_scale=args.guidance,
-                width=args.width,
-                height=args.height,
-                denoising_end=high_noise_frac,
-                output_type="latent",
-                generator=generator,
-            ).images
+            latents = _run_inference(base, args, generator, for_refiner=True)
 
             # Extract shared components before freeing base from GPU
             text_encoder_2 = base.text_encoder_2
@@ -336,34 +383,14 @@ def generate(args) -> str:
                 torch.cuda.empty_cache()
             gc.collect()
 
-            refiner = load_refiner(text_encoder_2, vae, device)
-            image = refiner(
-                prompt=args.prompt,
-                negative_prompt=args.negative_prompt,
-                num_inference_steps=getattr(args, 'refiner_steps', 10),
-                guidance_scale=args.refiner_guidance,
-                denoising_start=high_noise_frac,
-                # Move latents back to device for refiner inference.
-                image=latents.to(device) if device in ("cuda", "mps") else latents,
-                generator=generator,
-            ).images[0]
+            # Stage 2: refiner sharpens the latents into a final image
+            refiner, image = _run_refiner(
+                latents, text_encoder_2, vae, device, args, generator,
+            )
         else:
             print(f"🎨 Running base model ({args.steps} steps)...")
-            base = load_base(device)
-
-            # Apply chosen scheduler to base pipeline
-            apply_scheduler(base, args.scheduler)
-            apply_lora(base, getattr(args, 'lora', None), getattr(args, 'lora_weight', 0.8))
-
-            image = base(
-                prompt=args.prompt,
-                negative_prompt=args.negative_prompt,
-                num_inference_steps=args.steps,
-                guidance_scale=args.guidance,
-                width=args.width,
-                height=args.height,
-                generator=generator,
-            ).images[0]
+            base = _load_pipeline(device, args)
+            image = _run_inference(base, args, generator)
 
         if image is not None:
             image.save(output_path)

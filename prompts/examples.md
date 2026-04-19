@@ -194,7 +194,7 @@ python generate.py --prompt "A labyrinth of weathered colorful doors half-hidden
 
 ## Prompt 02 — The Squad Gift (What travels with the code)
 ```
-A luminous gift box overflowing with glowing scrolls, colorful ceremonial banners, and glowing memory crystals, each item radiating deep magenta, teal, emerald, and gold light, arranged on a tropical wooden table surrounded by vibrant flowers, Latin American folk art aesthetic, magical realism illustration, warm amber lighting, sense of abundant knowledge and tools ready to use, no text
+A luminous gift box overflowing with glowing scrolls, colorful ceremonial banners, and glowing memory crystals, each item radiating deep magenta, teal, emerald, and gold light, arranged on a tropical wooden table surrounded by vibrant flowers, Latin American folk art style, magical realism illustration, warm amber lighting, sense of abundant knowledge and tools ready to use, no text
 ```
 **Alt text:** A radiant gift box overflowing with scrolls, banners, and glowing crystals, symbolizing the committed Squad directory that travels with every cloned repo—conventions, routing, history, and skills all included.
 
@@ -313,7 +313,7 @@ Until the flag is available, the default negative prompt should be hardcoded in 
 **Concept:** First approaching an unfamiliar repo — exciting but uncertain
 
 ```
-Latin American folk art style, magical realism illustration of a brightly painted seaplane gliding toward a colorful wooden dock, turquoise water below, coral and gold pennants waving from palm trees lining the pier, warm afternoon light, no text
+Latin American folk art style, magical realism illustration of a brightly painted seaplane gliding toward a colorful wooden dock, turquoise water below, coral and gold pennants waving from palm trees lining the pier, magenta and emerald tropical blooms along the shore, warm afternoon light, no text
 ```
 **Seed:** 42
 **Alt text:** A brightly painted seaplane gliding toward a colorful tropical dock over turquoise water with coral pennants, representing the excitement and uncertainty of approaching an unfamiliar codebase
