@@ -42,15 +42,22 @@ python generate.py --prompt "Your prompt here" --seed 42 --refine
 
 | Flag | Default | Description |
 |------|---------|-------------|
-| `--prompt TEXT` | required | Text prompt |
+| `--prompt TEXT` | required | Text prompt (mutually exclusive with `--batch-file`) |
+| `--batch-file PATH` | — | JSON file with list of prompt dicts for batch generation |
 | `--output PATH` | `outputs/image_{timestamp}.png` | Output file |
-| `--steps INT` | 40 | Inference steps |
-| `--guidance FLOAT` | 7.5 | Guidance scale |
-| `--width INT` | 1024 | Image width |
-| `--height INT` | 1024 | Image height |
+| `--steps INT` | 22 | Number of base inference steps |
+| `--refiner-steps INT` | 10 | Number of refiner inference steps |
+| `--guidance FLOAT` | 6.5 | Guidance scale |
+| `--refiner-guidance FLOAT` | 5.0 | Guidance scale for refiner (independent from base) |
+| `--scheduler TEXT` | `DPMSolverMultistepScheduler` | Scheduler class name from diffusers |
+| `--width INT` | 1024 | Image width in pixels |
+| `--height INT` | 1024 | Image height in pixels |
 | `--seed INT` | random | Reproducibility seed |
-| `--refine` | off | Use base + refiner pipeline |
+| `--negative-prompt TEXT` | *(built-in quality filter)* | Negative prompt to suppress unwanted features |
+| `--refine` | off | Use base + refiner pipeline (higher quality) |
 | `--cpu` | off | Force CPU mode (no GPU) |
+| `--lora TEXT` | — | LoRA model ID or path to load |
+| `--lora-weight FLOAT` | 0.8 | LoRA adapter weight (0.0–1.0) |
 
 ## Generation Time
 
@@ -79,15 +86,9 @@ The pipeline **automatically cleans up GPU memory** after each generation:
 
 ## Testing
 
-**Regression tests (stable):** 22 pytest tests covering memory management, device handling, and error cases — all pass in ~2 seconds, no GPU required.
-
-**TDD suites (in development):** Additional test files for features in progress (batch generation, OOM handling) are expected to have failing tests during development.
+**170 pytest tests across 11 files** covering CLI validation, batch generation, memory management, device handling, OOM retry, scheduler selection, negative prompts, pipeline enhancements, and bug fixes — no GPU required.
 
 ```bash
-# Run the regression test suite (no GPU required)
-pytest tests/test_memory_cleanup.py -v
-
-# Run all tests including TDD in-progress suites
 pytest tests/ -v
 ```
 
