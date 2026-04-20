@@ -1,7 +1,102 @@
-# Mermaid Diagrams
+# mermaid-diagrams
 
-Planned tool for generating diagrams from text using Mermaid syntax.
+Generate Mermaid diagrams from text prompts and render to PNG/SVG/PDF.
 
-## Status
+## Prerequisites
 
-🔜 Not yet implemented. This folder is a placeholder for the future diagram generation tool.
+- Python 3.10+
+- [mermaid-cli](https://github.com/mermaid-js/mermaid-cli) (`mmdc` binary)
+
+```bash
+npm install -g @mermaid-js/mermaid-cli
+```
+
+## Install
+
+```bash
+cd mermaid-diagrams
+pip install -e .
+pip install -r requirements-dev.txt
+```
+
+Or use the Makefile:
+
+```bash
+make install
+```
+
+## Usage
+
+### CLI
+
+```bash
+# From raw syntax
+mermaid-diagram --syntax "flowchart TD\n    A[Start] --> B[End]"
+
+# From a .mmd file
+mermaid-diagram --file diagram.mmd --format svg
+
+# Using a template
+mermaid-diagram --template flowchart_simple --param steps="Start,Process,End"
+
+# List available templates
+mermaid-diagram --list-templates
+```
+
+### Python API
+
+```python
+from mermaidgen import MermaidGenerator, default_registry, MermaidValidator
+
+# Validate syntax
+MermaidValidator.validate("flowchart TD\n    A --> B")
+
+# Generate from syntax
+gen = MermaidGenerator(output_dir="outputs")
+path = gen.from_syntax("flowchart TD\n    A[Start] --> B[End]", fmt="png")
+
+# Generate from template
+path = gen.from_template("flowchart_simple", params={"steps": ["Start", "Process", "End"]})
+
+# List templates
+for t in default_registry.list_available():
+    print(f"{t['name']}: {t['description']}")
+```
+
+## Built-in Templates
+
+| Name | Description |
+|------|-------------|
+| `flowchart_simple` | Linear flowchart from a list of steps |
+| `sequence_api` | Sequence diagram for API calls (client → server → database) |
+| `class_inheritance` | Class diagram with inheritance relationships |
+| `er_database` | Entity-relationship diagram from entity names |
+
+## Development
+
+```bash
+make test    # Run tests
+make lint    # Run ruff linter
+make clean   # Remove generated files
+```
+
+## Project Structure
+
+```
+mermaid-diagrams/
+├── mermaidgen/
+│   ├── __init__.py       # Public API exports
+│   ├── cli.py            # argparse CLI entry point
+│   ├── config.py         # Default configuration values
+│   ├── errors.py         # Custom exception classes
+│   ├── generator.py      # Core MermaidGenerator class
+│   ├── templates.py      # Template base + 4 concrete templates + registry
+│   └── validators.py     # Mermaid syntax validation
+├── outputs/              # Default output directory
+├── tests/                # Test suite
+├── pyproject.toml        # Package metadata and tool config
+├── requirements.txt      # Runtime dependencies (none)
+├── requirements-dev.txt  # Dev dependencies
+├── Makefile              # Common dev commands
+└── README.md             # This file
+```

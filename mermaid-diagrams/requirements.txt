@@ -1,0 +1,2 @@
+# No runtime Python dependencies required.
+# External requirement: npm install -g @mermaid-js/mermaid-cli

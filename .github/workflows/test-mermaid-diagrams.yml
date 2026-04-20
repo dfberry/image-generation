@@ -1,0 +1,50 @@
+name: Test Mermaid Diagrams
+
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - "mermaid-diagrams/**"
+      - ".github/workflows/test-mermaid-diagrams.yml"
+  push:
+    branches: [main]
+    paths:
+      - "mermaid-diagrams/**"
+      - ".github/workflows/test-mermaid-diagrams.yml"
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        python-version: ["3.10", "3.11", "3.12"]
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python ${{ matrix.python-version }}
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python-version }}
+
+      - name: Set up Node.js (for mmdc)
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+
+      - name: Install mermaid-cli
+        run: npm install -g @mermaid-js/mermaid-cli
+
+      - name: Install Python dependencies
+        working-directory: mermaid-diagrams
+        run: |
+          pip install -e .
+          pip install -r requirements-dev.txt
+
+      - name: Lint with ruff
+        working-directory: mermaid-diagrams
+        run: ruff check .
+
+      - name: Run tests
+        working-directory: mermaid-diagrams
+        run: python -m pytest tests/ -v --tb=short

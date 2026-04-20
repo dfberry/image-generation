@@ -2,6 +2,34 @@
 
 ## Active Decisions
 
+### Architecture: Mermaid Diagrams Package Design (2026-03-25)
+
+**By:** Morpheus (Lead)
+
+**Status:** Ready for implementation (Phase 1 MVP)
+
+**Decision Summary:** Build `mermaid-diagrams/` as a Python 3.10+ package that generates diagrams from text prompts using Mermaid syntax.
+
+**Key Decisions:**
+1. **Stack:** Python CLI + `@mermaid-js/mermaid-cli` (mmdc) subprocess rendering
+2. **Interface:** `mermaid-gen` CLI tool + Python `MermaidGenerator` API
+3. **MVP Diagram Types:** Flowchart, Sequence, Class, ER
+4. **Prompt Modes:** (1) Direct Mermaid syntax, (2) Pre-built templates, (3) LLM-powered (Phase 2)
+5. **Output Formats:** PNG, SVG, PDF (via mmdc)
+6. **CI:** Separate `test-mermaid-diagrams.yml` workflow (non-blocking for image-generation tests)
+
+**Why Python + mmdc?** Consistency with image-generation (Python-first project); mmdc is the de facto standard for Mermaid rendering; no alternative adds significant value.
+
+**Deliverables:**
+- Full architecture document (10 sections, file structure, roadmap)
+- Squad skill: `.squad/skills/mermaid-diagrams/SKILL.md` (syntax patterns, templates, rendering, best practices)
+- Comprehensive implementation checklist and risk mitigation
+- 3-phase plan: Week 1 (MVP), Week 2-3 (enhancements), Week 4 (polish)
+
+**Full decision:** `.squad/decisions/inbox/morpheus-mermaid-architecture.md`
+
+---
+
 ### Directive: User Test-Driven Development Workflow (2026-03-23)
 
 **By:** dfberry (via Copilot)
