@@ -141,6 +141,34 @@ class TestValidateImageOperations:
         with pytest.raises(ValidationError, match="rename"):
             validate_image_operations(code, set())
 
+    # -- Blocked: dangerous built-in calls (defense in depth) ---------------
+
+    def test_blocks_exec_call(self):
+        code = "exec('import os')\n"
+        with pytest.raises(ValidationError, match="Forbidden function call"):
+            validate_image_operations(code, set())
+
+    def test_blocks_eval_call(self):
+        code = "eval('1+1')\n"
+        with pytest.raises(ValidationError, match="Forbidden function call"):
+            validate_image_operations(code, set())
+
+    def test_blocks_open_call(self):
+        code = "open('/etc/passwd')\n"
+        with pytest.raises(ValidationError, match="Forbidden function call"):
+            validate_image_operations(code, set())
+
+    def test_blocks_dunder_import_call(self):
+        code = "__import__('os')\n"
+        with pytest.raises(ValidationError, match="Forbidden function call"):
+            validate_image_operations(code, set())
+
+    def test_blocks_bare_remove_call(self):
+        """Direct remove() call (ast.Name) must be caught, not just os.remove()."""
+        code = "remove('file')\n"
+        with pytest.raises(ValidationError, match="File write operation"):
+            validate_image_operations(code, set())
+
     # -- Edge cases -------------------------------------------------------
 
     def test_syntax_error_code_does_not_crash(self):

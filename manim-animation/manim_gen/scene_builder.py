@@ -198,6 +198,13 @@ _FILE_WRITE_CALLS = frozenset({
     "remove", "rmtree", "rename",
 })
 
+# Dangerous built-in calls blocked in image-enabled code (defense in depth —
+# validate_safety() also blocks these, but standalone callers of
+# validate_image_operations() need the same protection).
+_BLOCKED_BUILTINS = frozenset({
+    "exec", "eval", "open", "__import__",
+})
+
 
 def validate_image_operations(code: str, allowed_filenames: Set[str]) -> None:
     """Validate that generated code only uses images safely.
@@ -225,13 +232,16 @@ def validate_image_operations(code: str, allowed_filenames: Set[str]) -> None:
 
         func = node.func
 
-        # Check for ImageMobject calls
-        is_image_mobject = (
-            (isinstance(func, ast.Name) and func.id == "ImageMobject")
-            or (isinstance(func, ast.Attribute) and func.attr == "ImageMobject")
-        )
+        # Determine the called function/method name
+        if isinstance(func, ast.Name):
+            call_name = func.id
+        elif isinstance(func, ast.Attribute):
+            call_name = func.attr
+        else:
+            continue
 
-        if is_image_mobject:
+        # Check for ImageMobject calls
+        if call_name == "ImageMobject":
             if not node.args:
                 raise ValidationError(
                     "ImageMobject must be called with a filename argument"
@@ -248,8 +258,14 @@ def validate_image_operations(code: str, allowed_filenames: Set[str]) -> None:
                     f"Allowed: {sorted(allowed_filenames)}"
                 )
 
-        # Block file-write operations
-        if isinstance(func, ast.Attribute) and func.attr in _FILE_WRITE_CALLS:
+        # Block dangerous built-in calls (exec, eval, open, __import__)
+        if call_name in _BLOCKED_BUILTINS:
             raise ValidationError(
-                f"File write operation not allowed: {func.attr}"
+                f"Forbidden function call in image-enabled code: {call_name}"
+            )
+
+        # Block file-write operations (attribute-style AND direct name calls)
+        if call_name in _FILE_WRITE_CALLS:
+            raise ValidationError(
+                f"File write operation not allowed: {call_name}"
             )

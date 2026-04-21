@@ -11,8 +11,10 @@ logger = logging.getLogger(__name__)
 
 ALLOWED_IMAGE_EXTENSIONS = {
     ".png", ".jpg", ".jpeg", ".gif", ".bmp",
-    ".tiff", ".tif", ".webp", ".svg",
+    ".tiff", ".tif", ".webp",
 }
+# NOTE: .svg intentionally excluded — Manim uses SVGMobject for SVGs,
+# not ImageMobject. Including it here would cause silent render failures.
 
 MAX_IMAGE_SIZE = 100 * 1024 * 1024  # 100 MB
 
@@ -30,7 +32,6 @@ def validate_image_path(image_path: Path, policy: str = "strict") -> bool:
     Raises:
         ImageValidationError: In strict mode when validation fails
     """
-    resolved = image_path.resolve()
 
     def _handle(msg: str) -> bool:
         if policy == "strict":
@@ -38,6 +39,13 @@ def validate_image_path(image_path: Path, policy: str = "strict") -> bool:
         if policy == "warn":
             logger.warning(msg)
         return False
+
+    # Reject symlinks BEFORE resolving — checking after resolve() always
+    # sees a real path and the symlink check becomes dead code.
+    if image_path.is_symlink():
+        return _handle(f"Symlinks not allowed: {image_path}")
+
+    resolved = image_path.resolve()
 
     if not resolved.exists():
         return _handle(f"Image not found: {resolved}")
@@ -51,13 +59,11 @@ def validate_image_path(image_path: Path, policy: str = "strict") -> bool:
             f"Allowed: {sorted(ALLOWED_IMAGE_EXTENSIONS)}"
         )
 
-    if resolved.stat().st_size > MAX_IMAGE_SIZE:
-        size_mb = resolved.stat().st_size / (1024 * 1024)
+    # Cache stat result to avoid double syscall (fixes double-stat issue)
+    file_stat = resolved.stat()
+    if file_stat.st_size > MAX_IMAGE_SIZE:
+        size_mb = file_stat.st_size / (1024 * 1024)
         return _handle(f"Image too large ({size_mb:.1f} MB). Max: 100 MB")
-
-    # Reject symlinks in strict mode
-    if image_path.is_symlink():
-        return _handle(f"Symlinks not allowed: {image_path}")
 
     return True
 
@@ -83,14 +89,19 @@ def copy_images_to_workspace(
     copies: Dict[Path, Path] = {}
 
     for idx, img_path in enumerate(image_paths):
-        resolved = img_path.resolve()
-
-        if not validate_image_path(resolved, policy=policy):
+        # Validate the ORIGINAL path (not resolved) so symlink check works
+        if not validate_image_path(img_path, policy=policy):
             continue
 
+        resolved = img_path.resolve()
         dest_name = f"image_{idx}_{resolved.name}"
         dest = workspace_dir / dest_name
-        shutil.copy2(str(resolved), str(dest))
+        try:
+            shutil.copy2(str(resolved), str(dest))
+        except OSError as exc:
+            raise ImageValidationError(
+                f"Failed to copy image '{img_path}': {exc}"
+            ) from exc
         copies[resolved] = dest
         logger.info(f"Copied image to workspace: {dest_name}")
 

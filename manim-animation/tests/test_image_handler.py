@@ -43,13 +43,6 @@ def valid_jpg(tmp_path):
 
 
 @pytest.fixture
-def valid_svg(tmp_path):
-    p = tmp_path / "icon.svg"
-    p.write_text("<svg></svg>", encoding="utf-8")
-    return p
-
-
-@pytest.fixture
 def symlink_image(tmp_path):
     """Symlink → valid image. Skips if OS can't create symlinks."""
     real = tmp_path / "real.png"
@@ -78,8 +71,12 @@ class TestValidateImagePath:
     def test_valid_jpg_passes(self, valid_jpg):
         assert validate_image_path(valid_jpg) is True
 
-    def test_valid_svg_passes(self, valid_svg):
-        assert validate_image_path(valid_svg) is True
+    def test_svg_rejected_strict(self, tmp_path):
+        """SVG is not in ALLOWED_IMAGE_EXTENSIONS (use SVGMobject instead)."""
+        p = tmp_path / "icon.svg"
+        p.write_text("<svg></svg>", encoding="utf-8")
+        with pytest.raises(ImageValidationError, match="Unsupported image format"):
+            validate_image_path(p, policy="strict")
 
     def test_valid_jpeg_passes(self, tmp_path):
         p = tmp_path / "shot.jpeg"
@@ -230,6 +227,31 @@ class TestCopyImagesToWorkspace:
         keys = list(copies.keys())
         assert len(keys) == 1
         assert keys[0] == valid_png.resolve()
+
+    def test_symlink_rejected_through_copy_strict(self, tmp_path):
+        """Symlinks must be caught even when passed through copy_images_to_workspace.
+
+        Regression test: previously resolved the path BEFORE validation,
+        making the symlink check dead code in the normal pipeline.
+        """
+        real = tmp_path / "real.png"
+        real.write_bytes(_FAKE_IMAGE)
+        link = tmp_path / "link.png"
+        try:
+            link.symlink_to(real)
+        except OSError:
+            pytest.skip("Symlinks not supported on this platform/permissions")
+
+        workspace = tmp_path / "workspace"
+        with pytest.raises(ImageValidationError, match="Symlinks not allowed"):
+            copy_images_to_workspace([link], workspace, policy="strict")
+
+    def test_copy_error_raises_image_validation_error(self, valid_png, tmp_path):
+        """OSError during shutil.copy2 must surface as ImageValidationError."""
+        workspace = tmp_path / "workspace"
+        with patch("manim_gen.image_handler.shutil.copy2", side_effect=OSError("disk full")):
+            with pytest.raises(ImageValidationError, match="Failed to copy"):
+                copy_images_to_workspace([valid_png], workspace)
 
 
 # ===================================================================
