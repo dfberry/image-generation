@@ -19,3 +19,8 @@ class ValidationError(ManimGenError):
     """Raised when generated code fails validation checks"""
 
     pass
+
+class ImageValidationError(ManimGenError):
+    """Raised when image validation fails (bad path, format, size, or symlink)"""
+
+    pass
