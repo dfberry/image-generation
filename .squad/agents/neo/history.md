@@ -667,3 +667,27 @@ Full five-agent simultaneous code review (2026-03-26) identified bug convergence
 **Key insight:** No hardcoded secrets, no command injection, no eval/pickle/subprocess in production code. Primary risk surface is untrusted batch JSON files (path traversal + schema validation) and supply-chain (unpinned HF model revisions + floating dependency versions).
 
 **Output:** `.squad/decisions/inbox/neo-security-review.md`
+
+## [2026-04-21T17:31:43Z] Completed PR #88 & #89 Bug Fixes
+
+**Status:** ✅ Complete
+
+Fixed Trinity's implementation bugs in both PRs following reviewer lockout protocol:
+
+### PR #88 (Manim)
+- **Symlink bypass**: Pass original path to validation before resolve()
+- **AST security**: Block exec/eval/open/__import__ in scene builder  
+- **Copy error handling**: Graceful file handling for corrupt images
+- **Double stat cache**: Cache file stat() result
+- **SVG removal**: Type validation now enforces PNG/JPG only
+- **Result**: 139 tests pass (67 unit + 72 integration)
+
+### PR #89 (Remotion)
+- **TSX destructuring**: Fixed import syntax destruction 
+- **Backslash traversal**: Hardened path normalization
+- **staticFile regex**: Tightened protocol matching
+- **Case normalization**: Handle mixed-case file:// protocol
+- **Warn-mode stat**: Fixed file existence check
+- **Result**: 109 tests pass (65 unit + 44 integration)
+
+Both branches pushed and ready for re-review by Morpheus.

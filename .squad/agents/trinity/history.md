@@ -456,3 +456,16 @@ Wired into argparse via `type=` parameter. Argparse raises SystemExit with clear
 **Recommendation:** Merge PR as-is (non-blocking issues), create follow-up issues to fix the 3 items above.
 
 ---
+## [2026-04-21T17:31:43Z] Completed PR #89 Remotion Test Fixes
+
+**Status:** ✅ Complete  
+**Agent Fixing:** Neo (test bugs)
+
+Fixed Neo's test implementation bugs in remotion CLI tests following reviewer lockout protocol:
+
+- **Replaced fake ArgumentParser**: Now uses real main() entry point
+- **Added exit-code test**: Validates ImageValidationError propagates exit code 2
+- **Integration testing**: Full CLI-to-core flow coverage
+- **Result**: 13 CLI tests pass
+
+Branch pushed to squad/89-remotion-image-support, ready for Neo's re-validation.
