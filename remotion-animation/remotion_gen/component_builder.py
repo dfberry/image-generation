@@ -2,6 +2,7 @@
 
 import re
 from pathlib import Path
+from typing import Optional
 
 from remotion_gen.errors import ValidationError
 
@@ -124,12 +125,104 @@ def validate_component(code: str) -> None:
         )
 
 
+def validate_image_paths(code: str, allowed_image_filename: str) -> None:
+    """Validate that generated code only references the approved image.
+
+    Blocks file:// URLs, path traversal, and staticFile() calls
+    that don't match the allowed filename.
+
+    Raises:
+        ValidationError: If unsafe image references are found.
+    """
+    if "file://" in code:
+        raise ValidationError(
+            "file:// URLs are not allowed in generated components. "
+            "Use staticFile() to reference images."
+        )
+
+    if "../" in code:
+        raise ValidationError(
+            "Path traversal ('..\\') is not allowed in generated components."
+        )
+
+    # Check staticFile() calls reference only the allowed filename
+    static_file_re = re.compile(r"""staticFile\s*\(\s*['"]([^'"]+)['"]\s*\)""")
+    for match in static_file_re.finditer(code):
+        referenced = match.group(1)
+        if referenced != allowed_image_filename:
+            raise ValidationError(
+                f"staticFile() references '{referenced}' but only "
+                f"'{allowed_image_filename}' is allowed."
+            )
+
+
+def inject_image_imports(code: str, image_filename: str) -> str:
+    """Ensure Img and staticFile imports exist and add image constant.
+
+    Args:
+        code: TSX component source.
+        image_filename: Sanitized filename in public/.
+
+    Returns:
+        Modified code with image imports and constant.
+    """
+    # Ensure Img is imported
+    if "Img" not in code:
+        code = code.replace(
+            "from 'remotion'",
+            "Img, staticFile, " if "staticFile" not in code else "Img, ",
+            1,
+        )
+        # Fallback: if the above didn't work (double-quote style)
+        if "Img" not in code:
+            code = code.replace(
+                'from "remotion"',
+                "Img, staticFile, " if "staticFile" not in code else "Img, ",
+                1,
+            )
+
+    # Ensure staticFile is imported
+    if "staticFile" not in code:
+        code = code.replace(
+            "from 'remotion'",
+            "staticFile, ",
+            1,
+        )
+        if "staticFile" not in code:
+            code = code.replace(
+                'from "remotion"',
+                "staticFile, ",
+                1,
+            )
+
+    # Add image source constant if not present
+    image_const = f"const imageSrc = staticFile('{image_filename}');"
+    if image_const not in code and "imageSrc" not in code:
+        # Insert after the last import line
+        lines = code.split("\n")
+        last_import_idx = 0
+        for i, line in enumerate(lines):
+            if line.strip().startswith("import "):
+                last_import_idx = i
+        lines.insert(last_import_idx + 1, f"\n{image_const}\n")
+        code = "\n".join(lines)
+
+    return code
+
+
 def write_component(
     code: str,
     project_root: Path,
     debug: bool = False,
+    image_filename: Optional[str] = None,
 ) -> Path:
     """Write generated component to Remotion project.
+
+    Args:
+        code: TSX component source code.
+        project_root: Path to remotion-project directory.
+        debug: Save a debug copy of the component.
+        image_filename: If set, inject image imports and validate paths.
 
     Returns:
         Path to written GeneratedScene.tsx
@@ -137,6 +230,10 @@ def write_component(
     Raises:
         ValidationError: If component validation fails
     """
+    if image_filename:
+        code = inject_image_imports(code, image_filename)
+        validate_image_paths(code, image_filename)
+
     validate_component(code)
 
     component_path = project_root / "src" / "GeneratedScene.tsx"
