@@ -1,10 +1,18 @@
-"""Component builder - validates and writes Remotion components."""
+"""Component builder - validates and writes Remotion components.
 
+Includes import fixup, bracket validation, and retry-ready validation
+to compensate for smaller LLMs (e.g. llama3 8B) that frequently produce
+structurally invalid TSX.
+"""
+
+import logging
 import re
 from pathlib import Path
 from typing import Optional
 
 from remotion_gen.errors import ValidationError
+
+logger = logging.getLogger(__name__)
 
 # Node.js built-in modules that are dangerous in rendered components.
 DANGEROUS_IMPORTS = frozenset(
@@ -125,7 +133,206 @@ def validate_component(code: str) -> None:
         )
 
 
-def validate_image_paths(code: str, allowed_image_filename: str) -> None:
+def validate_tsx_syntax(code: str) -> list[str]:
+    """Check for bracket/paren/brace mismatches in TSX code.
+
+    Returns a list of error descriptions. Empty list means valid.
+    This catches the most common llama3 failure mode: unclosed or
+    extra brackets in interpolate()/spring() calls.
+    """
+    errors: list[str] = []
+
+    # Track bracket pairs
+    pairs = {"(": ")", "[": "]", "{": "}"}
+    closers = set(pairs.values())
+    stack: list[tuple[str, int]] = []
+
+    # Strip string literals and template literals to avoid false positives
+    cleaned = re.sub(r"`[^`]*`", '""', code)
+    cleaned = re.sub(r"'[^']*'", '""', cleaned)
+    cleaned = re.sub(r'"[^"]*"', '""', cleaned)
+    # Strip single-line comments
+    cleaned = re.sub(r"//.*$", "", cleaned, flags=re.MULTILINE)
+    # Strip multi-line comments
+    cleaned = re.sub(r"/\*.*?\*/", "", cleaned, flags=re.DOTALL)
+
+    for i, ch in enumerate(cleaned):
+        if ch in pairs:
+            stack.append((ch, i))
+        elif ch in closers:
+            if not stack:
+                errors.append(
+                    f"Unexpected closing '{ch}' at position {i} with no matching opener"
+                )
+            else:
+                opener, open_pos = stack.pop()
+                expected = pairs[opener]
+                if ch != expected:
+                    errors.append(
+                        f"Mismatched bracket: '{opener}' at pos {open_pos} "
+                        f"closed by '{ch}' at pos {i} (expected '{expected}')"
+                    )
+
+    for opener, pos in stack:
+        errors.append(f"Unclosed '{opener}' at position {pos}")
+
+    # Check for JSX-specific issues: unclosed tags
+    # Simple heuristic: count <Tag vs </Tag for known Remotion components
+    for tag in ["AbsoluteFill", "Sequence", "div", "Img"]:
+        opens = len(re.findall(rf"<{tag}[\s>]", code))
+        self_closes = len(re.findall(rf"<{tag}\s[^>]*/\s*>", code))
+        closes = len(re.findall(rf"</{tag}>", code))
+        if opens - self_closes > closes:
+            errors.append(f"Unclosed <{tag}> tag ({opens} opens, {self_closes} self-closes, {closes} closes)")
+
+    return errors
+
+
+# All Remotion symbols that LLMs commonly use but forget to import.
+_REMOTION_HOOKS = [
+    "useCurrentFrame",
+    "useVideoConfig",
+    "spring",
+    "interpolate",
+    "Sequence",
+    "AbsoluteFill",
+    "Img",
+    "staticFile",
+    "Audio",
+    "Video",
+    "OffthreadVideo",
+    "Series",
+    "Easing",
+    "random",
+    "delayRender",
+    "continueRender",
+    "Loop",
+    "Still",
+    "Composition",
+]
+
+
+def ensure_remotion_imports(code: str) -> str:
+    """Ensure all used Remotion symbols are imported.
+
+    LLMs often use hooks like useCurrentFrame without importing them.
+    This scans the code for known Remotion symbols and adds any
+    missing ones to the existing import statement.
+
+    Args:
+        code: TSX component source.
+
+    Returns:
+        Code with missing Remotion imports added.
+    """
+    missing = []
+    for hook in _REMOTION_HOOKS:
+        if hook in code:
+            import_pattern = re.compile(
+                rf"""import\s+\{{[^}}]*\b{hook}\b[^}}]*\}}\s+from\s+['"]remotion['"]"""
+            )
+            if not import_pattern.search(code):
+                missing.append(hook)
+
+    if not missing:
+        return code
+
+    additions = ", ".join(missing)
+    replaced = code.replace(
+        "} from 'remotion'",
+        f", {additions}}} from 'remotion'",
+        1,
+    )
+    if replaced == code:
+        replaced = code.replace(
+            '} from "remotion"',
+            f', {additions}}} from "remotion"',
+            1,
+        )
+    if replaced == code:
+        import_line = f"import {{{additions}}} from 'remotion';\n"
+        replaced = import_line + code
+
+    return replaced
+
+
+def build_validation_error_context(code: str, errors: list[str]) -> str:
+    """Format validation errors into a prompt snippet for LLM retry.
+
+    When validate_tsx_syntax() finds issues, this builds a message that
+    can be appended to a follow-up LLM prompt so the model can fix its
+    own mistakes. This is the retry logic stub — callers can feed this
+    into a second LLM call.
+
+    Args:
+        code: The invalid TSX code.
+        errors: List of error strings from validate_tsx_syntax().
+
+    Returns:
+        A formatted error context string suitable for LLM re-prompting.
+    """
+    error_list = "\n".join(f"  - {e}" for e in errors)
+    return (
+        "The TSX code you generated has structural errors:\n"
+        f"{error_list}\n\n"
+        "Please fix these issues and return ONLY the corrected TSX code. "
+        "Pay special attention to matching every opening bracket, parenthesis, "
+        "and brace with its closing counterpart."
+    )
+
+
+def write_component(
+    code: str,
+    project_root: Path,
+    debug: bool = False,
+    image_filename: Optional[str] = None,
+) -> Path:
+    """Write generated component to Remotion project.
+
+    Runs full validation pipeline: import fixup, syntax check, component
+    structure validation, and optional image path validation.
+
+    Args:
+        code: TSX component source code.
+        project_root: Path to remotion-project directory.
+        debug: Save a debug copy of the component.
+        image_filename: If set, inject image imports and validate paths.
+
+    Returns:
+        Path to written GeneratedScene.tsx
+
+    Raises:
+        ValidationError: If component validation fails
+    """
+    if image_filename:
+        code = inject_image_imports(code, image_filename)
+        validate_image_paths(code, image_filename)
+
+    code = ensure_remotion_imports(code)
+
+    # Bracket/syntax check before structural validation
+    syntax_errors = validate_tsx_syntax(code)
+    if syntax_errors:
+        logger.warning("TSX syntax issues found: %s", syntax_errors)
+        raise ValidationError(
+            "Generated TSX has structural syntax errors: "
+            + "; ".join(syntax_errors)
+        )
+
+    validate_component(code)
+
+    component_path = project_root / "src" / "GeneratedScene.tsx"
+    component_path.write_text(code, encoding="utf-8")
+
+    if debug:
+        debug_path = (
+            project_root.parent
+            / "outputs"
+            / "GeneratedScene.debug.tsx"
+        )
+        debug_path.write_text(code, encoding="utf-8")
+
+    return component_path
     """Validate that generated code only references the approved image.
 
     Blocks file:// URLs, path traversal, and staticFile() calls

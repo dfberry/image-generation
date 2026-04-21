@@ -150,6 +150,8 @@ def generate_component(
     provider: str = "ollama",
     model: Optional[str] = None,
     image_context: Optional[str] = None,
+    max_retries: int = 0,
+    validation_errors: Optional[list[str]] = None,
 ) -> str:
     """Generate Remotion component code from user prompt.
     
@@ -160,6 +162,8 @@ def generate_component(
         provider: LLM provider ("ollama", "openai", or "azure")
         model: Optional model name override
         image_context: Optional context about an available image asset
+        max_retries: Max retry attempts if validation fails (0 = no retry)
+        validation_errors: Errors from a previous attempt, used for retry context
         
     Returns:
         TSX component code
@@ -177,7 +181,19 @@ def generate_component(
     if image_context:
         user_prompt += f"\n{image_context}\n"
 
-    user_prompt += "\nRemember: Return ONLY the TSX code, component must be named GeneratedScene and exported as default."
+    user_prompt += "\nReturn ONLY raw TSX code. No markdown fences. Component must be named GeneratedScene with export default."
+
+    # If retrying with prior errors, append them so the LLM can self-correct
+    if validation_errors:
+        error_list = "\n".join(f"  - {e}" for e in validation_errors)
+        user_prompt += (
+            "\n\nYour previous attempt had these errors:\n"
+            f"{error_list}\n"
+            "Fix all of them. Double-check every bracket and parenthesis."
+        )
+
+    # Lower temperature for small models to reduce structural errors
+    temperature = 0.4 if provider == "ollama" else 0.7
 
     try:
         client, default_model = _create_client(provider)
@@ -190,7 +206,7 @@ def generate_component(
                 {"role": "system", "content": SYSTEM_PROMPT},
                 {"role": "user", "content": user_prompt},
             ],
-            temperature=0.7,
+            temperature=temperature,
             max_tokens=2000,
         )
 

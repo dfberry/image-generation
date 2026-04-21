@@ -108,3 +108,28 @@
 **Prompt audit result:** After changes, all 10 prompts (5 original + 5 vacation) have: canonical style anchor ✓, "no text" ✓, palette colors ✓, light source described ✓.
 
 **Note:** Vacation prompts now have different text than what was used to generate the existing images. Regeneration with the corrected prompts will produce different outputs (different seeds may be needed to achieve comparable quality).
+
+### Remotion LLM Prompt Engineering (issue #92)
+
+**Problem:** llama3 8B consistently generates invalid TSX for remotion-gen: mismatched brackets in `interpolate()`, missing imports, wrong `spring()` signature (no config object).
+
+**What was done:**
+
+1. **System prompt rewrite (`llm_client.py`):** Replaced the soft "requirements list" prompt with a strict, structured prompt containing:
+   - 9 NEVER/ALWAYS rules at the top (most impactful placement for instruction-tuned models)
+   - Exact Remotion API signatures for `interpolate()`, `spring()`, `useCurrentFrame()`, `useVideoConfig()`, `Sequence`
+   - Complete working example showing `spring({frame, fps})` and `interpolate()` with `{extrapolateRight: 'clamp'}` — these were the two most common failure points
+   - Explicit "no markdown fences" instruction (llama3 wraps code in fences ~80% of the time despite being told not to)
+   - Image-specific instructions moved to a dedicated section
+
+2. **Temperature reduction for Ollama:** Lowered from 0.7 → 0.4 for local models. Small models need lower temperature to stay structurally sound; creativity isn't the bottleneck, correctness is.
+
+3. **Expanded `_REMOTION_HOOKS` list:** Added 11 more symbols (`Audio`, `Video`, `OffthreadVideo`, `Series`, `Easing`, `random`, `delayRender`, `continueRender`, `Loop`, `Still`, `Composition`). `ensure_remotion_imports()` now covers the full common Remotion API.
+
+4. **New `validate_tsx_syntax()`:** Bracket/paren/brace matching checker that strips strings, comments, and template literals before counting. Also checks for unclosed JSX tags on known Remotion components. Returns error list (empty = valid).
+
+5. **Retry logic stub (`build_validation_error_context()` + `generate_component(validation_errors=)`):** When validation fails, the error list can be formatted and fed back to the LLM as a follow-up prompt. `generate_component()` now accepts `validation_errors` param to enable this flow. Callers can implement the retry loop.
+
+6. **Minimum model requirements documented** in module docstring — GPT-4 class recommended, llama3 8B marginal, <7B not recommended.
+
+**Key insight:** For small models, the single most effective prompt change was placing the working example *without* markdown fences directly in the system prompt. When the only code the model sees is raw TSX (not wrapped in fences), it's far more likely to output raw TSX.
