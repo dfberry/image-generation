@@ -8,9 +8,9 @@ Tests cover:
 - Output file doesn't exist after render → error
 """
 
+from unittest.mock import MagicMock, patch
+
 import pytest
-from unittest.mock import patch, MagicMock
-from pathlib import Path
 
 
 class TestRendererSuccess:
@@ -38,7 +38,8 @@ class TestRendererSuccess:
     ):
         """Should call npx remotion render with correct arguments."""
         mock_run.side_effect = mock_subprocess_success
-        # Expected: ["npx", "remotion", "render", "src/index.ts", "GeneratedScene", "output.mp4"]
+        # Expected: npx remotion render src/index.ts
+        # GeneratedScene output.mp4
         pytest.skip("Waiting for Trinity's renderer.py implementation")
 
 

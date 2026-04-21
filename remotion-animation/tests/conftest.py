@@ -1,15 +1,15 @@
 """Shared test fixtures for remotion-animation tests.
 
 Follows pattern from mermaid-diagrams and image-generation tests.
-Mock subprocess.run for Remotion CLI (npx remotion render), mock OpenAI API, provide temp directories.
+Mock subprocess.run for Remotion CLI (npx remotion render),
+mock OpenAI API, provide temp directories.
 """
 
 import subprocess
 from pathlib import Path
-from unittest.mock import MagicMock, patch
+from unittest.mock import MagicMock
 
 import pytest
-
 
 # ---------------------------------------------------------------------------
 # Fixtures: temp directories
@@ -106,13 +106,20 @@ def mock_subprocess_success():
 
     def _fake_run(cmd, **kwargs):
         # Detect Remotion CLI calls: ["npx", "remotion", "render", ...]
-        if isinstance(cmd, list) and len(cmd) >= 4 and cmd[1] == "remotion" and cmd[2] == "render":
+        if (
+            isinstance(cmd, list)
+            and len(cmd) >= 4
+            and cmd[1] == "remotion"
+            and cmd[2] == "render"
+        ):
             # Output path is usually the last argument
             output_path = Path(cmd[-1])
             output_path.parent.mkdir(parents=True, exist_ok=True)
             output_path.write_bytes(_FAKE_MP4)
 
-            return subprocess.CompletedProcess(cmd, 0, stdout="Render complete", stderr="")
+            return subprocess.CompletedProcess(
+                cmd, 0, stdout="Render complete", stderr=""
+            )
 
         return original_run(cmd, **kwargs)
 
@@ -129,7 +136,11 @@ def mock_subprocess_failure():
                 cmd,
                 1,
                 stdout="",
-                stderr="Error: Component not found\nTypeError: Cannot read property 'map' of undefined",
+                stderr=(
+                    "Error: Component not found\n"
+                    "TypeError: Cannot read property"
+                    " 'map' of undefined"
+                ),
             )
         return subprocess.run(cmd, **kwargs)
 

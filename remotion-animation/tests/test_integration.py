@@ -1,12 +1,14 @@
 """Integration tests for remotion-animation.
 
-End-to-end pipeline tests: mock LLM → real component build → mock render → verify pipeline.
+End-to-end pipeline tests: mock LLM -> real component
+build -> mock render -> verify pipeline.
 
 Mark with @pytest.mark.integration for easy skipping.
 """
 
+from unittest.mock import MagicMock, patch
+
 import pytest
-from unittest.mock import patch, MagicMock
 
 
 @pytest.mark.integration
@@ -103,7 +105,7 @@ export const DangerousScene: React.FC = () => {
         mock_subprocess_success,
         tmp_project_dir,
     ):
-        """Pipeline should write component to remotion-project/src/GeneratedScene.tsx."""
+        """Write component to remotion-project/src/."""
         mock_llm.return_value = mock_openai_response
         mock_subprocess.side_effect = mock_subprocess_success
         pytest.skip("Waiting for Trinity's full pipeline implementation")

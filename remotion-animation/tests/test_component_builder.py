@@ -1,159 +1,293 @@
 """Component builder tests for remotion-animation.
 
 Tests cover:
-- Valid code block extracted from LLM response
-- Code with markdown fencing (```tsx ... ```) → stripped correctly
-- Invalid TSX syntax → ValidationError
-- Dangerous imports detected → rejected (no fs, child_process, http, etc.)
-- Empty code → error
-- Code missing required component export → error
+- Component validation
+- Dangerous import rejection
+- Safe imports allowed
+- require() and bare import patterns
+- write_component file writing
 """
 
 import pytest
-from unittest.mock import MagicMock
+
+from remotion_gen.component_builder import (
+    validate_component,
+    validate_imports,
+    write_component,
+)
+from remotion_gen.errors import ValidationError
+
+VALID_COMPONENT = """\
+import { AbsoluteFill, useCurrentFrame } from 'remotion';
+
+export default function GeneratedScene() {
+  const frame = useCurrentFrame();
+  return <AbsoluteFill>{frame}</AbsoluteFill>;
+}
+"""
 
 
-class TestComponentCodeExtraction:
-    """Test extracting Remotion component code from LLM response."""
-
-    def test_extracts_code_from_tsx_markdown_fence(self):
-        """Should extract code from ```tsx ... ``` fencing."""
-        llm_response = """```tsx
-import { AbsoluteFill } from 'remotion';
-
-export const MyScene: React.FC = () => {
-  return <AbsoluteFill>Hello</AbsoluteFill>;
-};
-```"""
-        pytest.skip("Waiting for Trinity's component_builder.py implementation")
-
-    def test_extracts_code_from_typescript_fence(self):
-        """Should extract code from ```typescript ... ``` fencing."""
-        pytest.skip("Waiting for Trinity's component_builder.py implementation")
-
-    def test_strips_leading_trailing_whitespace(self):
-        """Should strip leading/trailing whitespace from extracted code."""
-        pytest.skip("Waiting for Trinity's component_builder.py implementation")
-
-    def test_handles_multiple_code_blocks(self):
-        """Should extract first valid code block when multiple exist."""
-        pytest.skip("Waiting for Trinity's component_builder.py implementation")
-
-    def test_empty_code_raises_error(self):
-        """Empty code block should raise ValidationError."""
-        pytest.skip("Waiting for Trinity's component_builder.py implementation")
-
-    def test_no_code_fence_returns_as_is(self):
-        """If no markdown fencing, return content as-is (assume plain TSX)."""
-        pytest.skip("Waiting for Trinity's component_builder.py implementation")
+def _dangerous_component(import_line: str) -> str:
+    """Build a component with a dangerous import."""
+    return (
+        import_line
+        + "\n"
+        + "import { AbsoluteFill } from 'remotion';\n"
+        + "\n"
+        + "export default function GeneratedScene() {\n"
+        + "  return <AbsoluteFill />;\n"
+        + "}\n"
+    )
 
 
 class TestComponentCodeValidation:
-    """Test TSX syntax validation of Remotion component code."""
+    """Test structural validation."""
 
-    def test_valid_tsx_syntax_passes(self):
-        """Valid TSX syntax should pass validation."""
-        valid_code = """
-import { AbsoluteFill, useCurrentFrame } from 'remotion';
-
-export const MyScene: React.FC = () => {
-  const frame = useCurrentFrame();
-  return <AbsoluteFill>{frame}</AbsoluteFill>;
-};
-"""
-        pytest.skip("Waiting for Trinity's component_builder.py implementation")
-
-    def test_invalid_tsx_syntax_raises_error(self):
-        """Invalid TSX syntax should raise ValidationError."""
-        invalid_code = """
-import { AbsoluteFill } from 'remotion';
-
-export const MyScene: React.FC = () => {
-  return <AbsoluteFill>
-  // Missing closing tag
-};
-"""
-        pytest.skip("Waiting for Trinity's component_builder.py implementation")
-
-    def test_missing_component_export_raises_error(self):
-        """Code missing React component export should raise ValidationError."""
-        no_export_code = """
-import { AbsoluteFill } from 'remotion';
-
-const MyScene = () => {
-  return <AbsoluteFill>Hello</AbsoluteFill>;
-};
-"""
-        pytest.skip("Waiting for Trinity's component_builder.py implementation")
+    def test_valid_component_passes(self):
+        validate_component(VALID_COMPONENT)
 
     def test_missing_remotion_import_raises_error(self):
-        """Component missing 'remotion' import should raise ValidationError."""
-        no_import_code = """
-export const MyScene: React.FC = () => {
-  return <div>Hello</div>;
-};
-"""
-        pytest.skip("Waiting for Trinity's component_builder.py implementation")
+        code = (
+            "export default function GeneratedScene()"
+            " { return <div/>; }"
+        )
+        with pytest.raises(ValidationError, match="remotion"):
+            validate_component(code)
+
+    def test_missing_default_export_raises_error(self):
+        code = (
+            "import { AbsoluteFill } from 'remotion';\n"
+            "export function GeneratedScene()"
+            " { return <AbsoluteFill />; }"
+        )
+        with pytest.raises(
+            ValidationError, match="default export"
+        ):
+            validate_component(code)
+
+    def test_missing_generated_scene_raises_error(self):
+        code = (
+            "import { AbsoluteFill } from 'remotion';\n"
+            "export default function MyScene()"
+            " { return <AbsoluteFill />; }"
+        )
+        with pytest.raises(
+            ValidationError, match="GeneratedScene"
+        ):
+            validate_component(code)
+
+    def test_missing_return_raises_error(self):
+        code = (
+            "import { AbsoluteFill } from 'remotion';\n"
+            "export default function GeneratedScene()"
+            " { const x = 1; }"
+        )
+        with pytest.raises(ValidationError, match="return"):
+            validate_component(code)
 
 
 class TestComponentCodeSafety:
-    """Test security validation of Remotion component code."""
+    """Test security validation."""
 
     def test_dangerous_import_fs_rejected(self):
-        """Code importing 'fs' should be rejected."""
-        dangerous_code = """
-import fs from 'fs';
-import { AbsoluteFill } from 'remotion';
-
-export const DangerousScene: React.FC = () => {
-  fs.unlinkSync('/etc/passwd');
-  return <AbsoluteFill>Bad</AbsoluteFill>;
-};
-"""
-        pytest.skip("Waiting for Trinity's component_builder.py implementation")
+        code = _dangerous_component("import fs from 'fs';")
+        with pytest.raises(
+            ValidationError, match="Dangerous import.*fs"
+        ):
+            validate_component(code)
 
     def test_dangerous_import_child_process_rejected(self):
-        """Code importing 'child_process' should be rejected."""
-        dangerous_code = """
-import { exec } from 'child_process';
-import { AbsoluteFill } from 'remotion';
-
-export const DangerousScene: React.FC = () => {
-  exec('rm -rf /');
-  return <AbsoluteFill>Bad</AbsoluteFill>;
-};
-"""
-        pytest.skip("Waiting for Trinity's component_builder.py implementation")
+        code = _dangerous_component(
+            "import { exec } from 'child_process';"
+        )
+        with pytest.raises(
+            ValidationError,
+            match="Dangerous import.*child_process",
+        ):
+            validate_component(code)
 
     def test_dangerous_import_http_rejected(self):
-        """Code importing 'http' should be rejected."""
-        pytest.skip("Waiting for Trinity's component_builder.py implementation")
+        code = _dangerous_component(
+            "import http from 'http';"
+        )
+        with pytest.raises(
+            ValidationError, match="Dangerous import.*http"
+        ):
+            validate_component(code)
 
     def test_dangerous_import_net_rejected(self):
-        """Code importing 'net' should be rejected."""
-        pytest.skip("Waiting for Trinity's component_builder.py implementation")
+        code = _dangerous_component(
+            "import net from 'net';"
+        )
+        with pytest.raises(
+            ValidationError, match="Dangerous import.*net"
+        ):
+            validate_component(code)
+
+    def test_dangerous_import_os_rejected(self):
+        code = _dangerous_component(
+            "import os from 'os';"
+        )
+        with pytest.raises(
+            ValidationError, match="Dangerous import.*os"
+        ):
+            validate_component(code)
+
+    def test_dangerous_node_prefixed_import_rejected(self):
+        code = _dangerous_component(
+            "import fs from 'node:fs';"
+        )
+        with pytest.raises(
+            ValidationError,
+            match="Dangerous import.*node:fs",
+        ):
+            validate_component(code)
+
+    def test_dangerous_require_rejected(self):
+        code = _dangerous_component(
+            "const fs = require('fs');"
+        )
+        with pytest.raises(
+            ValidationError, match="Dangerous import.*fs"
+        ):
+            validate_component(code)
+
+    def test_dangerous_subpath_import_rejected(self):
+        code = _dangerous_component(
+            "import { readFile } from 'fs/promises';"
+        )
+        with pytest.raises(
+            ValidationError,
+            match="Dangerous import.*fs/promises",
+        ):
+            validate_component(code)
+
+    def test_dangerous_import_https_rejected(self):
+        code = _dangerous_component(
+            "import https from 'https';"
+        )
+        with pytest.raises(
+            ValidationError, match="Dangerous import.*https"
+        ):
+            validate_component(code)
+
+    @pytest.mark.parametrize(
+        "module",
+        [
+            "crypto",
+            "process",
+            "cluster",
+            "dgram",
+            "dns",
+            "tls",
+            "vm",
+            "worker_threads",
+            "path",
+        ],
+    )
+    def test_all_dangerous_modules_rejected(self, module):
+        code = _dangerous_component(
+            f"import mod from '{module}';"
+        )
+        with pytest.raises(
+            ValidationError, match="Dangerous import"
+        ):
+            validate_component(code)
 
     def test_safe_remotion_imports_allowed(self):
-        """Remotion library imports should be allowed."""
-        safe_code = """
-import { AbsoluteFill, useCurrentFrame, interpolate } from 'remotion';
-
-export const MyScene: React.FC = () => {
-  const frame = useCurrentFrame();
-  return <AbsoluteFill>{frame}</AbsoluteFill>;
-};
-"""
-        pytest.skip("Waiting for Trinity's component_builder.py implementation")
+        validate_component(VALID_COMPONENT)
 
     def test_safe_react_imports_allowed(self):
-        """Safe React imports (useState, useEffect) should be allowed."""
-        safe_code = """
-import { useState, useEffect } from 'react';
-import { AbsoluteFill } from 'remotion';
+        code = (
+            "import { useState } from 'react';\n"
+            "import { AbsoluteFill } from 'remotion';\n"
+            "export default function GeneratedScene()"
+            " { return <AbsoluteFill />; }"
+        )
+        validate_component(code)
 
-export const MyScene: React.FC = () => {
-  const [count, setCount] = useState(0);
-  return <AbsoluteFill>{count}</AbsoluteFill>;
-};
-"""
-        pytest.skip("Waiting for Trinity's component_builder.py implementation")
+    def test_multiple_safe_imports_allowed(self):
+        code = (
+            "import { AbsoluteFill } from 'remotion';\n"
+            "import { spring } from '@remotion/spring';\n"
+            "export default function GeneratedScene()"
+            " { return <AbsoluteFill />; }"
+        )
+        validate_component(code)
+
+
+class TestValidateImportsDirectly:
+    """Test validate_imports() in isolation."""
+
+    def test_empty_code_passes(self):
+        validate_imports("")
+
+    def test_bare_import_rejected(self):
+        with pytest.raises(ValidationError, match="fs"):
+            validate_imports("import 'fs';")
+
+    def test_double_quote_import_rejected(self):
+        with pytest.raises(
+            ValidationError, match="child_process"
+        ):
+            validate_imports(
+                'import { exec } from "child_process";'
+            )
+
+    def test_require_with_double_quotes_rejected(self):
+        with pytest.raises(ValidationError, match="os"):
+            validate_imports('const os = require("os");')
+
+    def test_safe_module_passes(self):
+        validate_imports("import React from 'react';")
+
+
+class TestWriteComponent:
+    """Test write_component file writing."""
+
+    def test_writes_to_generated_scene_tsx(
+        self, tmp_project_dir
+    ):
+        path = write_component(
+            VALID_COMPONENT, tmp_project_dir
+        )
+        expected = (
+            tmp_project_dir / "src" / "GeneratedScene.tsx"
+        )
+        assert path == expected
+        assert (
+            path.read_text(encoding="utf-8")
+            == VALID_COMPONENT
+        )
+
+    def test_debug_mode_writes_debug_copy(
+        self, tmp_project_dir
+    ):
+        outputs_dir = tmp_project_dir.parent / "outputs"
+        outputs_dir.mkdir(exist_ok=True)
+        write_component(
+            VALID_COMPONENT, tmp_project_dir, debug=True
+        )
+        debug_path = (
+            outputs_dir / "GeneratedScene.debug.tsx"
+        )
+        assert debug_path.exists()
+        assert (
+            debug_path.read_text(encoding="utf-8")
+            == VALID_COMPONENT
+        )
+
+    def test_rejects_dangerous_code_before_writing(
+        self, tmp_project_dir
+    ):
+        code = _dangerous_component(
+            "import fs from 'fs';"
+        )
+        with pytest.raises(
+            ValidationError, match="Dangerous import"
+        ):
+            write_component(code, tmp_project_dir)
+        scene = (
+            tmp_project_dir / "src" / "GeneratedScene.tsx"
+        )
+        assert not scene.exists()

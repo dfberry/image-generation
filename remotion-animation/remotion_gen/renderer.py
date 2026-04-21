@@ -1,7 +1,7 @@
 """Remotion CLI wrapper for video rendering."""
 
-import subprocess
 import shutil
+import subprocess
 from pathlib import Path
 from typing import Optional
 
@@ -11,16 +11,16 @@ from remotion_gen.errors import RenderError
 
 def check_prerequisites() -> tuple[bool, Optional[str]]:
     """Check if Node.js and npm are available.
-    
+
     Returns:
         (success, error_message)
     """
     if not shutil.which("node"):
         return False, "Node.js not found. Install from https://nodejs.org/"
-    
+
     if not shutil.which("npm"):
         return False, "npm not found. Install Node.js from https://nodejs.org/"
-    
+
     return True, None
 
 
@@ -31,30 +31,30 @@ def render_video(
     duration_frames: int,
 ) -> Path:
     """Render video using Remotion CLI.
-    
+
     Args:
         project_root: Path to remotion-project directory
         output_path: Where to save the MP4
         quality: Quality preset (width, height, fps)
         duration_frames: Video duration in frames
-        
+
     Returns:
         Path to rendered video
-        
+
     Raises:
         RenderError: If rendering fails
     """
     ok, error = check_prerequisites()
     if not ok:
         raise RenderError(error)
-    
+
     # Check if node_modules exists
     node_modules = project_root / "node_modules"
     if not node_modules.exists():
         raise RenderError(
             f"Dependencies not installed. Run: cd {project_root} && npm install"
         )
-    
+
     # Build Remotion render command
     cmd = [
         "npx",
@@ -67,9 +67,9 @@ def render_video(
         f"--width={quality.width}",
         f"--height={quality.height}",
         f"--fps={quality.fps}",
-        f"--props={'{"durationInFrames":' + str(duration_frames) + '}'}",
+        "--props={" + '"durationInFrames":' + str(duration_frames) + '}',
     ]
-    
+
     try:
         result = subprocess.run(
             cmd,
@@ -78,16 +78,16 @@ def render_video(
             text=True,
             check=False,
         )
-        
+
         if result.returncode != 0:
             error_msg = result.stderr or result.stdout or "Unknown error"
             raise RenderError(f"Remotion render failed: {error_msg}")
-        
+
         if not output_path.exists():
             raise RenderError(f"Render completed but output not found: {output_path}")
-        
+
         return output_path
-        
+
     except FileNotFoundError:
         raise RenderError(
             "npx command not found. Ensure Node.js and npm are installed."
