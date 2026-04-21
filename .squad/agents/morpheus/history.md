@@ -18,6 +18,27 @@
 
 <!-- Append new learnings below. Each entry is something lasting about the project. -->
 
+### 2026-04-21 — PR #88 & #89 Approved & Merged
+
+Lead review and approval of both image/screenshot input support PRs.
+
+**PR #88 (Manim) Architecture:**
+- Consistent `image_handler.py` pattern: validates, copies to workspace, injects LLM context
+- AST-based security in `scene_builder.py`: enforces literal-only ImageMobject filenames
+- Policy parameter (`strict`/`warn`/`ignore`) for validation strictness
+- Workspace isolation prevents path traversal, deterministic naming (`image_0_filename.png`)
+- 67 tests all passing
+
+**PR #89 (Remotion) Architecture:**
+- Same `image_handler.py` interface, UUID-based naming to `public/` directory
+- `component_builder.py` validates `staticFile()` calls, blocks dangerous patterns
+- Policy parameter matches Manim for consistent UX
+- 64 tests, 63 passing, 1 skip (platform-specific)
+
+**Design Pattern Decision:** Separate `image_handler.py` per package enables independent evolution while maintaining consistent user-facing API and security model.
+
+**Merge Status:** Both PRs squash-merged to main. Worktrees cleaned. Ready for documentation updates and integration testing.
+
 ### 2026-07-26 — Phase 4 Codebase Review Synthesis Complete
 
 Synthesized all 6 review reports (D1-D7) into a prioritized executive report. **58 total findings** across 7 dimensions from 4 reviewers (Trinity, Niobe, Neo, Switch, Morpheus).

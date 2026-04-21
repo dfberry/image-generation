@@ -1,14 +1,20 @@
 ---
-updated_at: 2026-04-19
-focus_area: Multi-tool repo structure complete; PR #84 pending merge
+updated_at: 2026-04-21
+focus_area: Image support for both animation packages complete and merged
 active_issues: []
 ---
 
 # What We're Focused On
 
-Repo restructured into multi-tool layout (PR #84, squad-approved). Image generation lives in `image-generation/` subfolder. Empty `mermaid-diagrams/` created for future diagram tool. CI, CODEOWNERS, .gitignore, doc paths all updated.
+Image/screenshot input support for Manim and Remotion animation packages is complete and merged to main. Both implementations feature secure image handling, AST-based validation, workspace isolation, and LLM context injection. Tests passing: Manim 67/67, Remotion 63/64.
 
-## Restructure Complete (2026-04-19)
+## Image Support Delivery Complete (2026-04-21)
+
+- **PRs:** #88 (Manim), #89 (Remotion)
+- **Merge Type:** Squash-merged to main
+- **Worktrees:** Cleaned up after merge
+- **Tests:** Manim 67/67 passing, Remotion 63/64 passing
+- **Architecture:** Separate `image_handler.py` per package, consistent CLI API, policy-based strictness
 
 - **Branch:** `squad/repo-restructure-subfolders`
 - **PR:** #84 (labeled squad-approved)

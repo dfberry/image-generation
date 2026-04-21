@@ -18,6 +18,26 @@
 
 <!-- Append new learnings below. Each entry is something lasting about the project. -->
 
+### 2026-04-21 — PR #88 & #89: Image/Screenshot Input Support Tests Complete
+
+Test infrastructure for image support across both animation packages. All tests passing; comprehensive coverage of validation, security, CLI integration.
+
+**PR #88 (Manim) — 67 tests:**
+- `test_image_handler.py`: Image validation, copying, context generation
+- `test_image_security.py`: AST analysis, symlink rejection, literal-only enforcement, workspace isolation
+- `test_image_cli.py`: CLI arg parsing, policy flags, integration flow
+
+**PR #89 (Remotion) — 64 tests (63 pass, 1 skip):**
+- `test_image_handler.py`: Image validation, UUID-based copying, context generation
+- `test_image_security.py`: `staticFile()` validation, path traversal blocks, dangerous import blocking
+- `test_image_cli.py`: CLI arg parsing, policy flags, integration flow
+
+**Key test patterns:**
+- Mock-based (no real image files required)
+- AST node verification for code safety
+- Policy mode (`strict`/`warn`/`ignore`) coverage
+- Exception handling for validation failures
+
 ### 2026-07-25 — D3 Test Coverage & Quality Audit
 
 **Scope:** Full read-only audit of 11 test files (conftest.py + 10 test modules) against generate.py.

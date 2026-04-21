@@ -87,6 +87,27 @@ Trinity's code-level audit converged with Morpheus's architectural review and Ne
 
 <!-- Append new learnings below. Each entry is something lasting about the project. -->
 
+### 2026-04-21 — PR #88 & #89: Image/Screenshot Input Support Merged
+
+Delivered image/screenshot input support for both animation packages (Manim and Remotion). Both implementations merged to main (squash-merged).
+
+**PR #88 (Manim):**
+- Implemented `image_handler.py` with validation, workspace isolation, deterministic naming
+- AST-based security: `validate_image_operations()` enforces literal-only ImageMobject filenames
+- CLI: `--image`, `--image-descriptions`, `--image-policy` flags
+- LLM context injection into system prompt
+- Renderer uses workspace `cwd` for local image resolution
+- All 67 tests passing
+
+**PR #89 (Remotion):**
+- Implemented `image_handler.py` with UUID-based naming in `public/` directory
+- `component_builder.py` validates `staticFile()` calls, blocks `file://` URLs and path traversal
+- CLI: `--image`, `--image-description`, `--image-policy` flags
+- LLM context injection into user prompt
+- 64 tests, 63 passing, 1 skip (Windows symlink limitation)
+
+**Design Pattern:** Both packages use consistent architecture (separate `image_handler.py`, policy-based strictness, workspace isolation, LLM guidance) but independent implementations enable package-specific evolution.
+
 ### 2026-04-18 — PR #15: CONTRIBUTING.md CLI Fixes & Dev Setup Alignment
 
 Fixed CONTRIBUTING.md to match actual generate.py CLI and align dev setup with CI:
