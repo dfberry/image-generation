@@ -19,3 +19,8 @@ class RenderError(RemotionGenError):
 class ValidationError(RemotionGenError):
     """Generated component failed validation."""
     pass
+
+
+class ImageValidationError(RemotionGenError):
+    """Image input validation failed."""
+    pass

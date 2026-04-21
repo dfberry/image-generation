@@ -12,7 +12,14 @@ from remotion_gen.config import (
     MIN_DURATION_SECONDS,
     QUALITY_PRESETS,
 )
-from remotion_gen.errors import LLMError, RemotionGenError, RenderError, ValidationError
+from remotion_gen.errors import (
+    ImageValidationError,
+    LLMError,
+    RemotionGenError,
+    RenderError,
+    ValidationError,
+)
+from remotion_gen.image_handler import copy_image_to_public, generate_image_context
 from remotion_gen.llm_client import generate_component
 from remotion_gen.renderer import render_video
 
@@ -25,6 +32,9 @@ def generate_video(
     provider: str = DEFAULT_PROVIDER,
     model: str = None,
     debug: bool = False,
+    image_path: str = None,
+    image_description: str = None,
+    image_policy: str = "strict",
 ) -> Path:
     """Generate video from prompt.
 
@@ -36,6 +46,9 @@ def generate_video(
         provider: LLM provider ("ollama", "openai", or "azure")
         model: Optional model name override
         debug: Save intermediate component code
+        image_path: Optional path to an image file to include
+        image_description: Optional description of the image for LLM context
+        image_policy: Image validation policy ("strict", "warn", "ignore")
 
     Returns:
         Path to generated video
@@ -60,11 +73,33 @@ def generate_video(
         f"{preset.resolution_name} {preset.fps}fps..."
     )
 
+    # Step 0: Handle image input
+    image_context = None
+    image_filename = None
+    if image_path:
+        print(f"→ Processing image: {image_path}")
+        try:
+            image_filename = copy_image_to_public(
+                image_path, project_root, image_policy
+            )
+            image_context = generate_image_context(
+                image_filename, image_description
+            )
+            print(f"  Image copied as: {image_filename}")
+        except ImageValidationError as e:
+            print(f"✗ Image validation failed: {e}", file=sys.stderr)
+            raise
+
     # Step 1: Generate component with LLM
     print(f"→ Calling {provider} LLM to generate component...")
     try:
         component_code = generate_component(
-            prompt, duration, preset.fps, provider=provider, model=model
+            prompt,
+            duration,
+            preset.fps,
+            provider=provider,
+            model=model,
+            image_context=image_context,
         )
     except LLMError as e:
         print(f"✗ LLM generation failed: {e}", file=sys.stderr)
@@ -73,7 +108,12 @@ def generate_video(
     # Step 2: Write component to project
     print("→ Writing component to Remotion project...")
     try:
-        write_component(component_code, project_root, debug)
+        write_component(
+            component_code,
+            project_root,
+            debug,
+            image_filename=image_filename,
+        )
         if debug:
             debug_path = repo_root / "outputs" / "GeneratedScene.debug.tsx"
             print(f"  Debug: Component saved to {debug_path}")
@@ -167,6 +207,26 @@ Environment variables:
         help="Save intermediate component code to outputs/ for inspection",
     )
 
+    parser.add_argument(
+        "--image",
+        type=str,
+        help="Path to an image or screenshot to include in the animation",
+    )
+
+    parser.add_argument(
+        "--image-description",
+        type=str,
+        help="Optional description of the image for better LLM context",
+    )
+
+    parser.add_argument(
+        "--image-policy",
+        type=str,
+        choices=["strict", "warn", "ignore"],
+        default="strict",
+        help="Image validation policy (default: strict)",
+    )
+
     args = parser.parse_args()
 
     # Validate duration
@@ -187,6 +247,9 @@ Environment variables:
             provider=args.provider,
             model=args.model,
             debug=args.debug,
+            image_path=args.image,
+            image_description=args.image_description,
+            image_policy=args.image_policy,
         )
         return 0
     except RemotionGenError as e:

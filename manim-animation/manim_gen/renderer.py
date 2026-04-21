@@ -18,6 +18,7 @@ def render_scene(
     scene_file: Path,
     output_path: Path,
     quality: QualityPreset = QualityPreset.MEDIUM,
+    assets_dir: Path = None,
 ) -> Path:
     """Render Manim scene to video file
 
@@ -25,6 +26,7 @@ def render_scene(
         scene_file: Path to Python file containing GeneratedScene
         output_path: Desired output video path
         quality: Quality preset (LOW, MEDIUM, HIGH)
+        assets_dir: Optional directory containing image assets (sets cwd for Manim)
 
     Returns:
         Path to rendered video file
@@ -53,12 +55,10 @@ def render_scene(
     logger.info(f"Running: {' '.join(cmd)}")
 
     try:
-        result = subprocess.run(
-            cmd,
-            capture_output=True,
-            text=True,
-            check=True,
-        )
+        run_kwargs = dict(capture_output=True, text=True, check=True)
+        if assets_dir:
+            run_kwargs["cwd"] = str(assets_dir)
+        result = subprocess.run(cmd, **run_kwargs)
 
         logger.info("Manim render completed successfully")
         logger.debug(f"stdout: {result.stdout}")
