@@ -118,8 +118,20 @@ class TestValidateImagePaths:
             validate_image_paths(code, "image_abc12345.png")
 
     def test_blocks_file_url_case_variations(self):
-        """file:// check is case-sensitive but standard patterns should match."""
+        """file:// check is case-insensitive — FILE:// and File:// are caught."""
         code = 'const src = "file:///secret/data";'
+        with pytest.raises(ValidationError, match="file://"):
+            validate_image_paths(code, "image_abc12345.png")
+
+    def test_blocks_file_url_uppercase(self):
+        """FILE:// in uppercase must also be rejected."""
+        code = 'const src = "FILE:///etc/passwd";'
+        with pytest.raises(ValidationError, match="file://"):
+            validate_image_paths(code, "image_abc12345.png")
+
+    def test_blocks_file_url_mixed_case(self):
+        """File:// in mixed case must also be rejected."""
+        code = 'const src = "File:///etc/shadow";'
         with pytest.raises(ValidationError, match="file://"):
             validate_image_paths(code, "image_abc12345.png")
 
@@ -127,6 +139,30 @@ class TestValidateImagePaths:
         """Even ../ embedded in a string literal should be caught."""
         code = "const path = '../../../passwords.txt';"
         with pytest.raises(ValidationError, match="Path traversal"):
+            validate_image_paths(code, "image_abc12345.png")
+
+    def test_blocks_backslash_path_traversal(self):
+        r"""..\ (backslash) path traversal must be rejected."""
+        code = r"const path = '..\..\secret.txt';"
+        with pytest.raises(ValidationError, match="Path traversal"):
+            validate_image_paths(code, "image_abc12345.png")
+
+    def test_blocks_dynamic_static_file_template_literal(self):
+        """staticFile() with template literals must be rejected."""
+        code = "const img = staticFile(`${someVar}`);"
+        with pytest.raises(ValidationError, match="string literals"):
+            validate_image_paths(code, "image_abc12345.png")
+
+    def test_blocks_dynamic_static_file_variable(self):
+        """staticFile() with a variable reference must be rejected."""
+        code = "const img = staticFile(someVariable);"
+        with pytest.raises(ValidationError, match="string literals"):
+            validate_image_paths(code, "image_abc12345.png")
+
+    def test_blocks_dynamic_static_file_function_call(self):
+        """staticFile() with a function call must be rejected."""
+        code = "const img = staticFile(getPath());"
+        with pytest.raises(ValidationError, match="string literals"):
             validate_image_paths(code, "image_abc12345.png")
 
 
@@ -137,6 +173,15 @@ class TestValidateImagePaths:
 
 class TestInjectImageImports:
     """Test inject_image_imports adds Img, staticFile, and imageSrc."""
+
+    def test_injection_produces_valid_tsx_syntax(self):
+        """Injection into code without Img/staticFile should produce valid TSX."""
+        result = inject_image_imports(VALID_COMPONENT, "image_abc12345.png")
+        # The result should retain a valid import closing: } from 'remotion'
+        assert "} from 'remotion'" in result or '} from "remotion"' in result
+        # Img and staticFile should appear inside the import braces
+        assert "Img" in result
+        assert "staticFile" in result
 
     def test_adds_img_import(self):
         """Img should be present in result if absent in input."""

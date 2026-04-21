@@ -93,13 +93,11 @@ class TestValidateImagePath:
 
     # -- warn policy ---------------------------------------------------------
 
-    def test_warn_policy_prints_on_missing(self, tmp_path, capsys):
-        """Warn policy should print warning, not raise, for missing file."""
+    def test_warn_policy_raises_on_missing(self, tmp_path):
+        """Warn policy should raise for missing file — existence is not lenient."""
         missing = tmp_path / "nope.png"
-        result = validate_image_path(str(missing), policy="warn")
-        captured = capsys.readouterr()
-        assert "not found" in captured.out
-        assert result == missing.resolve()
+        with pytest.raises(ImageValidationError, match="not found"):
+            validate_image_path(str(missing), policy="warn")
 
     def test_warn_policy_prints_on_bad_ext(self, tmp_path, capsys):
         """Warn policy should print warning for bad extension."""

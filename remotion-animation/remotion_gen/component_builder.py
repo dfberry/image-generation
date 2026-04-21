@@ -134,15 +134,16 @@ def validate_image_paths(code: str, allowed_image_filename: str) -> None:
     Raises:
         ValidationError: If unsafe image references are found.
     """
-    if "file://" in code:
+    if re.search(r"file://", code, re.IGNORECASE):
         raise ValidationError(
             "file:// URLs are not allowed in generated components. "
             "Use staticFile() to reference images."
         )
 
-    if "../" in code:
+    if "../" in code or "..\\" in code:
         raise ValidationError(
-            "Path traversal ('..\\') is not allowed in generated components."
+            "Path traversal ('../' or '..\\') is not allowed "
+            "in generated components."
         )
 
     # Check staticFile() calls reference only the allowed filename
@@ -154,6 +155,15 @@ def validate_image_paths(code: str, allowed_image_filename: str) -> None:
                 f"staticFile() references '{referenced}' but only "
                 f"'{allowed_image_filename}' is allowed."
             )
+
+    # Reject non-literal staticFile() calls (template literals, variables, etc.)
+    all_calls = re.findall(r"staticFile\s*\(", code)
+    literal_calls = static_file_re.findall(code)
+    if len(all_calls) > len(literal_calls):
+        raise ValidationError(
+            "staticFile() must only be called with string literals, "
+            "not variables or template expressions."
+        )
 
 
 def inject_image_imports(code: str, image_filename: str) -> str:
@@ -168,30 +178,33 @@ def inject_image_imports(code: str, image_filename: str) -> str:
     """
     # Ensure Img is imported
     if "Img" not in code:
+        additions = (
+            "Img, staticFile" if "staticFile" not in code else "Img"
+        )
         code = code.replace(
-            "from 'remotion'",
-            "Img, staticFile, " if "staticFile" not in code else "Img, ",
+            "} from 'remotion'",
+            f", {additions}}} from 'remotion'",
             1,
         )
         # Fallback: if the above didn't work (double-quote style)
         if "Img" not in code:
             code = code.replace(
-                'from "remotion"',
-                "Img, staticFile, " if "staticFile" not in code else "Img, ",
+                '} from "remotion"',
+                f', {additions}}} from "remotion"',
                 1,
             )
 
     # Ensure staticFile is imported
     if "staticFile" not in code:
         code = code.replace(
-            "from 'remotion'",
-            "staticFile, ",
+            "} from 'remotion'",
+            ", staticFile} from 'remotion'",
             1,
         )
         if "staticFile" not in code:
             code = code.replace(
-                'from "remotion"',
-                "staticFile, ",
+                '} from "remotion"',
+                ', staticFile} from "remotion"',
                 1,
             )
 

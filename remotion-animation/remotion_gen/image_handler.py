@@ -29,24 +29,20 @@ def validate_image_path(image_path: str, policy: str = "strict") -> Path:
 
     path = Path(image_path)
 
+    # Existence, type, and symlink checks always raise regardless of policy.
+    # Warn mode is only lenient about format (extension) and size.
     if not path.exists():
-        msg = f"Image file not found: {image_path}"
-        if policy == "strict":
-            raise ImageValidationError(msg)
-        print(f"⚠ {msg}")
-        return path.resolve()
+        raise ImageValidationError(f"Image file not found: {image_path}")
 
     if not path.is_file():
-        msg = f"Image path is not a file: {image_path}"
-        if policy == "strict":
-            raise ImageValidationError(msg)
-        print(f"⚠ {msg}")
+        raise ImageValidationError(
+            f"Image path is not a file: {image_path}"
+        )
 
     if path.is_symlink():
-        msg = f"Symlinks are not allowed for security: {image_path}"
-        if policy == "strict":
-            raise ImageValidationError(msg)
-        print(f"⚠ {msg}")
+        raise ImageValidationError(
+            f"Symlinks are not allowed for security: {image_path}"
+        )
 
     ext = path.suffix.lower()
     if ext not in ALLOWED_IMAGE_EXTENSIONS:
