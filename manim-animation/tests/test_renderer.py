@@ -61,6 +61,75 @@ class TestRenderScene:
         with pytest.raises(RenderError, match="Manim render failed"):
             render_scene(scene_file, output)
 
+class TestRenderSceneMediaDir:
+    """Issue #90: media directory detection uses correct base when assets_dir is provided."""
+
+    @patch("manim_gen.renderer.shutil.move")
+    @patch("manim_gen.renderer.subprocess.run")
+    @patch("manim_gen.renderer.check_manim_installed", return_value=True)
+    def test_assets_dir_media_path(self, mock_check, mock_run, mock_move, tmp_path):
+        """When assets_dir is provided, media output is relative to assets_dir, not scene_file.parent."""
+        scene_dir = tmp_path / "scenes"
+        scene_dir.mkdir()
+        scene_file = scene_dir / "scene.py"
+        scene_file.write_text("pass")
+
+        assets_dir = tmp_path / "assets"
+        assets_dir.mkdir()
+
+        output = tmp_path / "output.mp4"
+        mock_run.return_value = MagicMock(returncode=0, stdout="", stderr="")
+
+        # Manim outputs media relative to cwd (assets_dir), NOT scene_file.parent
+        media_dir = assets_dir / "media" / "videos" / "scene" / "720p30"
+        media_dir.mkdir(parents=True)
+        (media_dir / "GeneratedScene.mp4").write_bytes(b"fake-mp4")
+
+        result = render_scene(scene_file, output, QualityPreset.MEDIUM, assets_dir=assets_dir)
+        assert result == output
+        mock_move.assert_called_once()
+
+    @patch("manim_gen.renderer.shutil.move")
+    @patch("manim_gen.renderer.subprocess.run")
+    @patch("manim_gen.renderer.check_manim_installed", return_value=True)
+    def test_no_assets_dir_uses_scene_parent(self, mock_check, mock_run, mock_move, tmp_path):
+        """Without assets_dir, media output is relative to scene_file.parent (default cwd behavior)."""
+        scene_file = tmp_path / "scene.py"
+        scene_file.write_text("pass")
+        output = tmp_path / "output.mp4"
+
+        mock_run.return_value = MagicMock(returncode=0, stdout="", stderr="")
+
+        media_dir = tmp_path / "media" / "videos" / "scene" / "720p30"
+        media_dir.mkdir(parents=True)
+        (media_dir / "GeneratedScene.mp4").write_bytes(b"fake-mp4")
+
+        result = render_scene(scene_file, output, QualityPreset.MEDIUM)
+        assert result == output
+
+    @patch("manim_gen.renderer.shutil.move")
+    @patch("manim_gen.renderer.subprocess.run")
+    @patch("manim_gen.renderer.check_manim_installed", return_value=True)
+    def test_fallback_rglob_with_assets_dir(self, mock_check, mock_run, mock_move, tmp_path):
+        """Fallback rglob search also uses assets_dir as base."""
+        scene_file = tmp_path / "scene.py"
+        scene_file.write_text("pass")
+
+        assets_dir = tmp_path / "assets"
+        assets_dir.mkdir()
+
+        output = tmp_path / "output.mp4"
+        mock_run.return_value = MagicMock(returncode=0, stdout="", stderr="")
+
+        # Put video in unexpected quality dir (triggers fallback)
+        unexpected_dir = assets_dir / "media" / "videos" / "scene" / "1080p60"
+        unexpected_dir.mkdir(parents=True)
+        (unexpected_dir / "GeneratedScene.mp4").write_bytes(b"fake-mp4")
+
+        result = render_scene(scene_file, output, QualityPreset.MEDIUM, assets_dir=assets_dir)
+        assert result == output
+
+
 class TestRenderSceneQuality:
 
     def test_quality_presets_have_flags(self):
