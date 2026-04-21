@@ -157,8 +157,15 @@ Environment variables:
 
     parser.add_argument(
         "--prompt",
-        required=True,
+        required=False,
+        default=None,
         help="Animation description (what you want to see)",
+    )
+
+    parser.add_argument(
+        "--demo",
+        action="store_true",
+        help="Generate a personalized demo title card (no --prompt needed, bypasses LLM)",
     )
 
     parser.add_argument(
@@ -237,6 +244,39 @@ Environment variables:
             f" and {MAX_DURATION_SECONDS} seconds"
         )
         )
+
+    # Handle --demo mode: bypass LLM with pre-built template
+    if args.demo:
+        from datetime import datetime
+        from remotion_gen.demo_template import get_demo_component
+
+        now = datetime.now().strftime("%B %d, %Y at %I:%M %p")
+        component_code = get_demo_component(now)
+
+        repo_root = Path(__file__).parent.parent
+        project_root = repo_root / "remotion-project"
+        output_path = Path(args.output).resolve()
+
+        if not project_root.exists():
+            print(f"✗ Remotion project not found: {project_root}", file=sys.stderr)
+            return 1
+
+        preset = QUALITY_PRESETS[args.quality]
+        duration_frames = args.duration * preset.fps
+
+        print(f"🎬 Demo mode: writing pre-built title card (bypassing LLM)")
+        try:
+            write_component(component_code, project_root, args.debug)
+            result_path = render_video(project_root, output_path, preset, duration_frames)
+            print(f"✓ Demo video generated: {result_path}")
+            return 0
+        except RemotionGenError as e:
+            print(f"\nError: {e}", file=sys.stderr)
+            return 1
+
+    if not args.prompt:
+        print("✗ Error: --prompt is required (or use --demo)", file=sys.stderr)
+        return 1
 
     try:
         generate_video(
