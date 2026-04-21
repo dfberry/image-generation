@@ -774,3 +774,82 @@ All 75 tests fail to collect without `pip install torch --index-url https://down
 - All meaningful changes require team consensus
 - Document architectural decisions here
 - Keep history focused on work, decisions focused on direction
+
+---
+
+## Decision: Trinity — Manim Image/Screenshot Input Support
+
+# Decision: Manim Image/Screenshot Input Support
+
+**Date:** 2025-07-24
+**Author:** Trinity (Backend Dev)
+**Status:** Implemented
+**Issue:** #88
+
+## Context
+
+Users need to include screenshots and images in Manim animations — e.g., annotating a UI screenshot or animating a diagram. This requires safe image handling, LLM prompt augmentation, and render-time asset availability.
+
+## Decision
+
+### Architecture
+- **New module `image_handler.py`** owns all image I/O: validation, workspace copying, and LLM context generation. Single responsibility, easy to test.
+- **Workspace isolation**: images are always copied to a temp directory with deterministic names (`image_0_filename.png`). Original paths are never passed to generated code or Manim.
+- **Policy parameter** (`strict`/`warn`/`ignore`) controls validation behavior, letting callers choose fail-fast vs. best-effort.
+
+### Security
+- Symlinks rejected in strict mode to prevent path traversal.
+- `validate_image_operations()` in `scene_builder.py` uses AST analysis to enforce:
+  - ImageMobject must use string-literal filenames only (no dynamic construction)
+  - Only filenames in the copied workspace set are allowed
+  - File-write operations (`write_text`, `unlink`, `rmtree`, etc.) are blocked
+- The renderer runs with `cwd` set to the workspace so Manim resolves image filenames locally.
+
+### Integration Points
+- `cli.py`: three new args (`--image`, `--image-descriptions`, `--image-policy`)
+- `llm_client.py`: `generate_scene_code()` accepts optional `image_context` string
+- `config.py`: SYSTEM_PROMPT updated with ImageMobject guidance; new few-shot example
+- `renderer.py`: `render_scene()` accepts optional `assets_dir` for cwd override
+
+## Alternatives Considered
+- **Symlink images into workspace** — rejected; copying is safer and avoids platform edge cases.
+- **Base64-encode images into prompt** — rejected; unnecessary for code generation, and would bloat token usage.
+- **Allow dynamic filenames in generated code** — rejected; too risky. Literal-only policy is enforceable via AST.
+
+
+---
+
+## Decision: Trinity — Remotion Image/Screenshot Input Support
+
+# Decision: Image/Screenshot Input Support for remotion-animation
+
+**Date:** 2025-07-24
+**Author:** Trinity (Backend Dev)
+**Status:** Implemented
+**Branch:** squad/89-remotion-image-support
+
+## Context
+
+Users want to include images or screenshots in their Remotion-generated animations — e.g., animating a blog hero image or panning across a screenshot.
+
+## Decision
+
+Added `--image`, `--image-description`, and `--image-policy` CLI flags. Images are validated, copied to `remotion-project/public/` with UUID-sanitized filenames, and referenced via Remotion's `staticFile()` API.
+
+## Key Design Choices
+
+1. **UUID-based filenames** — Original paths never leak into generated TSX. Files are copied as `image_{uuid8}.ext`.
+2. **Security layers** — `component_builder.py` blocks `file://` URLs, path traversal (`../`), and any `staticFile()` call that doesn't match the approved filename. Existing dangerous-import blocking unchanged.
+3. **Policy flag** — `--image-policy strict|warn|ignore` lets users control validation strictness. Strict by default.
+4. **LLM context injection** — `image_handler.generate_image_context()` produces a structured prompt fragment telling the LLM exactly how to use `<Img>` + `staticFile()`. Injected into the user prompt, not the system prompt.
+5. **No renderer changes** — Remotion CLI automatically serves `public/`, so `renderer.py` needed no modification.
+
+## Files Changed
+
+- **NEW:** `remotion_gen/image_handler.py` — validation, copy, LLM context
+- **NEW:** `remotion-project/public/.gitkeep` — ensure public/ exists
+- **MODIFIED:** `remotion_gen/cli.py` — new args, wiring
+- **MODIFIED:** `remotion_gen/llm_client.py` — accepts `image_context`, updated system prompt
+- **MODIFIED:** `remotion_gen/component_builder.py` — `validate_image_paths()`, `inject_image_imports()`
+- **MODIFIED:** `remotion_gen/errors.py` — added `ImageValidationError`
+
