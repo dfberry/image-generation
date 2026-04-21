@@ -4,7 +4,7 @@ import ast
 import logging
 import re
 from pathlib import Path
-from typing import Tuple
+from typing import Optional, Set, Tuple
 
 from manim_gen.config import ALLOWED_IMPORTS
 from manim_gen.errors import ValidationError
@@ -150,12 +150,15 @@ def validate_scene_class(code: str) -> None:
 
     raise ValidationError("Generated code must contain a class named 'GeneratedScene'")
 
-def build_scene(llm_output: str, output_path: Path) -> Tuple[str, Path]:
+def build_scene(
+    llm_output: str, output_path: Path, image_filenames: Optional[Set[str]] = None
+) -> Tuple[str, Path]:
     """Build and validate Manim scene code, write to file
 
     Args:
         llm_output: Raw LLM response
         output_path: Path to write scene file
+        image_filenames: If provided, also run image-operation validation
 
     Returns:
         Tuple of (validated code, output path)
@@ -175,9 +178,78 @@ def build_scene(llm_output: str, output_path: Path) -> Tuple[str, Path]:
     logger.info("Validating scene class")
     validate_scene_class(code)
 
+    if image_filenames:
+        logger.info("Validating image operations")
+        validate_image_operations(code, image_filenames)
+
     # Write to file
     output_path.parent.mkdir(parents=True, exist_ok=True)
     output_path.write_text(code, encoding="utf-8")
     logger.info(f"Scene code written to {output_path}")
 
     return code, output_path
+
+
+# --- Image operation validation ---
+
+# File-write method names that must be blocked in generated code
+_FILE_WRITE_CALLS = frozenset({
+    "write_text", "write_bytes", "unlink", "rmdir",
+    "remove", "rmtree", "rename",
+})
+
+
+def validate_image_operations(code: str, allowed_filenames: Set[str]) -> None:
+    """Validate that generated code only uses images safely.
+
+    Rules:
+    - ImageMobject must be called with a string literal filename
+    - That filename must be in the allowed set
+    - File-write operations are blocked
+
+    Args:
+        code: Python source code
+        allowed_filenames: Set of permitted image filenames
+
+    Raises:
+        ValidationError: If code violates image-safety rules
+    """
+    try:
+        tree = ast.parse(code)
+    except SyntaxError:
+        return  # Syntax validation handles this
+
+    for node in ast.walk(tree):
+        if not isinstance(node, ast.Call):
+            continue
+
+        func = node.func
+
+        # Check for ImageMobject calls
+        is_image_mobject = (
+            (isinstance(func, ast.Name) and func.id == "ImageMobject")
+            or (isinstance(func, ast.Attribute) and func.attr == "ImageMobject")
+        )
+
+        if is_image_mobject:
+            if not node.args:
+                raise ValidationError(
+                    "ImageMobject must be called with a filename argument"
+                )
+            arg = node.args[0]
+            if not isinstance(arg, ast.Constant) or not isinstance(arg.value, str):
+                raise ValidationError(
+                    "ImageMobject filename must be a string literal, "
+                    "not a variable or expression"
+                )
+            if arg.value not in allowed_filenames:
+                raise ValidationError(
+                    f"ImageMobject references unknown file '{arg.value}'. "
+                    f"Allowed: {sorted(allowed_filenames)}"
+                )
+
+        # Block file-write operations
+        if isinstance(func, ast.Attribute) and func.attr in _FILE_WRITE_CALLS:
+            raise ValidationError(
+                f"File write operation not allowed: {func.attr}"
+            )

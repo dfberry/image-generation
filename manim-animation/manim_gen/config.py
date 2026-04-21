@@ -81,6 +81,13 @@ class GeneratedScene(Scene):
         self.wait()
 ```
 
+When images are provided:
+- Use `ImageMobject('filename.png')` to load images (they are in the working directory)
+- Always use ONLY the exact literal filenames provided — never construct paths dynamically
+- Scale images with `.scale()` or `.set_width()` / `.set_height()` to fit the scene
+- Position with `.to_edge()`, `.shift()`, `.move_to()`, `.next_to()`
+- Animate with FadeIn, FadeOut, GrowFromCenter, or any standard Manim animation
+
 Now generate code for the user's request."""
 
 # Few-shot examples for better LLM output
@@ -101,7 +108,25 @@ class GeneratedScene(Scene):
         self.wait()
 ```
 
-Example 2 - Text with equation:
+Example 2 - Using an image:
+User: "Show the screenshot sliding in from the left"
+```python
+from manim import *
+
+class GeneratedScene(Scene):
+    def construct(self):
+        img = ImageMobject('image_0_screenshot.png')
+        img.scale(0.5)
+        img.shift(LEFT * 6)
+        self.play(img.animate.shift(RIGHT * 6), run_time=2)
+        self.wait(1)
+        caption = Text("Here's the screenshot", font_size=32)
+        caption.next_to(img, DOWN)
+        self.play(FadeIn(caption))
+        self.wait()
+```
+
+Example 3 - Text with equation:
 User: "Show the Pythagorean theorem with text and equation"
 ```python
 from manim import *

@@ -81,7 +81,11 @@ class LLMClient:
         return self._client
 
     def generate_scene_code(
-        self, prompt: str, duration: int, model: Optional[str] = None
+        self,
+        prompt: str,
+        duration: int,
+        model: Optional[str] = None,
+        image_context: Optional[str] = None,
     ) -> str:
         """Generate Manim scene code from user prompt
 
@@ -89,6 +93,7 @@ class LLMClient:
             prompt: User's description of desired animation
             duration: Target duration in seconds
             model: Optional model override
+            image_context: Optional context block describing available images
 
         Returns:
             Python code string for Manim scene
@@ -99,11 +104,14 @@ class LLMClient:
         client = self._get_client()
 
         # Build user message with duration context
-        user_message = (
-            f"{FEW_SHOT_EXAMPLES}\n\n"
-            f"User request (target duration: {duration} seconds): {prompt}\n\n"
-            f"Generate the Python code:"
-        )
+        parts = [FEW_SHOT_EXAMPLES, ""]
+        if image_context:
+            parts.append(image_context)
+            parts.append("")
+        parts.append(f"User request (target duration: {duration} seconds): {prompt}")
+        parts.append("")
+        parts.append("Generate the Python code:")
+        user_message = "\n".join(parts)
 
         # Determine model name
         if self.provider == "azure":
