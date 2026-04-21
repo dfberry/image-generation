@@ -8,9 +8,13 @@ Tests cover:
 - Output file doesn't exist after render → error
 """
 
+import json
 from unittest.mock import MagicMock, patch
 
 import pytest
+
+from remotion_gen.config import QUALITY_PRESETS
+from remotion_gen.renderer import render_video
 
 
 class TestRendererSuccess:
@@ -118,3 +122,60 @@ class TestRendererQuality:
         """Quality 'high' should render at 1080p."""
         mock_run.side_effect = mock_subprocess_success
         pytest.skip("Waiting for Trinity's renderer.py implementation")
+
+
+class TestRendererInputProps:
+    """Issue #93: renderer passes all composition props via --props JSON."""
+
+    @patch("remotion_gen.renderer.shutil.which", return_value="/usr/bin/npx")
+    @patch("remotion_gen.renderer.subprocess.run")
+    def test_props_json_includes_all_composition_values(self, mock_run, mock_which, tmp_path):
+        """--props JSON must include durationInFrames, fps, width, height."""
+        project_root = tmp_path / "remotion-project"
+        project_root.mkdir()
+        (project_root / "node_modules").mkdir()
+        output = tmp_path / "output.mp4"
+        output.write_bytes(b"fake-mp4")
+
+        mock_run.return_value = MagicMock(
+            returncode=0, stdout="ok", stderr=""
+        )
+
+        quality = QUALITY_PRESETS["medium"]  # 1280x720, 30fps
+        render_video(project_root, output, quality, duration_frames=200)
+
+        cmd = mock_run.call_args[0][0]
+        props_arg = [arg for arg in cmd if arg.startswith("--props")][0]
+        props_json = props_arg.split("=", 1)[1]
+        props = json.loads(props_json)
+
+        assert props["durationInFrames"] == 200
+        assert props["fps"] == 30
+        assert props["width"] == 1280
+        assert props["height"] == 720
+
+    @patch("remotion_gen.renderer.shutil.which", return_value="/usr/bin/npx")
+    @patch("remotion_gen.renderer.subprocess.run")
+    def test_props_json_varies_with_quality(self, mock_run, mock_which, tmp_path):
+        """Different quality presets produce different props values."""
+        project_root = tmp_path / "remotion-project"
+        project_root.mkdir()
+        (project_root / "node_modules").mkdir()
+        output = tmp_path / "output.mp4"
+        output.write_bytes(b"fake-mp4")
+
+        mock_run.return_value = MagicMock(
+            returncode=0, stdout="ok", stderr=""
+        )
+
+        quality = QUALITY_PRESETS["high"]  # 1920x1080, 60fps
+        render_video(project_root, output, quality, duration_frames=90)
+
+        cmd = mock_run.call_args[0][0]
+        props_arg = [arg for arg in cmd if arg.startswith("--props")][0]
+        props = json.loads(props_arg.split("=", 1)[1])
+
+        assert props["durationInFrames"] == 90
+        assert props["fps"] == 60
+        assert props["width"] == 1920
+        assert props["height"] == 1080
