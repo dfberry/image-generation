@@ -5,11 +5,13 @@ Tests cover:
 - Integration: generate_video wires image through pipeline (mocked LLM + renderer)
 """
 
+import sys
+from pathlib import Path
 from unittest.mock import patch
 
 import pytest
 
-from remotion_gen.cli import generate_video
+from remotion_gen.cli import generate_video, main
 from remotion_gen.errors import ImageValidationError
 
 # Minimal valid PNG bytes for test image files
@@ -29,105 +31,125 @@ _FAKE_PNG = (
 
 
 class TestCLIImageArgParsing:
-    """Test that --image, --image-description, --image-policy are accepted."""
+    """Test real CLI parser accepts image-related flags.
 
-    def test_image_arg_accepted(self):
-        """--image should be parsed without error."""
-        import argparse
+    Each test patches sys.argv and calls main(), verifying that
+    generate_video is invoked with the correct keyword arguments
+    from the real argparse parser.
+    """
 
-        parser = argparse.ArgumentParser()
-        parser.add_argument("--prompt", required=True)
-        parser.add_argument("--output", required=True)
-        parser.add_argument("--image", type=str)
-        parser.add_argument("--image-description", type=str)
-        parser.add_argument(
-            "--image-policy",
-            choices=["strict", "warn", "ignore"],
-            default="strict",
-        )
+    @patch("remotion_gen.cli.generate_video")
+    def test_image_arg_accepted(self, mock_gen):
+        """--image should be parsed and forwarded as image_path."""
+        mock_gen.return_value = Path("out.mp4")
+        with patch.object(
+            sys, "argv",
+            ["remotion-gen", "--prompt", "test", "--output", "out.mp4",
+             "--image", "photo.png"],
+        ):
+            main()
+        assert mock_gen.call_args.kwargs["image_path"] == "photo.png"
 
-        args = parser.parse_args([
-            "--prompt", "test",
-            "--output", "out.mp4",
-            "--image", "photo.png",
-        ])
-        assert args.image == "photo.png"
+    @patch("remotion_gen.cli.generate_video")
+    def test_image_description_arg_accepted(self, mock_gen):
+        """--image-description should be parsed and forwarded."""
+        mock_gen.return_value = Path("out.mp4")
+        with patch.object(
+            sys, "argv",
+            ["remotion-gen", "--prompt", "test", "--output", "out.mp4",
+             "--image", "photo.png",
+             "--image-description", "A screenshot of the app"],
+        ):
+            main()
+        called = mock_gen.call_args.kwargs["image_description"]
+        assert called == "A screenshot of the app"
 
-    def test_image_description_arg_accepted(self):
-        """--image-description should be parsed."""
-        import argparse
+    @patch("remotion_gen.cli.generate_video")
+    def test_image_policy_default_strict(self, mock_gen):
+        """--image-policy should default to 'strict' when omitted."""
+        mock_gen.return_value = Path("out.mp4")
+        with patch.object(
+            sys, "argv",
+            ["remotion-gen", "--prompt", "test", "--output", "out.mp4"],
+        ):
+            main()
+        assert mock_gen.call_args.kwargs["image_policy"] == "strict"
 
-        parser = argparse.ArgumentParser()
-        parser.add_argument("--prompt", required=True)
-        parser.add_argument("--output", required=True)
-        parser.add_argument("--image", type=str)
-        parser.add_argument("--image-description", type=str)
-
-        args = parser.parse_args([
-            "--prompt", "test",
-            "--output", "out.mp4",
-            "--image", "photo.png",
-            "--image-description", "A screenshot of the app",
-        ])
-        assert args.image_description == "A screenshot of the app"
-
-    def test_image_policy_default_strict(self):
-        """--image-policy should default to 'strict'."""
-        import argparse
-
-        parser = argparse.ArgumentParser()
-        parser.add_argument("--prompt", required=True)
-        parser.add_argument("--output", required=True)
-        parser.add_argument(
-            "--image-policy",
-            choices=["strict", "warn", "ignore"],
-            default="strict",
-        )
-
-        args = parser.parse_args(
-            ["--prompt", "test", "--output", "out.mp4"]
-        )
-        assert args.image_policy == "strict"
-
-    def test_image_policy_accepts_warn(self):
+    @patch("remotion_gen.cli.generate_video")
+    def test_image_policy_accepts_warn(self, mock_gen):
         """--image-policy warn should be accepted."""
-        import argparse
+        mock_gen.return_value = Path("out.mp4")
+        with patch.object(
+            sys, "argv",
+            ["remotion-gen", "--prompt", "test", "--output", "out.mp4",
+             "--image-policy", "warn"],
+        ):
+            main()
+        assert mock_gen.call_args.kwargs["image_policy"] == "warn"
 
-        parser = argparse.ArgumentParser()
-        parser.add_argument("--prompt", required=True)
-        parser.add_argument("--output", required=True)
-        parser.add_argument(
-            "--image-policy",
-            choices=["strict", "warn", "ignore"],
-            default="strict",
-        )
-
-        args = parser.parse_args([
-            "--prompt", "test",
-            "--output", "out.mp4",
-            "--image-policy", "warn",
-        ])
-        assert args.image_policy == "warn"
-
-    def test_image_policy_accepts_ignore(self):
+    @patch("remotion_gen.cli.generate_video")
+    def test_image_policy_accepts_ignore(self, mock_gen):
         """--image-policy ignore should be accepted."""
-        import argparse
+        mock_gen.return_value = Path("out.mp4")
+        with patch.object(
+            sys, "argv",
+            ["remotion-gen", "--prompt", "test", "--output", "out.mp4",
+             "--image-policy", "ignore"],
+        ):
+            main()
+        assert mock_gen.call_args.kwargs["image_policy"] == "ignore"
 
-        parser = argparse.ArgumentParser()
-        parser.add_argument("--prompt", required=True)
-        parser.add_argument("--output", required=True)
-        parser.add_argument(
-            "--image-policy",
-            choices=["strict", "warn", "ignore"],
-            default="strict",
-        )
+    def test_image_policy_rejects_invalid_value(self):
+        """--image-policy with an invalid value should cause SystemExit."""
+        with patch.object(
+            sys, "argv",
+            ["remotion-gen", "--prompt", "test", "--output", "out.mp4",
+             "--image-policy", "yolo"],
+        ):
+            with pytest.raises(SystemExit):
+                main()
 
-        args = parser.parse_args([
-            "--prompt", "test",
-            "--output", "out.mp4",
-            "--image-policy", "ignore",
-        ])
-        assert args.image_policy == "ignore"
+    @patch("remotion_gen.cli.generate_video")
+    def test_no_image_defaults_to_none(self, mock_gen):
+        """Omitting --image should pass image_path=None to generate_video."""
+        mock_gen.return_value = Path("out.mp4")
+        with patch.object(
+            sys, "argv",
+            ["remotion-gen", "--prompt", "test", "--output", "out.mp4"],
+        ):
+            main()
+        assert mock_gen.call_args.kwargs["image_path"] is None
+
+    @patch("remotion_gen.cli.generate_video")
+    def test_no_image_description_defaults_to_none(self, mock_gen):
+        """Omitting --image-description should pass image_description=None."""
+        mock_gen.return_value = Path("out.mp4")
+        with patch.object(
+            sys, "argv",
+            ["remotion-gen", "--prompt", "test", "--output", "out.mp4"],
+        ):
+            main()
+        assert mock_gen.call_args.kwargs["image_description"] is None
+
+
+# ---------------------------------------------------------------------------
+# main() exit codes — image errors
+# ---------------------------------------------------------------------------
+
+
+class TestMainWithImageErrors:
+    """Test main() returns exit code 1 on ImageValidationError."""
+
+    @patch("remotion_gen.cli.generate_video")
+    def test_main_returns_1_on_image_validation_error(self, mock_gen):
+        """ImageValidationError → exit code 1."""
+        mock_gen.side_effect = ImageValidationError("bad image format")
+        with patch.object(
+            sys, "argv",
+            ["remotion-gen", "--prompt", "test", "--output", "out.mp4",
+             "--image", "bad.exe"],
+        ):
+            assert main() == 1
 
 
 # ---------------------------------------------------------------------------
