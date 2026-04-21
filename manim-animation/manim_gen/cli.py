@@ -53,8 +53,15 @@ Environment variables:
 
     parser.add_argument(
         "--prompt",
-        required=True,
+        required=False,
+        default=None,
         help="Description of the animation to generate",
+    )
+
+    parser.add_argument(
+        "--demo",
+        action="store_true",
+        help="Generate a personalized demo title card (no --prompt needed)",
     )
 
     parser.add_argument(
@@ -208,6 +215,21 @@ def main() -> int:
     """CLI entry point"""
     args = parse_args()
     setup_logging(args.debug)
+
+    # Handle --demo mode: auto-generate a personalized prompt
+    if args.demo:
+        now = datetime.now().strftime("%B %d, %Y at %I:%M %p")
+        args.prompt = (
+            f"A professional title card animation for 'Dina Berry'. "
+            f"Start with a dark background, fade in the name 'Dina Berry' in elegant large white text centered on screen. "
+            f"Below the name, fade in the current date and time: '{now}'. "
+            f"After 3 seconds, FadeOut the name and date, then fade in 'Generated with Manim' in smaller text. "
+            f"Use smooth FadeIn and FadeOut transitions — never stack text on top of existing text. Always remove previous text before showing new text."
+        )
+        print(f"🎬 Demo mode: generating personalized title card")
+    elif not args.prompt:
+        print("✗ Error: --prompt is required (or use --demo)", file=sys.stderr)
+        return 1
 
     try:
         # Build config

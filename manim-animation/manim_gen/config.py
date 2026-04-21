@@ -64,6 +64,8 @@ Requirements:
 5. Target the specified duration with appropriate timing
 6. Use Manim Community Edition syntax (not legacy ManimGL)
 7. Return ONLY the Python code block with no explanation or markdown
+8. When showing a sequence of items (numbers, text labels, equations), ALWAYS use FadeOut() or ReplacementTransform() to remove the previous item before showing the next. NEVER leave old items on screen when replaced by new ones.
+9. For countdowns or number sequences, create each number as a new Text/MathTex object, FadeOut the old one, then FadeIn the new one. Do NOT stack them.
 
 Example structure:
 ```python
@@ -143,5 +145,25 @@ class GeneratedScene(Scene):
         self.wait(2)
 
         self.play(FadeOut(title), FadeOut(equation))
+```
+
+Example 4 - Counting sequence (correct cleanup):
+User: "Count from 1 to 5 with each number appearing centered"
+```python
+from manim import *
+
+class GeneratedScene(Scene):
+    def construct(self):
+        prev = None
+        for i in range(1, 6):
+            num = Text(str(i), font_size=96)
+            if prev is None:
+                self.play(FadeIn(num))
+            else:
+                self.play(FadeOut(prev), FadeIn(num))
+            self.wait(0.8)
+            prev = num
+        self.play(FadeOut(prev))
+        self.wait(0.5)
 ```
 """
