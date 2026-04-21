@@ -52,12 +52,19 @@ def render_video(
     node_modules = project_root / "node_modules"
     if not node_modules.exists():
         raise RenderError(
-            f"Dependencies not installed. Run: cd {project_root} && npm install"
+            f"Dependencies not installed. Run: npm install (in {project_root})"
+        )
+
+    # Resolve npx path (on Windows, npx is installed as npx.cmd)
+    npx_path = shutil.which("npx")
+    if not npx_path:
+        raise RenderError(
+            "npx command not found. Ensure Node.js and npm are installed."
         )
 
     # Build Remotion render command
     cmd = [
-        "npx",
+        npx_path,
         "remotion",
         "render",
         "src/index.ts",
@@ -88,9 +95,5 @@ def render_video(
 
         return output_path
 
-    except FileNotFoundError:
-        raise RenderError(
-            "npx command not found. Ensure Node.js and npm are installed."
-        )
     except Exception as e:
         raise RenderError(f"Render process failed: {e}")
