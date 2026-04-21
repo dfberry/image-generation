@@ -1,5 +1,6 @@
 """Remotion CLI wrapper for video rendering."""
 
+import json
 import shutil
 import subprocess
 from pathlib import Path
@@ -63,6 +64,12 @@ def render_video(
         )
 
     # Build Remotion render command
+    props = json.dumps({
+        "durationInFrames": duration_frames,
+        "fps": quality.fps,
+        "width": quality.width,
+        "height": quality.height,
+    })
     cmd = [
         npx_path,
         "remotion",
@@ -74,7 +81,7 @@ def render_video(
         f"--width={quality.width}",
         f"--height={quality.height}",
         f"--fps={quality.fps}",
-        "--props={" + '"durationInFrames":' + str(duration_frames) + '}',
+        f"--props={props}",
     ]
 
     try:

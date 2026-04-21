@@ -1,5 +1,7 @@
-import {Composition} from 'remotion';
+import {Composition, getInputProps} from 'remotion';
 import GeneratedScene from './GeneratedScene';
+
+const inputProps = getInputProps();
 
 export const Root: React.FC = () => {
   return (
@@ -7,10 +9,10 @@ export const Root: React.FC = () => {
       <Composition
         id="GeneratedScene"
         component={GeneratedScene}
-        durationInFrames={150}
-        fps={30}
-        width={1280}
-        height={720}
+        durationInFrames={inputProps?.durationInFrames ?? 150}
+        fps={inputProps?.fps ?? 30}
+        width={inputProps?.width ?? 1280}
+        height={inputProps?.height ?? 720}
       />
     </>
   );
