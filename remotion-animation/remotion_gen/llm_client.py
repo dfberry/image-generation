@@ -21,44 +21,56 @@ DEFAULT_MODELS = {
     "openai": "gpt-4",
 }
 
-SYSTEM_PROMPT = """You are a Remotion animation expert. Generate a React component for Remotion based on the user's description.
+SYSTEM_PROMPT = """You generate Remotion TSX components. Return ONLY raw TSX code — no markdown, no explanation, no fences.
 
-Requirements:
-- Component name MUST be `GeneratedScene` (default export)
-- Use Remotion hooks: useCurrentFrame(), useVideoConfig(), interpolate(), spring()
-- Import from 'remotion' package: AbsoluteFill, Sequence, interpolate, spring, useCurrentFrame, useVideoConfig
-- Use inline styles (no external CSS)
-- Component must accept fps, durationInFrames from useVideoConfig()
-- Return ONLY the TSX code block, no explanation before or after
-- Code must be valid TypeScript React
-- Use modern React patterns (functional components, hooks)
+ALWAYS:
+- Name the component GeneratedScene and use export default function GeneratedScene().
+- Import ONLY from 'remotion'. Valid imports: useCurrentFrame, useVideoConfig, interpolate, spring, Sequence, AbsoluteFill, Img, staticFile, Audio, Video, OffthreadVideo, Series, Easing, random, delayRender, continueRender, Loop, Still, Composition.
+- Destructure fps and durationInFrames from useVideoConfig().
+- Use inline styles (no CSS imports, no className).
+- Match every opening bracket, parenthesis, and brace with its closing counterpart.
+- Use {extrapolateRight: 'clamp'} on every interpolate() call.
+- Close every JSX tag: <AbsoluteFill>...</AbsoluteFill>, <Sequence>...</Sequence>, <div>...</div>.
+- Return valid TypeScript React — no any, no untyped variables.
+
+NEVER:
+- Do NOT wrap output in ``` or ```tsx fences — return raw code only.
+- Do NOT import from 'react' — Remotion re-exports what you need.
+- Do NOT use require(), fs, child_process, http, net, os, path, crypto, or any Node.js built-in.
+- Do NOT use file:// URLs or relative paths — only staticFile() for assets.
+- Do NOT use CSS modules, styled-components, or external style imports.
+- Do NOT add comments like "// your code here" — write complete working code.
+- Do NOT leave trailing commas in interpolate() or spring() argument lists.
+
+API signatures (use these exactly):
+- const frame = useCurrentFrame();  // returns number
+- const {fps, durationInFrames, width, height} = useVideoConfig();
+- interpolate(frame, [inputStart, inputEnd], [outputStart, outputEnd], {extrapolateRight: 'clamp'})
+- spring({frame, fps, config: {damping: 200}})  // returns number 0-1
+- <Sequence from={30} durationInFrames={60}>...</Sequence>
 
 When an image is provided:
-- Import Img from 'remotion': import {Img} from 'remotion'
-- Import staticFile from 'remotion': import {staticFile} from 'remotion'
-- Use <Img src={staticFile('filename')} style={{width: 1280, height: 720}} /> to display
-- Animate images with interpolate() on opacity, scale, or position
-- NEVER use file:// URLs or relative paths — only staticFile()
+- Add Img and staticFile to your remotion import.
+- Use <Img src={staticFile('filename.png')} style={{width: 1280, height: 720}} /> to display.
+- Animate images with interpolate() on opacity, scale, or position.
 
-Example structure:
-```tsx
+Working example (copy this pattern exactly):
+
 import {AbsoluteFill, useCurrentFrame, useVideoConfig, interpolate} from 'remotion';
 
 export default function GeneratedScene() {
   const frame = useCurrentFrame();
   const {fps, durationInFrames} = useVideoConfig();
-  
   const opacity = interpolate(frame, [0, 30], [0, 1], {extrapolateRight: 'clamp'});
-  
+  const scale = interpolate(frame, [0, 30], [0.8, 1], {extrapolateRight: 'clamp'});
   return (
-    <AbsoluteFill style={{backgroundColor: '#000', justifyContent: 'center', alignItems: 'center'}}>
-      <h1 style={{color: '#fff', opacity}}>Hello Remotion</h1>
+    <AbsoluteFill style={{backgroundColor: '#0a0a2e', justifyContent: 'center', alignItems: 'center'}}>
+      <h1 style={{color: '#fff', fontSize: 80, opacity, transform: `scale(${scale})`}}>Hello Remotion</h1>
     </AbsoluteFill>
   );
 }
-```
 
-Now generate a component based on the user's prompt."""
+Generate a component following these rules exactly."""
 
 
 def _extract_code_block(response: str) -> str:
@@ -143,63 +155,30 @@ def _create_client(provider: str) -> tuple:
     )
 
 
-def generate_component(
-    prompt: str,
-    duration_seconds: int,
-    fps: int,
-    provider: str = "ollama",
-    model: Optional[str] = None,
-    image_context: Optional[str] = None,
-    max_retries: int = 0,
-    validation_errors: Optional[list[str]] = None,
+def _call_llm(
+    client,
+    model_name: str,
+    provider: str,
+    user_prompt: str,
+    temperature: float,
 ) -> str:
-    """Generate Remotion component code from user prompt.
-    
+    """Make a single LLM API call and extract the TSX code.
+
     Args:
-        prompt: User's animation description
-        duration_seconds: Target video duration
-        fps: Frames per second
-        provider: LLM provider ("ollama", "openai", or "azure")
-        model: Optional model name override
-        image_context: Optional context about an available image asset
-        max_retries: Max retry attempts if validation fails (0 = no retry)
-        validation_errors: Errors from a previous attempt, used for retry context
-        
+        client: OpenAI-compatible client instance.
+        model_name: Model to call.
+        provider: Provider name (for logging).
+        user_prompt: The user message content.
+        temperature: Sampling temperature.
+
     Returns:
-        TSX component code
-        
+        Extracted TSX code string.
+
     Raises:
-        LLMError: If API call fails or returns invalid response
+        LLMError: If API call fails or returns unusable output.
     """
-    duration_frames = duration_seconds * fps
-
-    user_prompt = f"""Create a {duration_seconds}-second animation ({duration_frames} frames at {fps}fps):
-
-{prompt}
-"""
-
-    if image_context:
-        user_prompt += f"\n{image_context}\n"
-
-    user_prompt += "\nReturn ONLY raw TSX code. No markdown fences. Component must be named GeneratedScene with export default."
-
-    # If retrying with prior errors, append them so the LLM can self-correct
-    if validation_errors:
-        error_list = "\n".join(f"  - {e}" for e in validation_errors)
-        user_prompt += (
-            "\n\nYour previous attempt had these errors:\n"
-            f"{error_list}\n"
-            "Fix all of them. Double-check every bracket and parenthesis."
-        )
-
-    # Lower temperature for small models to reduce structural errors
-    temperature = 0.4 if provider == "ollama" else 0.7
-
     try:
-        client, default_model = _create_client(provider)
-        model_name = model or default_model
-
-        logger.info(f"Calling {provider} API with model {model_name}")
+        logger.info("Calling %s API with model %s", provider, model_name)
         response = client.chat.completions.create(
             model=model_name,
             messages=[
@@ -218,7 +197,6 @@ def generate_component(
             raise LLMError("LLM returned empty response")
 
         code = _extract_code_block(content)
-
         if not code:
             raise LLMError("Failed to extract code from LLM response")
 
@@ -228,3 +206,96 @@ def generate_component(
         if isinstance(e, LLMError):
             raise
         raise LLMError(f"LLM API call failed: {e}")
+
+
+def generate_component(
+    prompt: str,
+    duration_seconds: int,
+    fps: int,
+    provider: str = "ollama",
+    model: Optional[str] = None,
+    image_context: Optional[str] = None,
+    max_retries: int = 0,
+    validation_errors: Optional[list[str]] = None,
+) -> str:
+    """Generate Remotion component code from user prompt.
+
+    Calls the LLM, validates the resulting TSX for structural errors
+    (bracket mismatches, unclosed tags), and retries up to *max_retries*
+    times by feeding errors back to the model for self-correction.
+
+    Args:
+        prompt: User's animation description
+        duration_seconds: Target video duration
+        fps: Frames per second
+        provider: LLM provider ("ollama", "openai", or "azure")
+        model: Optional model name override
+        image_context: Optional context about an available image asset
+        max_retries: Max retry attempts if validation fails (0 = no retry)
+        validation_errors: Errors from a previous attempt, used for retry context
+
+    Returns:
+        TSX component code
+
+    Raises:
+        LLMError: If API call fails or returns invalid response after retries
+    """
+    from remotion_gen.component_builder import validate_tsx_syntax
+
+    duration_frames = duration_seconds * fps
+
+    base_prompt = f"""Create a {duration_seconds}-second animation ({duration_frames} frames at {fps}fps):
+
+{prompt}
+"""
+
+    if image_context:
+        base_prompt += f"\n{image_context}\n"
+
+    base_prompt += "\nReturn ONLY raw TSX code. No markdown fences. Component must be named GeneratedScene with export default."
+
+    # Lower temperature for small models to reduce structural errors
+    temperature = 0.4 if provider == "ollama" else 0.7
+
+    client, default_model = _create_client(provider)
+    model_name = model or default_model
+
+    current_errors = validation_errors
+    attempts = 1 + max_retries  # first attempt + retries
+
+    for attempt in range(attempts):
+        user_prompt = base_prompt
+
+        # Append prior errors so the LLM can self-correct
+        if current_errors:
+            error_list = "\n".join(f"  - {e}" for e in current_errors)
+            user_prompt += (
+                "\n\nYour previous attempt had these errors:\n"
+                f"{error_list}\n"
+                "Fix all of them. Double-check every bracket and parenthesis."
+            )
+
+        code = _call_llm(client, model_name, provider, user_prompt, temperature)
+
+        # Quick structural validation before returning
+        syntax_errors = validate_tsx_syntax(code)
+        if not syntax_errors:
+            return code
+
+        # Validation failed — retry if we have attempts left
+        if attempt < attempts - 1:
+            logger.warning(
+                "Attempt %d/%d produced syntax errors, retrying: %s",
+                attempt + 1,
+                attempts,
+                syntax_errors,
+            )
+            current_errors = syntax_errors
+        else:
+            # Last attempt — return the code anyway and let
+            # write_component raise a proper ValidationError
+            logger.warning(
+                "All %d attempts produced syntax errors; returning best effort",
+                attempts,
+            )
+            return code

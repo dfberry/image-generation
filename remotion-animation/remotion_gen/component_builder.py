@@ -227,7 +227,9 @@ def ensure_remotion_imports(code: str) -> str:
     """
     missing = []
     for hook in _REMOTION_HOOKS:
-        if hook in code:
+        # Use word-boundary check to avoid substring false positives
+        # (e.g. "Video" matching inside "useVideoConfig")
+        if re.search(rf"\b{hook}\b", code):
             import_pattern = re.compile(
                 rf"""import\s+\{{[^}}]*\b{hook}\b[^}}]*\}}\s+from\s+['"]remotion['"]"""
             )
@@ -333,6 +335,9 @@ def write_component(
         debug_path.write_text(code, encoding="utf-8")
 
     return component_path
+
+
+def validate_image_paths(code: str, allowed_image_filename: str) -> None:
     """Validate that generated code only references the approved image.
 
     Blocks file:// URLs, path traversal, and staticFile() calls
@@ -429,42 +434,3 @@ def inject_image_imports(code: str, image_filename: str) -> str:
 
     return code
 
-
-def write_component(
-    code: str,
-    project_root: Path,
-    debug: bool = False,
-    image_filename: Optional[str] = None,
-) -> Path:
-    """Write generated component to Remotion project.
-
-    Args:
-        code: TSX component source code.
-        project_root: Path to remotion-project directory.
-        debug: Save a debug copy of the component.
-        image_filename: If set, inject image imports and validate paths.
-
-    Returns:
-        Path to written GeneratedScene.tsx
-
-    Raises:
-        ValidationError: If component validation fails
-    """
-    if image_filename:
-        code = inject_image_imports(code, image_filename)
-        validate_image_paths(code, image_filename)
-
-    validate_component(code)
-
-    component_path = project_root / "src" / "GeneratedScene.tsx"
-    component_path.write_text(code, encoding="utf-8")
-
-    if debug:
-        debug_path = (
-            project_root.parent
-            / "outputs"
-            / "GeneratedScene.debug.tsx"
-        )
-        debug_path.write_text(code, encoding="utf-8")
-
-    return component_path
