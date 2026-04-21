@@ -1,119 +1,69 @@
-"""Renderer tests for manim-animation.
+"""Renderer tests for manim-animation."""
 
-Tests cover:
-- Mock subprocess.run → returns success → output path returned
-- Mock subprocess.run → returns failure → RenderError with stderr
-- Manim CLI not found → clear error with install instructions
-- Temp file cleanup after render
-- Output file doesn't exist after render → error
-"""
+import subprocess
+from unittest.mock import MagicMock, patch
 
 import pytest
-from unittest.mock import patch, MagicMock
-from pathlib import Path
+
+from manim_gen.config import QualityPreset
+from manim_gen.errors import RenderError
+from manim_gen.renderer import check_manim_installed, render_scene
 
 
-class TestRendererSuccess:
-    """Test successful Manim rendering scenarios."""
+class TestCheckManimInstalled:
 
-    @patch("subprocess.run")
-    def test_successful_render_returns_output_path(
-        self, mock_run, mock_subprocess_success, tmp_output_dir
-    ):
-        """Successful Manim render should return output path."""
-        mock_run.side_effect = mock_subprocess_success
-        pytest.skip("Waiting for Trinity's renderer.py implementation")
+    @patch("manim_gen.renderer.shutil.which", return_value="/usr/bin/manim")
+    def test_manim_found(self, mock_which):
+        assert check_manim_installed() is True
 
-    @patch("subprocess.run")
-    def test_creates_output_file(
-        self, mock_run, mock_subprocess_success, tmp_output_dir
-    ):
-        """Successful render should create MP4 file at output path."""
-        mock_run.side_effect = mock_subprocess_success
-        pytest.skip("Waiting for Trinity's renderer.py implementation")
+    @patch("manim_gen.renderer.shutil.which", return_value=None)
+    def test_manim_not_found(self, mock_which):
+        assert check_manim_installed() is False
 
-    @patch("subprocess.run")
-    def test_calls_manim_with_correct_args(
-        self, mock_run, mock_subprocess_success, tmp_output_dir
-    ):
-        """Should call manim CLI with correct arguments."""
-        mock_run.side_effect = mock_subprocess_success
-        # Expected: ["manim", "render", "scene.py", "SceneClass", "-o", "output.mp4", ...]
-        pytest.skip("Waiting for Trinity's renderer.py implementation")
+class TestRenderScene:
 
+    @patch("manim_gen.renderer.check_manim_installed", return_value=False)
+    def test_manim_not_installed_raises_error(self, mock_check, tmp_path):
+        scene_file = tmp_path / "scene.py"
+        scene_file.write_text("pass")
+        output = tmp_path / "output.mp4"
+        with pytest.raises(RenderError, match="manim CLI not found"):
+            render_scene(scene_file, output)
 
-class TestRendererFailure:
-    """Test Manim rendering failure scenarios."""
+    @patch("manim_gen.renderer.shutil.move")
+    @patch("manim_gen.renderer.subprocess.run")
+    @patch("manim_gen.renderer.check_manim_installed", return_value=True)
+    def test_successful_render(self, mock_check, mock_run, mock_move, tmp_path):
+        scene_file = tmp_path / "scene.py"
+        scene_file.write_text("pass")
+        output = tmp_path / "output.mp4"
 
-    @patch("subprocess.run")
-    def test_render_failure_raises_error_with_stderr(
-        self, mock_run, mock_subprocess_failure
-    ):
-        """Failed render should raise RenderError with stderr message."""
-        mock_run.side_effect = mock_subprocess_failure
-        pytest.skip("Waiting for Trinity's renderer.py implementation")
-
-    @patch("subprocess.run")
-    def test_manim_not_found_raises_clear_error(
-        self, mock_run, mock_subprocess_manim_not_found
-    ):
-        """Manim CLI not found should raise error with install instructions."""
-        mock_run.side_effect = mock_subprocess_manim_not_found
-        pytest.skip("Waiting for Trinity's renderer.py implementation")
-
-    @patch("subprocess.run")
-    def test_output_file_missing_after_success_raises_error(self, mock_run):
-        """Subprocess succeeds but output file missing should raise error."""
         mock_run.return_value = MagicMock(returncode=0, stdout="", stderr="")
-        # But don't create the output file
-        pytest.skip("Waiting for Trinity's renderer.py implementation")
 
+        expected_dir = scene_file.parent / "media" / "videos" / "scene" / "720p30"
+        expected_dir.mkdir(parents=True)
+        expected_file = expected_dir / "GeneratedScene.mp4"
+        expected_file.write_bytes(b"fake-mp4")
 
-class TestRendererCleanup:
-    """Test temp file cleanup after rendering."""
+        result = render_scene(scene_file, output, QualityPreset.MEDIUM)
+        assert result == output
 
-    @patch("subprocess.run")
-    def test_cleans_up_temp_scene_file_on_success(
-        self, mock_run, mock_subprocess_success, tmp_code_dir
-    ):
-        """Should delete temp scene .py file after successful render."""
-        mock_run.side_effect = mock_subprocess_success
-        pytest.skip("Waiting for Trinity's renderer.py implementation")
+    @patch("manim_gen.renderer.subprocess.run")
+    @patch("manim_gen.renderer.check_manim_installed", return_value=True)
+    def test_render_failure_raises_error(self, mock_check, mock_run, tmp_path):
+        scene_file = tmp_path / "scene.py"
+        scene_file.write_text("pass")
+        output = tmp_path / "output.mp4"
 
-    @patch("subprocess.run")
-    def test_cleans_up_temp_scene_file_on_failure(
-        self, mock_run, mock_subprocess_failure, tmp_code_dir
-    ):
-        """Should delete temp scene .py file even on render failure."""
-        mock_run.side_effect = mock_subprocess_failure
-        pytest.skip("Waiting for Trinity's renderer.py implementation")
+        mock_run.side_effect = subprocess.CalledProcessError(
+            1, "manim", stderr="Error: bad code"
+        )
+        with pytest.raises(RenderError, match="Manim render failed"):
+            render_scene(scene_file, output)
 
-    @patch("subprocess.run")
-    def test_debug_mode_preserves_temp_scene_file(
-        self, mock_run, mock_subprocess_success, tmp_code_dir
-    ):
-        """Debug mode should preserve temp scene .py file for inspection."""
-        mock_run.side_effect = mock_subprocess_success
-        pytest.skip("Waiting for Trinity's renderer.py implementation")
+class TestRenderSceneQuality:
 
-
-class TestRendererQuality:
-    """Test quality preset handling."""
-
-    @patch("subprocess.run")
-    def test_low_quality_uses_480p(self, mock_run, mock_subprocess_success):
-        """Quality 'low' should render at 480p."""
-        mock_run.side_effect = mock_subprocess_success
-        pytest.skip("Waiting for Trinity's renderer.py implementation")
-
-    @patch("subprocess.run")
-    def test_medium_quality_uses_720p(self, mock_run, mock_subprocess_success):
-        """Quality 'medium' should render at 720p."""
-        mock_run.side_effect = mock_subprocess_success
-        pytest.skip("Waiting for Trinity's renderer.py implementation")
-
-    @patch("subprocess.run")
-    def test_high_quality_uses_1080p(self, mock_run, mock_subprocess_success):
-        """Quality 'high' should render at 1080p."""
-        mock_run.side_effect = mock_subprocess_success
-        pytest.skip("Waiting for Trinity's renderer.py implementation")
+    def test_quality_presets_have_flags(self):
+        assert QualityPreset.LOW.flag == "l"
+        assert QualityPreset.MEDIUM.flag == "m"
+        assert QualityPreset.HIGH.flag == "h"

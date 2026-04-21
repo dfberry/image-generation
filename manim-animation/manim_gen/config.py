@@ -27,7 +27,6 @@ class QualityPreset(Enum):
         """Frames per second"""
         return self.value[2]
 
-
 @dataclass
 class Config:
     """Runtime configuration for video generation"""
@@ -45,7 +44,6 @@ class Config:
             self.output_dir = Path(self.output_dir)
         if self.duration < 5 or self.duration > 30:
             raise ValueError("Duration must be between 5 and 30 seconds")
-
 
 # Allowed imports in generated code (security whitelist)
 ALLOWED_IMPORTS = {
@@ -76,7 +74,7 @@ class GeneratedScene(Scene):
         # Create objects
         circle = Circle()
         text = Text("Hello")
-        
+
         # Animate
         self.play(Create(circle))
         self.play(Write(text))
@@ -114,11 +112,11 @@ class GeneratedScene(Scene):
         title.to_edge(UP)
         self.play(Write(title))
         self.wait(0.5)
-        
+
         equation = MathTex("a^2", "+", "b^2", "=", "c^2")
         self.play(Write(equation))
         self.wait(2)
-        
+
         self.play(FadeOut(title), FadeOut(equation))
 ```
 """

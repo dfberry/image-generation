@@ -15,21 +15,20 @@ DEFAULT_MODELS = {
     "openai": "gpt-4",
 }
 
-
 class LLMClient:
     """Wrapper for Ollama/OpenAI/Azure OpenAI API calls"""
 
     def __init__(self, provider: str = "ollama"):
         """Initialize LLM client
-        
+
         Args:
             provider: "ollama" (default, local), "openai", or "azure"
-            
+
         Raises:
             LLMError: If API credentials are missing (openai/azure only)
         """
         self.provider = provider.lower()
-        
+
         if self.provider == "ollama":
             self.ollama_host = os.getenv(
                 "OLLAMA_HOST", "http://localhost:11434"
@@ -38,7 +37,7 @@ class LLMClient:
             self.api_key = os.getenv("AZURE_OPENAI_KEY")
             self.endpoint = os.getenv("AZURE_OPENAI_ENDPOINT")
             self.deployment = os.getenv("AZURE_OPENAI_DEPLOYMENT")
-            
+
             if not all([self.api_key, self.endpoint, self.deployment]):
                 raise LLMError(
                     "Azure OpenAI requires AZURE_OPENAI_KEY, "
@@ -53,7 +52,7 @@ class LLMClient:
                 f"Unknown provider '{self.provider}'. "
                 "Use 'ollama', 'openai', or 'azure'."
             )
-        
+
         # Lazy import to avoid dependency issues in tests
         self._client = None
 
@@ -85,33 +84,33 @@ class LLMClient:
         self, prompt: str, duration: int, model: Optional[str] = None
     ) -> str:
         """Generate Manim scene code from user prompt
-        
+
         Args:
             prompt: User's description of desired animation
             duration: Target duration in seconds
             model: Optional model override
-            
+
         Returns:
             Python code string for Manim scene
-            
+
         Raises:
             LLMError: If API call fails or returns invalid response
         """
         client = self._get_client()
-        
+
         # Build user message with duration context
         user_message = (
             f"{FEW_SHOT_EXAMPLES}\n\n"
             f"User request (target duration: {duration} seconds): {prompt}\n\n"
             f"Generate the Python code:"
         )
-        
+
         # Determine model name
         if self.provider == "azure":
             model_name = self.deployment  # Azure uses deployment name
         else:
             model_name = model or DEFAULT_MODELS.get(self.provider, "gpt-4")
-        
+
         try:
             logger.info(f"Calling {self.provider} API with model {model_name}")
             response = client.chat.completions.create(
@@ -123,10 +122,10 @@ class LLMClient:
                 temperature=0.7,
                 max_tokens=2000,
             )
-            
+
             code = response.choices[0].message.content.strip()
             logger.info(f"Received {len(code)} characters from LLM")
             return code
-            
+
         except Exception as e:
             raise LLMError(f"LLM API call failed: {e}")

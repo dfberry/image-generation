@@ -1,153 +1,126 @@
-"""Scene builder tests for manim-animation.
-
-Tests cover:
-- Valid code block extracted from LLM response
-- Code with markdown fencing (```python ... ```) → stripped correctly
-- Invalid Python syntax → ValidationError
-- Dangerous imports detected → rejected (no os, subprocess, requests, etc.)
-- Empty code → error
-- Code missing required class name → error
-"""
+"""Scene builder tests for manim-animation."""
 
 import pytest
-from unittest.mock import MagicMock
+
+from manim_gen.errors import ValidationError
+from manim_gen.scene_builder import (
+    extract_code_block,
+    validate_safety,
+    validate_scene_class,
+    validate_syntax,
+)
 
 
 class TestSceneCodeExtraction:
     """Test extracting Manim scene code from LLM response."""
 
     def test_extracts_code_from_markdown_fence(self):
-        """Should extract code from ```python ... ``` fencing."""
-        llm_response = """```python
-from manim import *
-
-class MyScene(Scene):
-    def construct(self):
-        pass
-```"""
-        pytest.skip("Waiting for Trinity's scene_builder.py implementation")
+        llm_response = (
+            "```python\nfrom manim import *\n\n"
+            "class GeneratedScene(Scene):\n    def construct(self):\n"
+            "        pass\n```"
+        )
+        result = extract_code_block(llm_response)
+        assert "class GeneratedScene" in result
+        assert "```" not in result
 
     def test_strips_leading_trailing_whitespace(self):
-        """Should strip leading/trailing whitespace from extracted code."""
-        pytest.skip("Waiting for Trinity's scene_builder.py implementation")
+        llm_response = (
+            "```python\n  \nfrom manim import *\n"
+            "class GeneratedScene(Scene):\n    pass\n  \n```"
+        )
+        result = extract_code_block(llm_response)
+        assert not result.startswith(" ")
+        assert not result.endswith(" ")
 
     def test_handles_multiple_code_blocks(self):
-        """Should extract first valid code block when multiple exist."""
-        pytest.skip("Waiting for Trinity's scene_builder.py implementation")
+        llm_response = (
+            "```python\nfirst_block = True\n```"
+            "\n\n```python\nsecond_block = True\n```"
+        )
+        result = extract_code_block(llm_response)
+        assert "first_block" in result
 
     def test_empty_code_raises_error(self):
-        """Empty code block should raise ValidationError."""
-        pytest.skip("Waiting for Trinity's scene_builder.py implementation")
+        with pytest.raises(ValidationError):
+            extract_code_block("I cannot generate that animation.")
 
     def test_no_code_fence_returns_as_is(self):
-        """If no markdown fencing, return content as-is (assume plain Python)."""
-        pytest.skip("Waiting for Trinity's scene_builder.py implementation")
-
+        raw_code = "from manim import *\n\nclass GeneratedScene(Scene):\n    pass"
+        result = extract_code_block(raw_code)
+        assert "class GeneratedScene" in result
 
 class TestSceneCodeValidation:
-    """Test Python syntax validation of Manim scene code."""
+    """Test Python syntax and class validation."""
 
     def test_valid_python_syntax_passes(self):
-        """Valid Python syntax should pass validation."""
-        valid_code = """
-from manim import *
-
-class MyScene(Scene):
-    def construct(self):
-        text = Text("Hello")
-        self.play(Write(text))
-"""
-        pytest.skip("Waiting for Trinity's scene_builder.py implementation")
+        validate_syntax("x = 1\ny = 2\n")
 
     def test_invalid_python_syntax_raises_error(self):
-        """Invalid Python syntax should raise ValidationError."""
-        invalid_code = """
-from manim import *
-
-class MyScene(Scene):
-    def construct(
-        # Missing closing parenthesis
-"""
-        pytest.skip("Waiting for Trinity's scene_builder.py implementation")
+        with pytest.raises(ValidationError, match="syntax error"):
+            validate_syntax("def broken(\n")
 
     def test_missing_scene_class_raises_error(self):
-        """Code missing Scene subclass should raise ValidationError."""
-        no_class_code = """
-from manim import *
+        with pytest.raises(ValidationError, match="GeneratedScene"):
+            validate_scene_class("def some_function():\n    pass\n")
 
-def some_function():
-    pass
-"""
-        pytest.skip("Waiting for Trinity's scene_builder.py implementation")
-
-    def test_missing_construct_method_raises_error(self):
-        """Scene class missing construct() method should raise ValidationError."""
-        no_construct_code = """
-from manim import *
-
-class MyScene(Scene):
-    def setup(self):
-        pass
-"""
-        pytest.skip("Waiting for Trinity's scene_builder.py implementation")
-
+    def test_scene_class_present_passes(self):
+        validate_scene_class("class GeneratedScene:\n    pass\n")
 
 class TestSceneCodeSafety:
-    """Test security validation of Manim scene code."""
+    """Test security validation of generated code."""
 
     def test_dangerous_import_os_rejected(self):
-        """Code importing 'os' should be rejected."""
-        dangerous_code = """
-import os
-from manim import *
-
-class MyScene(Scene):
-    def construct(self):
-        os.system("rm -rf /")
-"""
-        pytest.skip("Waiting for Trinity's scene_builder.py implementation")
+        with pytest.raises(ValidationError, match="Forbidden import"):
+            validate_safety("import os\n")
 
     def test_dangerous_import_subprocess_rejected(self):
-        """Code importing 'subprocess' should be rejected."""
-        dangerous_code = """
-import subprocess
-from manim import *
-
-class MyScene(Scene):
-    def construct(self):
-        subprocess.run(["echo", "bad"])
-"""
-        pytest.skip("Waiting for Trinity's scene_builder.py implementation")
+        with pytest.raises(ValidationError, match="Forbidden import"):
+            validate_safety("import subprocess\n")
 
     def test_dangerous_import_requests_rejected(self):
-        """Code importing 'requests' should be rejected."""
-        pytest.skip("Waiting for Trinity's scene_builder.py implementation")
+        with pytest.raises(ValidationError, match="Forbidden import"):
+            validate_safety("import requests\n")
 
     def test_dangerous_import_socket_rejected(self):
-        """Code importing 'socket' should be rejected."""
-        pytest.skip("Waiting for Trinity's scene_builder.py implementation")
+        with pytest.raises(ValidationError, match="Forbidden import"):
+            validate_safety("import socket\n")
 
     def test_safe_manim_imports_allowed(self):
-        """Manim library imports should be allowed."""
-        safe_code = """
-from manim import *
-from manim.utils.color import BLUE
-
-class MyScene(Scene):
-    def construct(self):
-        pass
-"""
-        pytest.skip("Waiting for Trinity's scene_builder.py implementation")
+        validate_safety("from manim import *\n")
 
     def test_safe_standard_lib_imports_allowed(self):
-        """Safe standard library imports (math, random) should be allowed."""
-        safe_code = """
-import math
-import random
-from manim import *
+        validate_safety("import math\nfrom manim import *\n")
 
-class MyScene(Scene):
-    def construct(self):
-        x = math.pi
-"""
-        pytest.skip("Waiting for Trinity's scene_builder.py implementation")
+    def test_open_call_rejected(self):
+        with pytest.raises(ValidationError, match="Forbidden"):
+            validate_safety("x = open(\'/etc/passwd\')\n")
+
+    def test_exec_call_rejected(self):
+        with pytest.raises(ValidationError, match="Forbidden"):
+            validate_safety("exec(\'import os\')\n")
+
+    def test_eval_call_rejected(self):
+        with pytest.raises(ValidationError, match="Forbidden"):
+            validate_safety("eval(\'1+1\')\n")
+
+    def test_dunder_import_call_rejected(self):
+        with pytest.raises(ValidationError, match="Forbidden"):
+            validate_safety("__import__(\'os\')\n")
+
+    def test_compile_call_rejected(self):
+        with pytest.raises(ValidationError, match="Forbidden"):
+            validate_safety("compile(\'import os\', \'<s>\', \'exec\')\n")
+
+    def test_getattr_on_builtins_rejected(self):
+        with pytest.raises(ValidationError, match="Forbidden"):
+            validate_safety("getattr(__builtins__, \'open\')\n")
+
+    def test_importlib_import_rejected(self):
+        with pytest.raises(ValidationError, match="Forbidden import"):
+            validate_safety("import importlib\n")
+
+    def test_dynamic_import_via_variable_rejected(self):
+        code = "imp = __import__\nos = imp(\'os\')\n"
+        with pytest.raises(ValidationError, match="Forbidden"):
+            validate_safety(code)

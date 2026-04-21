@@ -4,18 +4,15 @@ import logging
 import shutil
 import subprocess
 from pathlib import Path
-from typing import Optional
 
 from manim_gen.config import QualityPreset
 from manim_gen.errors import RenderError
 
 logger = logging.getLogger(__name__)
 
-
 def check_manim_installed() -> bool:
     """Check if manim CLI is available"""
     return shutil.which("manim") is not None
-
 
 def render_scene(
     scene_file: Path,
@@ -23,15 +20,15 @@ def render_scene(
     quality: QualityPreset = QualityPreset.MEDIUM,
 ) -> Path:
     """Render Manim scene to video file
-    
+
     Args:
         scene_file: Path to Python file containing GeneratedScene
         output_path: Desired output video path
         quality: Quality preset (LOW, MEDIUM, HIGH)
-        
+
     Returns:
         Path to rendered video file
-        
+
     Raises:
         RenderError: If manim is not installed or render fails
     """
@@ -40,7 +37,7 @@ def render_scene(
             "manim CLI not found. Install with: pip install manim\n"
             "Requires FFmpeg: https://docs.manim.community/en/stable/installation.html"
         )
-    
+
     # Build manim command
     # manim render <file> <scene_class> --format=mp4 -q<quality>
     cmd = [
@@ -52,9 +49,9 @@ def render_scene(
         f"-q{quality.flag}",
         "--disable_caching",  # Avoid caching issues between runs
     ]
-    
+
     logger.info(f"Running: {' '.join(cmd)}")
-    
+
     try:
         result = subprocess.run(
             cmd,
@@ -62,10 +59,10 @@ def render_scene(
             text=True,
             check=True,
         )
-        
+
         logger.info("Manim render completed successfully")
         logger.debug(f"stdout: {result.stdout}")
-        
+
         # Manim outputs to media/videos/<scene_file_stem>/[quality]/GeneratedScene.mp4
         scene_stem = scene_file.stem
         manim_output = (
@@ -80,7 +77,7 @@ def render_scene(
             }[quality]
             / "GeneratedScene.mp4"
         )
-        
+
         if not manim_output.exists():
             # Fallback: search for any GeneratedScene.mp4
             media_dir = scene_file.parent / "media"
@@ -93,19 +90,19 @@ def render_scene(
                     raise RenderError("Manim completed but output video not found")
             else:
                 raise RenderError("Manim media directory not created")
-        
+
         # Move to desired output location
         output_path.parent.mkdir(parents=True, exist_ok=True)
         shutil.move(str(manim_output), str(output_path))
         logger.info(f"Video moved to {output_path}")
-        
+
         return output_path
-        
+
     except subprocess.CalledProcessError as e:
         logger.error(f"Manim render failed with exit code {e.returncode}")
         logger.error(f"stdout: {e.stdout}")
         logger.error(f"stderr: {e.stderr}")
         raise RenderError(f"Manim render failed: {e.stderr}")
-    
+
     except Exception as e:
         raise RenderError(f"Unexpected error during render: {e}")

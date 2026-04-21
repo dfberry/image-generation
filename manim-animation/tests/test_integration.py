@@ -1,93 +1,60 @@
-"""Integration tests for manim-animation.
-
-End-to-end pipeline tests: mock LLM → real scene build → mock render → verify pipeline.
-
-Mark with @pytest.mark.integration for easy skipping.
-"""
+"""Integration tests for manim-animation."""
 
 import pytest
-from unittest.mock import patch
+
+from manim_gen.errors import ValidationError
+from manim_gen.scene_builder import build_scene
 
 
 @pytest.mark.integration
 class TestEndToEndPipeline:
-    """Integration tests for full animation generation pipeline."""
+    """Integration tests for the build_scene pipeline."""
 
-    @patch("subprocess.run")
-    @patch("openai.ChatCompletion.create")
-    def test_full_pipeline_valid_prompt(
-        self,
-        mock_llm,
-        mock_subprocess,
-        mock_openai_response,
-        mock_subprocess_success,
-        tmp_output_dir,
-    ):
-        """End-to-end: prompt → LLM → scene code → render → MP4 output."""
-        mock_llm.return_value = mock_openai_response
-        mock_subprocess.side_effect = mock_subprocess_success
-        pytest.skip("Waiting for Trinity's full pipeline implementation")
+    def test_build_scene_valid_code(self, tmp_path):
+        llm_output = (
+            "```python\nfrom manim import *\n\n"
+            "class GeneratedScene(Scene):\n"
+            "    def construct(self):\n"
+            "        self.play(Create(Circle()))\n```"
+        )
+        scene_file = tmp_path / "scene.py"
+        code, path = build_scene(llm_output, scene_file)
+        assert "GeneratedScene" in code
+        assert path.exists()
+        assert path.read_text(encoding="utf-8") == code
 
-    @patch("subprocess.run")
-    @patch("openai.ChatCompletion.create")
-    def test_pipeline_handles_llm_error_gracefully(
-        self, mock_llm, mock_subprocess, tmp_output_dir
-    ):
-        """Pipeline should handle LLM error gracefully with clear message."""
-        mock_llm.side_effect = Exception("API error")
-        pytest.skip("Waiting for Trinity's full pipeline implementation")
+    def test_build_scene_rejects_dangerous_code(self, tmp_path):
+        llm_output = (
+            "```python\nimport os\nfrom manim import *\n\n"
+            "class GeneratedScene(Scene):\n"
+            "    def construct(self):\n"
+            "        os.system(\'rm -rf /\')\n```"
+        )
+        scene_file = tmp_path / "scene.py"
+        with pytest.raises(ValidationError, match="Forbidden import"):
+            build_scene(llm_output, scene_file)
 
-    @patch("subprocess.run")
-    @patch("openai.ChatCompletion.create")
-    def test_pipeline_handles_render_error_gracefully(
-        self,
-        mock_llm,
-        mock_subprocess,
-        mock_openai_response,
-        mock_subprocess_failure,
-        tmp_output_dir,
-    ):
-        """Pipeline should handle render error gracefully with stderr."""
-        mock_llm.return_value = mock_openai_response
-        mock_subprocess.side_effect = mock_subprocess_failure
-        pytest.skip("Waiting for Trinity's full pipeline implementation")
+    def test_build_scene_rejects_missing_class(self, tmp_path):
+        llm_output = (
+            "```python\nfrom manim import *\n\n"
+            "def my_function():\n    pass\n```"
+        )
+        scene_file = tmp_path / "scene.py"
+        with pytest.raises(ValidationError, match="GeneratedScene"):
+            build_scene(llm_output, scene_file)
 
-    @patch("subprocess.run")
-    @patch("openai.ChatCompletion.create")
-    def test_pipeline_validates_scene_code_before_render(
-        self, mock_llm, mock_subprocess, tmp_output_dir
-    ):
-        """Pipeline should validate scene code before attempting render."""
-        # LLM returns code with dangerous imports
-        dangerous_response = MagicMock()
-        dangerous_response.choices = [
-            MagicMock(
-                message=MagicMock(
-                    content="""```python
-import os
-from manim import *
+    def test_build_scene_rejects_syntax_error(self, tmp_path):
+        llm_output = "```python\ndef broken(\n```"
+        scene_file = tmp_path / "scene.py"
+        with pytest.raises(ValidationError, match="syntax error"):
+            build_scene(llm_output, scene_file)
 
-class DangerousScene(Scene):
-    def construct(self):
-        os.system("echo bad")
-```"""
-                )
-            )
-        ]
-        mock_llm.return_value = dangerous_response
-        pytest.skip("Waiting for Trinity's full pipeline implementation")
-
-    @patch("subprocess.run")
-    @patch("openai.ChatCompletion.create")
-    def test_pipeline_creates_output_in_correct_directory(
-        self,
-        mock_llm,
-        mock_subprocess,
-        mock_openai_response,
-        mock_subprocess_success,
-        tmp_output_dir,
-    ):
-        """Pipeline should create output file in specified directory."""
-        mock_llm.return_value = mock_openai_response
-        mock_subprocess.side_effect = mock_subprocess_success
-        pytest.skip("Waiting for Trinity's full pipeline implementation")
+    def test_build_scene_creates_parent_dirs(self, tmp_path):
+        llm_output = (
+            "```python\nfrom manim import *\n\n"
+            "class GeneratedScene(Scene):\n"
+            "    def construct(self):\n        pass\n```"
+        )
+        nested = tmp_path / "deep" / "nested" / "scene.py"
+        code, path = build_scene(llm_output, nested)
+        assert path.exists()

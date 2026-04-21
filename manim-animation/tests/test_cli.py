@@ -1,74 +1,88 @@
-"""CLI argument parsing and validation tests for manim-animation.
+"""CLI argument parsing and validation tests for manim-animation."""
 
-Tests cover:
-- Valid prompt + output path → success
-- Missing --prompt → error
-- Missing --output → uses default
-- Invalid --quality value → error
-- --debug flag saves intermediate code
-- --duration accepts positive integers, rejects negative/zero
-"""
+import sys
+from unittest.mock import MagicMock, patch
 
 import pytest
-from unittest.mock import patch, MagicMock
+
+from manim_gen.cli import main, parse_args
+from manim_gen.errors import LLMError, RenderError, ValidationError
 
 
 class TestCLIValidation:
-    """Test CLI argument validation."""
 
-    def test_valid_prompt_and_output(self, tmp_output_dir):
-        """Valid prompt and output path should succeed."""
-        # When Trinity implements cli.py, this test will import and run main()
-        # For now, testing the contract
-        pytest.skip("Waiting for Trinity's cli.py implementation")
+    def test_valid_prompt_parses(self):
+        with patch.object(sys, "argv", ["manim-gen", "--prompt", "A blue circle"]):
+            args = parse_args()
+            assert args.prompt == "A blue circle"
 
     def test_missing_prompt_raises_error(self):
-        """Missing --prompt argument should raise error."""
-        pytest.skip("Waiting for Trinity's cli.py implementation")
+        with patch.object(sys, "argv", ["manim-gen"]):
+            with pytest.raises(SystemExit):
+                parse_args()
 
-    def test_missing_output_uses_default(self, tmp_output_dir):
-        """Missing --output should use default output path."""
-        pytest.skip("Waiting for Trinity's cli.py implementation")
+    def test_missing_output_uses_default(self):
+        with patch.object(sys, "argv", ["manim-gen", "--prompt", "test"]):
+            args = parse_args()
+            assert args.output is None
 
     def test_invalid_quality_value_raises_error(self):
-        """Invalid --quality value should raise error.
-        
-        Valid values: low, medium, high
-        Invalid: "best", "ultra", 1080, etc.
-        """
-        pytest.skip("Waiting for Trinity's cli.py implementation")
+        with patch.object(
+            sys, "argv", ["manim-gen", "--prompt", "test", "--quality", "ultra"]
+        ):
+            with pytest.raises(SystemExit):
+                parse_args()
 
-    def test_debug_flag_saves_intermediate_code(self, tmp_code_dir):
-        """--debug flag should save intermediate Manim scene code to file."""
-        pytest.skip("Waiting for Trinity's cli.py implementation")
+    def test_debug_flag_parsed(self):
+        with patch.object(sys, "argv", ["manim-gen", "--prompt", "test", "--debug"]):
+            args = parse_args()
+            assert args.debug is True
 
     def test_duration_accepts_positive_integers(self):
-        """--duration should accept positive integers (5, 10, 30, etc.)."""
-        pytest.skip("Waiting for Trinity's cli.py implementation")
+        with patch.object(
+            sys, "argv", ["manim-gen", "--prompt", "test", "--duration", "15"]
+        ):
+            args = parse_args()
+            assert args.duration == 15
 
-    def test_duration_rejects_negative(self):
-        """--duration should reject negative values."""
-        pytest.skip("Waiting for Trinity's cli.py implementation")
+    def test_provider_defaults_to_ollama(self):
+        with patch.object(sys, "argv", ["manim-gen", "--prompt", "test"]):
+            args = parse_args()
+            assert args.provider == "ollama"
 
-    def test_duration_rejects_zero(self):
-        """--duration should reject zero."""
-        pytest.skip("Waiting for Trinity's cli.py implementation")
+    def test_quality_defaults_to_medium(self):
+        with patch.object(sys, "argv", ["manim-gen", "--prompt", "test"]):
+            args = parse_args()
+            assert args.quality == "medium"
 
+class TestMainFunction:
 
-class TestCLIIntegration:
-    """Integration tests for CLI workflow."""
+    @patch("manim_gen.cli.generate_video")
+    @patch("manim_gen.cli.parse_args")
+    def test_main_returns_1_on_llm_error(self, mock_args, mock_gen):
+        mock_args.return_value = MagicMock(
+            prompt="test", output=None, quality="medium",
+            duration=10, provider="ollama", model=None, debug=False,
+        )
+        mock_gen.side_effect = LLMError("API failed")
+        assert main() == 1
 
-    @pytest.mark.integration
-    def test_end_to_end_valid_prompt(self, tmp_output_dir, mock_openai_response):
-        """End-to-end: valid prompt → LLM → scene code → render → output."""
-        pytest.skip("Waiting for Trinity's cli.py implementation")
+    @patch("manim_gen.cli.generate_video")
+    @patch("manim_gen.cli.parse_args")
+    def test_main_returns_2_on_validation_error(self, mock_args, mock_gen):
+        mock_args.return_value = MagicMock(
+            prompt="test", output=None, quality="medium",
+            duration=10, provider="ollama", model=None, debug=False,
+        )
+        mock_gen.side_effect = ValidationError("bad code")
+        assert main() == 2
 
-    @pytest.mark.integration
-    def test_cli_handles_llm_failure_gracefully(self, tmp_output_dir):
-        """CLI should handle LLM API failure with clear error message."""
-        pytest.skip("Waiting for Trinity's cli.py implementation")
-
-    @pytest.mark.integration
-    def test_cli_handles_render_failure_gracefully(self, tmp_output_dir):
-        """CLI should handle Manim render failure with clear error message."""
-        pytest.skip("Waiting for Trinity's cli.py implementation")
+    @patch("manim_gen.cli.generate_video")
+    @patch("manim_gen.cli.parse_args")
+    def test_main_returns_3_on_render_error(self, mock_args, mock_gen):
+        mock_args.return_value = MagicMock(
+            prompt="test", output=None, quality="medium",
+            duration=10, provider="ollama", model=None, debug=False,
+        )
+        mock_gen.side_effect = RenderError("render failed")
+        assert main() == 3

@@ -6,15 +6,13 @@ Mock subprocess.run for Manim CLI, mock OpenAI API, provide temp directories.
 
 import subprocess
 from pathlib import Path
-from unittest.mock import MagicMock, patch
+from unittest.mock import MagicMock
 
 import pytest
-
 
 # ---------------------------------------------------------------------------
 # Fixtures: temp directories
 # ---------------------------------------------------------------------------
-
 
 @pytest.fixture
 def tmp_output_dir(tmp_path):
@@ -23,7 +21,6 @@ def tmp_output_dir(tmp_path):
     out.mkdir()
     return out
 
-
 @pytest.fixture
 def tmp_code_dir(tmp_path):
     """Temp directory for intermediate scene code files."""
@@ -31,11 +28,9 @@ def tmp_code_dir(tmp_path):
     code.mkdir()
     return code
 
-
 # ---------------------------------------------------------------------------
 # Fixtures: LLM mocking
 # ---------------------------------------------------------------------------
-
 
 @pytest.fixture
 def mock_openai_response():
@@ -58,14 +53,12 @@ class GeneratedScene(Scene):
     ]
     return mock_response
 
-
 @pytest.fixture
 def mock_openai_empty_response():
     """Mock OpenAI API response with empty content."""
     mock_response = MagicMock()
     mock_response.choices = [MagicMock(message=MagicMock(content=""))]
     return mock_response
-
 
 @pytest.fixture
 def mock_openai_non_code_response():
@@ -76,11 +69,9 @@ def mock_openai_non_code_response():
     ]
     return mock_response
 
-
 # ---------------------------------------------------------------------------
 # Fixtures: subprocess mocking (Manim CLI)
 # ---------------------------------------------------------------------------
-
 
 # Minimal valid MP4 header bytes (fake video file)
 _FAKE_MP4 = (
@@ -88,7 +79,6 @@ _FAKE_MP4 = (
     b"\x00\x00\x00\x08free"
     b"\x00\x00\x00\x00mdat"
 )
-
 
 @pytest.fixture
 def mock_subprocess_success():
@@ -123,7 +113,6 @@ def mock_subprocess_success():
 
     return _fake_run
 
-
 @pytest.fixture
 def mock_subprocess_failure():
     """Mock subprocess.run that simulates Manim render failure."""
@@ -139,7 +128,6 @@ def mock_subprocess_failure():
         return subprocess.run(cmd, **kwargs)
 
     return _fake_run
-
 
 @pytest.fixture
 def mock_subprocess_manim_not_found():
