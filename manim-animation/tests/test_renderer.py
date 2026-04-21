@@ -136,3 +136,129 @@ class TestRenderSceneQuality:
         assert QualityPreset.LOW.flag == "l"
         assert QualityPreset.MEDIUM.flag == "m"
         assert QualityPreset.HIGH.flag == "h"
+
+
+# ---------------------------------------------------------------------------
+# Issue #90: Media directory detection
+# ---------------------------------------------------------------------------
+
+
+class TestMediaDirectoryDetection:
+    """Verify render_scene locates output at the correct quality-specific path.
+
+    Bug #90: renderer failed to find media output because it looked in the
+    wrong subdirectory.  After the fix, the expected path is:
+        media/videos/<scene_stem>/<quality_dir>/GeneratedScene.mp4
+    """
+
+    @pytest.mark.parametrize(
+        "quality,quality_dir",
+        [
+            (QualityPreset.LOW, "480p15"),
+            (QualityPreset.MEDIUM, "720p30"),
+            (QualityPreset.HIGH, "1080p60"),
+        ],
+        ids=["low-480p15", "medium-720p30", "high-1080p60"],
+    )
+    @patch("manim_gen.renderer.shutil.move")
+    @patch("manim_gen.renderer.subprocess.run")
+    @patch("manim_gen.renderer.check_manim_installed", return_value=True)
+    def test_finds_output_at_quality_specific_path(
+        self, mock_check, mock_run, mock_move, tmp_path, quality, quality_dir
+    ):
+        """Renderer must look in media/videos/<stem>/<quality_dir>/."""
+        scene_file = tmp_path / "my_scene.py"
+        scene_file.write_text("pass")
+        output = tmp_path / "final_output.mp4"
+
+        mock_run.return_value = MagicMock(returncode=0, stdout="", stderr="")
+
+        expected_dir = (
+            scene_file.parent / "media" / "videos" / "my_scene" / quality_dir
+        )
+        expected_dir.mkdir(parents=True)
+        expected_file = expected_dir / "GeneratedScene.mp4"
+        expected_file.write_bytes(b"fake-mp4")
+
+        result = render_scene(scene_file, output, quality)
+        assert result == output
+        mock_move.assert_called_once_with(str(expected_file), str(output))
+
+    @patch("manim_gen.renderer.shutil.move")
+    @patch("manim_gen.renderer.subprocess.run")
+    @patch("manim_gen.renderer.check_manim_installed", return_value=True)
+    def test_output_copied_to_outputs_directory(
+        self, mock_check, mock_run, mock_move, tmp_path
+    ):
+        """Rendered video must be moved to the caller-specified output path."""
+        scene_file = tmp_path / "scene.py"
+        scene_file.write_text("pass")
+        outputs_dir = tmp_path / "outputs"
+        outputs_dir.mkdir()
+        output = outputs_dir / "rendered.mp4"
+
+        mock_run.return_value = MagicMock(returncode=0, stdout="", stderr="")
+
+        media_file = (
+            scene_file.parent
+            / "media" / "videos" / "scene" / "720p30" / "GeneratedScene.mp4"
+        )
+        media_file.parent.mkdir(parents=True)
+        media_file.write_bytes(b"fake-mp4")
+
+        render_scene(scene_file, output, QualityPreset.MEDIUM)
+        mock_move.assert_called_once_with(str(media_file), str(output))
+
+    @patch("manim_gen.renderer.subprocess.run")
+    @patch("manim_gen.renderer.check_manim_installed", return_value=True)
+    def test_error_when_media_directory_missing(self, mock_check, mock_run, tmp_path):
+        """Must raise RenderError when media directory is never created."""
+        scene_file = tmp_path / "scene.py"
+        scene_file.write_text("pass")
+        output = tmp_path / "output.mp4"
+
+        mock_run.return_value = MagicMock(returncode=0, stdout="", stderr="")
+
+        with pytest.raises(RenderError, match="media directory not created"):
+            render_scene(scene_file, output)
+
+    @patch("manim_gen.renderer.shutil.move")
+    @patch("manim_gen.renderer.subprocess.run")
+    @patch("manim_gen.renderer.check_manim_installed", return_value=True)
+    def test_fallback_search_when_primary_path_missing(
+        self, mock_check, mock_run, mock_move, tmp_path
+    ):
+        """Fallback rglob should find GeneratedScene.mp4 in an unexpected subdir."""
+        scene_file = tmp_path / "scene.py"
+        scene_file.write_text("pass")
+        output = tmp_path / "output.mp4"
+
+        mock_run.return_value = MagicMock(returncode=0, stdout="", stderr="")
+
+        unexpected_dir = (
+            scene_file.parent / "media" / "videos" / "scene" / "1080p60"
+        )
+        unexpected_dir.mkdir(parents=True)
+        fallback_file = unexpected_dir / "GeneratedScene.mp4"
+        fallback_file.write_bytes(b"fake-mp4")
+
+        result = render_scene(scene_file, output, QualityPreset.MEDIUM)
+        assert result == output
+
+    @patch("manim_gen.renderer.subprocess.run")
+    @patch("manim_gen.renderer.check_manim_installed", return_value=True)
+    def test_error_when_media_exists_but_video_missing(
+        self, mock_check, mock_run, tmp_path
+    ):
+        """media/ exists but contains no GeneratedScene.mp4 → RenderError."""
+        scene_file = tmp_path / "scene.py"
+        scene_file.write_text("pass")
+        output = tmp_path / "output.mp4"
+
+        mock_run.return_value = MagicMock(returncode=0, stdout="", stderr="")
+
+        media_dir = scene_file.parent / "media" / "videos" / "scene" / "720p30"
+        media_dir.mkdir(parents=True)
+
+        with pytest.raises(RenderError, match="output video not found"):
+            render_scene(scene_file, output)

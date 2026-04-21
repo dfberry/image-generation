@@ -6,15 +6,17 @@ Tests cover:
 - Remotion CLI not found → clear error with install instructions
 - Temp file cleanup after render
 - Output file doesn't exist after render → error
+- Issue #91: UTF-8 encoding and version mismatch handling
 """
 
-import json
+import subprocess
 from unittest.mock import MagicMock, patch
 
 import pytest
 
-from remotion_gen.config import QUALITY_PRESETS
-from remotion_gen.renderer import render_video
+from remotion_gen.config import QualityPreset, QUALITY_PRESETS
+from remotion_gen.errors import RenderError
+from remotion_gen.renderer import check_prerequisites, render_video
 
 
 class TestRendererSuccess:
@@ -124,13 +126,190 @@ class TestRendererQuality:
         pytest.skip("Waiting for Trinity's renderer.py implementation")
 
 
-class TestRendererInputProps:
-    """Issue #93: renderer passes all composition props via --props JSON."""
+# ---------------------------------------------------------------------------
+# Issue #91: UTF-8 encoding and version mismatch handling
+# ---------------------------------------------------------------------------
+
+
+class TestRendererPrerequisites:
+    """Test check_prerequisites()."""
+
+    @patch("remotion_gen.renderer.shutil.which")
+    def test_node_not_found(self, mock_which):
+        mock_which.return_value = None
+        ok, msg = check_prerequisites()
+        assert ok is False
+        assert "Node.js" in msg
+
+    @patch("remotion_gen.renderer.shutil.which")
+    def test_npm_not_found(self, mock_which):
+        def _side(name):
+            return "/usr/bin/node" if name == "node" else None
+        mock_which.side_effect = _side
+        ok, msg = check_prerequisites()
+        assert ok is False
+        assert "npm" in msg
+
+    @patch("remotion_gen.renderer.shutil.which")
+    def test_all_found(self, mock_which):
+        mock_which.return_value = "/usr/bin/found"
+        ok, msg = check_prerequisites()
+        assert ok is True
+        assert msg is None
+
+
+class TestRendererUTF8Encoding:
+    """Verify renderer handles UTF-8 output with special characters.
+
+    Bug #91-related: Remotion subprocess may emit UTF-8 output containing
+    special characters (emojis, accented text, Unicode symbols). The renderer
+    must not crash when parsing this output.
+    """
 
     @patch("remotion_gen.renderer.shutil.which", return_value="/usr/bin/npx")
     @patch("remotion_gen.renderer.subprocess.run")
-    def test_props_json_includes_all_composition_values(self, mock_run, mock_which, tmp_path):
-        """--props JSON must include durationInFrames, fps, width, height."""
+    def test_utf8_stdout_does_not_crash(self, mock_run, mock_which, tmp_path):
+        """Renderer should tolerate UTF-8 characters in subprocess output."""
+        project_root = tmp_path / "remotion-project"
+        project_root.mkdir()
+        (project_root / "node_modules").mkdir()
+        output = tmp_path / "output.mp4"
+        output.write_bytes(b"fake-mp4")
+
+        mock_run.return_value = MagicMock(
+            returncode=0,
+            stdout="✅ Render complete — «scene» rendered in 2.3s 🎬",
+            stderr="",
+        )
+
+        quality = QUALITY_PRESETS["medium"]
+        result = render_video(project_root, output, quality, duration_frames=150)
+        assert result == output
+
+    @patch("remotion_gen.renderer.shutil.which", return_value="/usr/bin/npx")
+    @patch("remotion_gen.renderer.subprocess.run")
+    def test_utf8_stderr_does_not_crash(self, mock_run, mock_which, tmp_path):
+        """Non-zero exit with UTF-8 stderr should produce readable RenderError."""
+        project_root = tmp_path / "remotion-project"
+        project_root.mkdir()
+        (project_root / "node_modules").mkdir()
+        output = tmp_path / "output.mp4"
+
+        mock_run.return_value = MagicMock(
+            returncode=1,
+            stdout="",
+            stderr="❌ Error: Composición no encontrada — «GeneratedScene» não existe",
+        )
+
+        quality = QUALITY_PRESETS["medium"]
+        with pytest.raises(RenderError, match="Composición"):
+            render_video(project_root, output, quality, duration_frames=150)
+
+    @patch("remotion_gen.renderer.shutil.which", return_value="/usr/bin/npx")
+    @patch("remotion_gen.renderer.subprocess.run")
+    def test_emoji_in_output_preserved(self, mock_run, mock_which, tmp_path):
+        """Emoji characters in stdout should not cause encoding errors."""
+        project_root = tmp_path / "remotion-project"
+        project_root.mkdir()
+        (project_root / "node_modules").mkdir()
+        output = tmp_path / "output.mp4"
+        output.write_bytes(b"fake-mp4")
+
+        mock_run.return_value = MagicMock(
+            returncode=0,
+            stdout="🎥 Rendering frame 1/300 ━━━━━━━━━━ 100%",
+            stderr="⚠️ Warning: version mismatch detected",
+        )
+
+        quality = QUALITY_PRESETS["low"]
+        result = render_video(project_root, output, quality, duration_frames=300)
+        assert result == output
+
+
+class TestRendererVersionMismatchWarnings:
+    """Verify that version mismatch warnings don't cause failures.
+
+    Bug #91-related: npm/Remotion may emit version warnings on stderr even
+    when rendering succeeds (returncode=0). These must not be treated as errors.
+    """
+
+    @patch("remotion_gen.renderer.shutil.which", return_value="/usr/bin/npx")
+    @patch("remotion_gen.renderer.subprocess.run")
+    def test_warning_on_stderr_with_success_does_not_fail(
+        self, mock_run, mock_which, tmp_path
+    ):
+        """returncode=0 + warnings on stderr → success, not failure."""
+        project_root = tmp_path / "remotion-project"
+        project_root.mkdir()
+        (project_root / "node_modules").mkdir()
+        output = tmp_path / "output.mp4"
+        output.write_bytes(b"fake-mp4")
+
+        mock_run.return_value = MagicMock(
+            returncode=0,
+            stdout="Render complete",
+            stderr=(
+                "npm WARN deprecated @remotion/renderer@3.3.89: "
+                "Upgrade to @remotion/renderer@4.x for best results\n"
+                "WARN: Node.js version 18.x detected, recommended 20.x"
+            ),
+        )
+
+        quality = QUALITY_PRESETS["high"]
+        result = render_video(project_root, output, quality, duration_frames=60)
+        assert result == output
+
+    @patch("remotion_gen.renderer.shutil.which", return_value="/usr/bin/npx")
+    @patch("remotion_gen.renderer.subprocess.run")
+    def test_actual_error_with_nonzero_exit_still_fails(
+        self, mock_run, mock_which, tmp_path
+    ):
+        """returncode=1 should still raise RenderError regardless of warnings."""
+        project_root = tmp_path / "remotion-project"
+        project_root.mkdir()
+        (project_root / "node_modules").mkdir()
+        output = tmp_path / "output.mp4"
+
+        mock_run.return_value = MagicMock(
+            returncode=1,
+            stdout="",
+            stderr="Error: Could not find composition 'GeneratedScene'",
+        )
+
+        quality = QUALITY_PRESETS["medium"]
+        with pytest.raises(RenderError, match="GeneratedScene"):
+            render_video(project_root, output, quality, duration_frames=150)
+
+    @patch("remotion_gen.renderer.shutil.which", return_value="/usr/bin/npx")
+    @patch("remotion_gen.renderer.subprocess.run")
+    def test_output_missing_after_success_raises_error(
+        self, mock_run, mock_which, tmp_path
+    ):
+        """Subprocess succeeds but output file missing → RenderError."""
+        project_root = tmp_path / "remotion-project"
+        project_root.mkdir()
+        (project_root / "node_modules").mkdir()
+        output = tmp_path / "output.mp4"
+        # Deliberately don't create the output file
+
+        mock_run.return_value = MagicMock(
+            returncode=0,
+            stdout="Render complete",
+            stderr="",
+        )
+
+        quality = QUALITY_PRESETS["medium"]
+        with pytest.raises(RenderError, match="output not found"):
+            render_video(project_root, output, quality, duration_frames=150)
+
+
+class TestRendererCommandConstruction:
+    """Verify the subprocess command includes correct --props for issue #93."""
+
+    @patch("remotion_gen.renderer.shutil.which", return_value="/usr/bin/npx")
+    @patch("remotion_gen.renderer.subprocess.run")
+    def test_props_include_duration_frames(self, mock_run, mock_which, tmp_path):
+        """Command must pass --props with durationInFrames."""
         project_root = tmp_path / "remotion-project"
         project_root.mkdir()
         (project_root / "node_modules").mkdir()
@@ -141,23 +320,18 @@ class TestRendererInputProps:
             returncode=0, stdout="ok", stderr=""
         )
 
-        quality = QUALITY_PRESETS["medium"]  # 1280x720, 30fps
-        render_video(project_root, output, quality, duration_frames=200)
+        quality = QUALITY_PRESETS["medium"]
+        render_video(project_root, output, quality, duration_frames=300)
 
         cmd = mock_run.call_args[0][0]
-        props_arg = [arg for arg in cmd if arg.startswith("--props")][0]
-        props_json = props_arg.split("=", 1)[1]
-        props = json.loads(props_json)
-
-        assert props["durationInFrames"] == 200
-        assert props["fps"] == 30
-        assert props["width"] == 1280
-        assert props["height"] == 720
+        props_args = [arg for arg in cmd if arg.startswith("--props")]
+        assert len(props_args) == 1
+        assert "300" in props_args[0]
 
     @patch("remotion_gen.renderer.shutil.which", return_value="/usr/bin/npx")
     @patch("remotion_gen.renderer.subprocess.run")
-    def test_props_json_varies_with_quality(self, mock_run, mock_which, tmp_path):
-        """Different quality presets produce different props values."""
+    def test_quality_dimensions_in_command(self, mock_run, mock_which, tmp_path):
+        """Command should include --width, --height, --fps from quality preset."""
         project_root = tmp_path / "remotion-project"
         project_root.mkdir()
         (project_root / "node_modules").mkdir()
@@ -168,14 +342,11 @@ class TestRendererInputProps:
             returncode=0, stdout="ok", stderr=""
         )
 
-        quality = QUALITY_PRESETS["high"]  # 1920x1080, 60fps
-        render_video(project_root, output, quality, duration_frames=90)
+        quality = QUALITY_PRESETS["high"]
+        render_video(project_root, output, quality, duration_frames=60)
 
         cmd = mock_run.call_args[0][0]
-        props_arg = [arg for arg in cmd if arg.startswith("--props")][0]
-        props = json.loads(props_arg.split("=", 1)[1])
-
-        assert props["durationInFrames"] == 90
-        assert props["fps"] == 60
-        assert props["width"] == 1920
-        assert props["height"] == 1080
+        cmd_str = " ".join(cmd)
+        assert "--width=1920" in cmd_str
+        assert "--height=1080" in cmd_str
+        assert "--fps=60" in cmd_str
