@@ -490,3 +490,11 @@ Fixed Neo's test implementation bugs in remotion CLI tests following reviewer lo
 - **Result**: 13 CLI tests pass
 
 Branch pushed to squad/89-remotion-image-support, ready for Neo's re-validation.
+
+### 2026-03-26 — PRs #94, #95, #98: Three Bug Fixes (Issues #90, #91, #93)
+
+- **Issue #90 (PR #94):** Manim renderer looked for `media/` relative to `scene_file.parent` instead of the actual CWD. When `assets_dir` was provided as CWD, the output was at `assets_dir/media/...` but the code searched `scene_file.parent/media/...`. Fix: compute `base_dir` from `assets_dir` when present. Both primary path and rglob fallback use the correct base. 3 new tests.
+- **Issue #91 (PR #95):** Remotion packages had transitive dep mismatches (4.0.448/449/450). Pinned all direct `@remotion/*` deps to exact 4.0.450 and added npm `overrides` block for transitive deps. Clean `npm install` confirmed.
+- **Issue #93 (PR #98):** Root.tsx hardcoded `durationInFrames={150}`. Now uses `getInputProps()` from Remotion with nullish coalescing defaults. renderer.py passes all four composition values (durationInFrames, fps, width, height) as structured JSON via `--props` using `json.dumps()`. 2 new tests.
+- **Lesson:** When subprocess runs with a different CWD, always trace where output files land relative to that CWD, not relative to input file paths.
+- **Lesson:** Use `json.dumps()` for CLI JSON args instead of manual string concatenation — avoids quoting issues and makes the structure explicit.
