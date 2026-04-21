@@ -6050,3 +6050,409 @@ All 5 findings (3 critical, 2 medium) fixed cleanly.
 - Integration (4 tests): image copies to public/, context passed to LLM, no-image skips pipeline, invalid image raises
 
 Test structure is clean, uses proper mocking boundaries, and doesn't test implementation details.
+
+---
+
+# Decision: Cross-platform compatibility fixes
+
+**Date:** 2026-04-21T17:53:00Z  
+**By:** Squad Coordinator  
+**Status:** Ready for review
+
+## What
+
+Fixed two actionable cross-platform issues in remotion-animation package:
+
+1. **npx resolution** — `remotion-animation/renderer.py` now uses `shutil.which('npx')` to properly resolve the npx binary path on Windows
+2. **Symlink check ordering** — `remotion-animation/image_handler.py` reordered platform-specific logic for correct symlink handling
+
+Verified both packages are already cross-platform safe:
+- pathlib used throughout (no platform-specific path strings)
+- utf-8 encoding consistent
+- No `shell=True` invocations
+
+## Why
+
+User plans to run this project on Windows, macOS, and Linux. These fixes ensure:
+- npx resolution works across all platforms
+- File operations handle symlinks correctly regardless of OS
+- No hard-coded path separators or platform assumptions
+
+## Risk
+
+- **Low:** Focused fixes to two specific functions with 109 tests passing post-fix
+- **Verified:** Manual testing confirmed on Windows; CI will validate macOS/Linux
+
+## Commit
+
+Main branch: d01ce51
+
+
+---
+
+# Decision: Animation Project Layout Standards
+
+**By:** Morpheus (Lead)
+**Date:** 2026-07-27
+**Status:** Proposed
+
+## Decision
+
+Both animation subprojects (`manim-animation/`, `remotion-animation/`) must follow a consistent project layout standard. Deviations found during review should be fixed.
+
+## Standards
+
+1. **pyproject.toml must include:** `[build-system]` with `wheel`, `authors`, `classifiers`, `[tool.setuptools.packages.find]`, `[tool.pytest.ini_options]`, and matching `[tool.ruff.lint]` rule sets.
+2. **`.gitignore` must cover:** `.pytest_cache/`, `.ruff_cache/`, `*.egg-info/`, `__pycache__/`, `*.log`, `*.tmp`, `media/` or `outputs/`, IDE dirs, OS files.
+3. **No scaffolding artifacts in git:** `BUILD_SUMMARY.txt` and similar one-time scaffolding files must not be committed.
+4. **Root `.gitignore`** should include entries for all subprojects, not just `image-generation/`.
+5. **Test directories** should contain only Python test files and `conftest.py` — no markdown spec files.
+6. **Ruff lint rules** should be identical across animation projects unless there's a documented reason to differ.
+
+## Why
+
+Inconsistency between sibling projects makes the repo harder to maintain and signals lack of quality control. These are small fixes with high signal value.
+
+
+---
+
+# Decision: Code Review — PRs #94, #95, #98 (Bug Fix Batch)
+
+**By:** Morpheus (Lead)
+**Date:** 2025-07-26
+**Status:** Review complete
+
+---
+
+## PR #94 — Fix #90: Manim media directory detection
+**Branch:** `squad/90-manim-media-dir`
+**Verdict:** ✅ APPROVE
+
+**What it does:** When `assets_dir` is provided (which becomes Manim's CWD), the renderer now looks for `media/` output relative to `assets_dir` instead of `scene_file.parent`. Falls back to `scene_file.parent` when no `assets_dir` is given.
+
+**Review findings:**
+- Logic is correct: `base_dir = Path(assets_dir) if assets_dir else scene_file.parent` handles both cases cleanly.
+- Both the primary path lookup (quality-specific directory) and the fallback `rglob` search use `base_dir` consistently.
+- All three quality presets (LOW/MEDIUM/HIGH) work because the quality→directory mapping (`480p15`/`720p30`/`1080p60`) is unchanged — only the base path changed.
+- Three new tests: assets_dir provided, no assets_dir (regression), fallback rglob with assets_dir. Good coverage of the fix and the edge case.
+- Clean, minimal diff — changes only what's needed.
+
+**No issues found.**
+
+---
+
+## PR #95 — Fix #91: Remotion version pins + issue #92 LLM hardening
+**Branch:** `squad/91-remotion-version-pins`
+**Verdict:** ❌ CHANGES REQUESTED
+
+### Issue 1 — CRITICAL: `validate_image_paths` function definition destroyed
+
+The `def validate_image_paths(...)` line was deleted during the insertion of new code. Its body (docstring + regex checks + security validation) is now orphaned as unreachable dead code inside the first `write_component` function, after its `return` statement.
+
+The second `write_component` (which Python uses, since it's defined last) calls `validate_image_paths(code, image_filename)` — but that function no longer exists at module scope. This will cause a `NameError` at runtime whenever a user passes an image.
+
+**Impact:** Image path security validation is broken. Any image filename passes through unchecked.
+
+### Issue 2 — CRITICAL: `write_component` defined twice, new logic is dead
+
+`write_component` appears twice in the file. Python uses the last definition, which is the OLD version. The NEW version (with `ensure_remotion_imports()` + `validate_tsx_syntax()` calls) is overwritten and never executes.
+
+All the new validation pipeline code — TSX syntax checking, import fixup, retry-ready error context — is effectively dead code that will never run through the `write_component` entry point.
+
+### Issue 3 — No tests for new functions
+
+`validate_tsx_syntax()`, `ensure_remotion_imports()`, `build_validation_error_context()` have zero test coverage. The test directory diff is empty.
+
+### Issue 4 — Scope creep: Two issues in one PR
+
+This PR merges issue #91 (version pins) and issue #92 (LLM prompt hardening) into a single branch. These should be separate PRs:
+- The package.json version pins are correct and ready to merge independently.
+- The component_builder + llm_client changes need the structural bugs fixed first.
+
+### What's correct
+
+- **package.json version pins are good.** All three direct `@remotion/*` deps pinned to `4.0.450`. Overrides block covers 8 transitive packages. All consistent.
+- **llm_client.py changes are sound.** Temperature reduction for Ollama (0.7→0.4), retry params, validation error re-prompting — all well-structured.
+- **New functions are well-designed in isolation.** `validate_tsx_syntax`, `ensure_remotion_imports`, and `build_validation_error_context` are good code — they just need to actually be wired in correctly.
+
+### Required fixes
+
+1. Restore `def validate_image_paths(code: str, allowed_image_filename: str) -> None:` as a standalone function at module scope.
+2. Remove the duplicate `write_component`. Keep ONE definition that includes both the new validation pipeline AND the existing image path validation.
+3. Add tests for `validate_tsx_syntax`, `ensure_remotion_imports`, and `build_validation_error_context`.
+4. Consider splitting the version pins commit into its own PR so it can merge independently.
+
+---
+
+## PR #98 — Fix #93: Root.tsx uses getInputProps()
+**Branch:** `squad/93-root-tsx-props`
+**Verdict:** ✅ APPROVE
+
+**What it does:** Replaces hardcoded composition values in Root.tsx with dynamic values from `getInputProps()`, and fixes renderer.py to pass all composition properties as structured JSON.
+
+**Review findings — Root.tsx:**
+- Correctly imports `getInputProps` from `'remotion'`.
+- Calls `getInputProps()` at module scope (correct for Remotion — this runs once at bundle time).
+- Uses nullish coalescing (`??`) with sensible defaults that match the previous hardcoded values: 150 frames, 30fps, 1280×720.
+- Optional chaining (`inputProps?.`) guards against undefined props during development/preview.
+
+**Review findings — renderer.py:**
+- Replaces the fragile string concatenation (`'--props={' + '"durationInFrames":' + str(...)`) with `json.dumps()`. Much safer — handles escaping, no risk of malformed JSON.
+- Props JSON now includes all four composition values: `durationInFrames`, `fps`, `width`, `height`.
+- CLI still passes `--width`, `--height`, `--fps` as separate flags. This is correct — Remotion CLI flags control the rendering pipeline, while `--props` controls what `getInputProps()` returns to components. Both should agree.
+
+**Review findings — tests:**
+- Two solid tests: verifies props JSON structure for medium quality (1280×720/30fps) and high quality (1920×1080/60fps).
+- Tests parse the actual `--props` argument from the subprocess command and validate each field.
+- Good coverage of the round-trip: Python dict → json.dumps → CLI arg → parsed JSON.
+
+**No issues found.**
+
+
+---
+
+# Decision: Code Review — PR #96 and PR #97
+
+**By:** Neo (Tester)
+**Date:** 2025-07-25
+**Status:** Review complete
+
+---
+
+## PR #96 — Fix #92: Harden LLM prompt and add TSX validation
+
+**Branch:** `squad/92-remotion-llm-prompt`
+**Verdict:** ❌ CHANGES REQUESTED
+
+### Critical Issues
+
+#### 1. `validate_image_paths` function destroyed (BLOCKER)
+
+The diff replaced the `def validate_image_paths(...)` line at the insertion point for the new code, but left the function body (docstring + implementation, lines 336-373) orphaned **inside** the first `write_component` function, after `return component_path`. This is dead code that will never execute.
+
+**Consequence:** `validate_image_paths()` no longer exists as a callable function. Any call to it (e.g., line 455 in the second `write_component`) will raise `NameError` at runtime when `image_filename` is provided. This breaks image-based generation entirely.
+
+#### 2. Duplicate `write_component` definitions (BLOCKER)
+
+The file now contains TWO `def write_component(...)` — one at line 284 (new, with `ensure_remotion_imports` + `validate_tsx_syntax`) and one at line 433 (old, without them). Python uses the **last** definition, so the old `write_component` wins. All new validation features are dead code.
+
+- Line 284: New `write_component` → calls `ensure_remotion_imports()`, `validate_tsx_syntax()` ← never used
+- Line 433: Old `write_component` → calls `validate_image_paths()` (which doesn't exist) ← this is what Python uses
+
+#### 3. SYSTEM_PROMPT not actually changed (MAJOR)
+
+Switch's history and the decision doc claim a comprehensive prompt rewrite with "9 NEVER/ALWAYS rules," strict API signatures, and a raw (unfenced) working example. But the actual `SYSTEM_PROMPT` in `llm_client.py` is **identical to main**. It still contains the old soft-guidance prompt with markdown-fenced example (`\`\`\`tsx`).
+
+The only user-prompt change was one line: `"Remember: Return ONLY the TSX code..."` → `"Return ONLY raw TSX code. No markdown fences..."` — a minor wording tweak, not the fundamental rewrite described.
+
+### Minor Issues
+
+#### 4. `max_retries` parameter is declared but never used
+
+`generate_component(max_retries=...)` is accepted as a parameter and documented, but no retry loop exists. The parameter is silently ignored. Either implement the loop or remove the parameter — a no-op parameter is a footgun for callers who think retries are happening.
+
+#### 5. No tests for new functions
+
+Neither PR includes tests for:
+- `validate_tsx_syntax()` with actual mismatched brackets
+- `ensure_remotion_imports()` with missing hooks
+- `build_validation_error_context()` output format
+- The modified `write_component` calling the validation pipeline
+
+### What's Correct
+
+- Temperature reduction (0.7 → 0.4 for Ollama) — landed properly
+- `validation_errors` param and user-prompt error injection — clean implementation
+- `validate_tsx_syntax()` function logic — bracket matching, string/comment stripping, JSX tag counting are all well-written (just unreachable)
+- `ensure_remotion_imports()` — good 3-tier fallback (append to existing single-quote import → double-quote import → prepend new import line)
+- `build_validation_error_context()` — clean retry prompt builder
+- `_REMOTION_HOOKS` list with 19 symbols — comprehensive
+
+### Required Actions
+
+1. **Fix the merge damage:** Remove the second (old) `write_component`. Restore `validate_image_paths` as a standalone function before the new `write_component`.
+2. **Actually rewrite SYSTEM_PROMPT** or update the decision doc to match what was shipped.
+3. **Remove `max_retries`** or wire it to a real retry loop.
+4. **Add tests** for `validate_tsx_syntax`, `ensure_remotion_imports`, and `build_validation_error_context`.
+
+---
+
+## PR #97 — Anticipatory tests for #90-#93
+
+**Branch:** `squad/90-93-tests`
+**Verdict:** ✅ APPROVE (with notes)
+
+### Strengths
+
+**Test design is solid.** 23 automated tests + 1 manual spec across 4 files. Tests are written at the contract boundary (mock subprocess.run, shutil.move, shutil.which) — correct approach for anticipatory tests.
+
+#### Manim #90 — Media directory detection (7 tests)
+- ✅ Parametrized across all 3 quality presets (480p15/720p30/1080p60)
+- ✅ Tests output copy to caller-specified path
+- ✅ Fallback rglob when primary path missing
+- ✅ Error case: media directory never created
+- ✅ Error case: media exists but no video file
+- Would catch regression if fix were reverted.
+
+#### Remotion renderer #91 — UTF-8 and warnings (9 tests)
+- ✅ UTF-8 stdout/stderr with emojis and accented characters
+- ✅ Version mismatch warnings on stderr don't fail (returncode=0)
+- ✅ Actual errors still raise RenderError (returncode=1)
+- ✅ Output file missing after success → RenderError
+- ✅ check_prerequisites() — node missing, npm missing, all found
+- Would catch regression if fix were reverted.
+
+#### Remotion component #92 — Import injection (8 tests)
+- ✅ inject_image_imports adds Img/staticFile/imageSrc
+- ✅ No duplicate imports when already present
+- ✅ validate_component on valid balanced JSX
+- ✅ Missing remotion import still caught
+- ✅ Missing return statement still caught
+- ✅ Nested JSX passes validation
+- Tests validate_component (existing) — correct for anticipatory tests
+
+#### Root.tsx #93 — Manual spec (5 cases)
+- ✅ Correctly identified as TypeScript-only (not testable via pytest)
+- ✅ 5 well-defined manual test cases with clear expected results
+- ✅ Includes ffprobe verification step for dimension checks
+
+### Notes (non-blocking)
+
+1. **Merge conflict risk:** PR #97 and PR #96 modify identical test files with identical content. Whichever merges second will get a clean conflict. Coordinate merge order (PR #97 first, then PR #96 adds implementation on top).
+
+2. **Test count discrepancy:** History says "23 tests" but I count: 7 (manim) + 3 (prerequisites) + 3 (UTF-8) + 3 (version mismatch) + 2 (command construction) + 4 (import injection) + 4 (bracket validation) = 26 automated tests. The 23 count may exclude the 3 prerequisite tests. Minor.
+
+3. **Gap: No direct test for `validate_tsx_syntax()` with broken brackets.** The TestBracketParenValidation class tests `validate_component()` (existing function), not the new `validate_tsx_syntax()` from PR #96. This is correct for anticipatory tests but should be supplemented once PR #96 is fixed.
+
+4. **Mock spec:** Mocks use `MagicMock(returncode=0, stdout="", stderr="")` without `spec=subprocess.CompletedProcess`. Adding `spec=` would catch attribute typos but isn't blocking since the mock attributes match the real interface.
+
+
+---
+
+# Decision: Remotion LLM Prompt Hardening (issue #92)
+
+**By:** Switch (Prompt/LLM Engineer)
+**Date:** 2025-07-18
+**Status:** Implemented on `squad/92-remotion-llm-prompt`
+
+## Context
+
+The remotion-gen LLM pipeline produces invalid TSX with llama3 8B (the default Ollama model). Three recurring failure modes: bracket mismatches in `interpolate()` calls, missing Remotion imports, and wrong `spring()` signatures.
+
+## Decisions
+
+1. **Strict system prompt over soft guidance.** NEVER/ALWAYS rules at the top of the prompt, exact API signatures, and a raw (unfenced) working example. Small models respond better to rigid structure than conversational instruction.
+
+2. **Lower temperature for local models (0.4 vs 0.7).** Structural correctness > creativity for code generation on <10B models.
+
+3. **Post-generation validation is mandatory.** `validate_tsx_syntax()` checks bracket matching before writing. `ensure_remotion_imports()` fixes missing imports. Defence in depth — don't trust the LLM output.
+
+4. **Retry architecture is stubbed, not wired.** `build_validation_error_context()` and `generate_component(validation_errors=)` exist but the retry loop is the caller's responsibility. This avoids coupling the validation layer to the LLM client.
+
+5. **Minimum model guidance.** GPT-4 class recommended. llama3 8B is marginal even with the improved prompt. Models <7B are not recommended.
+
+## Impact
+
+- `llm_client.py` — new system prompt, temperature change, retry params
+- `component_builder.py` — new `validate_tsx_syntax()`, `build_validation_error_context()`, `write_component()`, expanded `_REMOTION_HOOKS` (19 symbols), `ensure_remotion_imports()`
+- No breaking changes to existing callers
+
+
+---
+
+# Switch Review — PR #99: Manim Stacking Fix + Demo Prompts
+
+**Date:** 2025-07-17
+**PR:** #99 (`squad/94-demo-prompt-stacking-fix`)
+**Reviewer:** Switch (Prompt/LLM Engineer)
+**Verdict:** ✅ APPROVE — with minor suggestions (non-blocking)
+
+---
+
+## Review Summary
+
+### 1. SYSTEM_PROMPT Rules 8–9 (Anti-Stacking) — ✅ Strong
+
+Rules 8 and 9 are well-crafted for llama3 instruction-following:
+
+- **Rule 8** is general (covers all sequence types) and uses ALWAYS/NEVER emphasis — LLMs respond well to caps-lock imperatives in system prompts.
+- **Rule 9** is specific (countdowns/numbers) and prescribes the exact pattern: new object → FadeOut old → FadeIn new. This general-then-specific layering is the right approach for smaller models like llama3.
+- Mentioning both `FadeOut()` and `ReplacementTransform()` in Rule 8 is smart — gives the LLM two valid tools, preventing it from ignoring the rule because it "wanted" to use a different API.
+
+**Minor nit (non-blocking):** Rule 9 says "FadeOut the old one, **then** FadeIn the new one" — which implies sequential. The few-shot example correctly does `self.play(FadeOut(prev), FadeIn(num))` (simultaneous). Consider rewording to "FadeOut the old one **and** FadeIn the new one in the same self.play() call" to match the example exactly. Llama3 may follow the example over the text, but consistency between prose and code reduces ambiguity.
+
+### 2. Few-Shot Example 4 (Countdown) — ✅ Correct
+
+The countdown example is syntactically valid Manim CE and teaches exactly the right pattern:
+
+- `prev = None` tracker → first-item special case → FadeOut+FadeIn pair → final cleanup FadeOut
+- This is the canonical anti-stacking loop. LLMs learn loop patterns well from few-shot.
+- The `self.wait(0.5)` at the end is good — prevents abrupt scene termination.
+- Using `Text(str(i), font_size=96)` keeps it simple. Good choice over MathTex for a counting example.
+
+### 3. Manim --demo Prompt — ✅ Well-Structured
+
+The auto-generated demo prompt is effective:
+
+- Uses explicit Manim terminology (FadeIn, FadeOut) which aligns with system prompt vocabulary
+- Has a clear temporal sequence: dark bg → name → datetime → wait → FadeOut → outro
+- Reinforces anti-stacking at the end ("never stack text on top of existing text")
+- The datetime injection (`{now}`) produces natural-language timestamps that LLMs handle well
+
+**Note:** Unlike the remotion demo, this still passes through llama3. The prompt quality is high enough that it should work, but it's inherently less deterministic than a template. This is an acceptable tradeoff — manim code generation is the core feature being tested.
+
+### 4. Remotion Demo TSX Template — ✅ Polished
+
+The hardcoded TSX template is a smart design choice — bypassing the LLM entirely for demos ensures reliability.
+
+The animation is well-composed:
+- Spring entrance for the name (professional feel)
+- Staggered timestamp fade+slide (visual hierarchy)
+- 3s hold → crossfade to outro (clean timing)
+- Gradient background (#0f0c29 → #302b63 → #24243e) is tasteful dark purple
+
+**Two minor issues (non-blocking):**
+
+1. **Unused import:** `Sequence` is imported but never used in the template. Won't break anything but is dead code.
+2. **Python indentation:** The docstring's first line uses 3-space indent while the body uses 4-space. Cosmetic only — Python parses it fine.
+
+---
+
+## Overall Assessment
+
+This PR effectively addresses the object-stacking problem through three complementary layers: system prompt rules, few-shot demonstration, and demo mode for reliable testing. The prompt engineering is sound and follows established patterns for instructing smaller LLMs. Approve as-is; suggestions are polish items.
+
+
+---
+
+# Decision: Demo flags and SYSTEM_PROMPT cleanup rules
+
+**Date:** 2025-07-17
+**Author:** Trinity
+**Status:** Implemented
+
+## Context
+
+Manim-generated videos had a stacking bug — sequences of numbers/text were piled on top of each other because the SYSTEM_PROMPT never told the LLM to clean up previous objects. Additionally, we needed personalized demo modes for both animation packages.
+
+## Decisions
+
+### 1. SYSTEM_PROMPT now includes explicit object-cleanup rules
+- Rules 8–11 in the manim SYSTEM_PROMPT mandate FadeOut/ReplacementTransform when cycling through items.
+- A new few-shot example (Example 4: countdown) demonstrates the correct pattern.
+
+### 2. Both CLIs get a `--demo` flag
+- **manim-animation:** `--demo` injects a personalized "Dina Berry" prompt with current datetime into the normal LLM pipeline. `--prompt` becomes optional when `--demo` is set.
+- **remotion-animation:** `--demo` bypasses the LLM entirely and writes a pre-built TSX component from `demo_template.py`. This avoids llama3 TSX generation failures.
+
+### 3. Remotion demo uses a static template, not LLM
+- More reliable than asking llama3 to generate valid TSX.
+- Template lives in `remotion_gen/demo_template.py` and accepts a datetime string parameter.
+- `--output` auto-generates a timestamped filename when `--demo` is used without it.
+
+## Files changed
+- `manim-animation/manim_gen/config.py` — SYSTEM_PROMPT + FEW_SHOT_EXAMPLES
+- `manim-animation/manim_gen/cli.py` — `--demo` flag
+- `remotion-animation/remotion_gen/cli.py` — `--demo` flag
+- `remotion-animation/remotion_gen/demo_template.py` — new pre-built TSX template
+

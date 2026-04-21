@@ -620,3 +620,20 @@ Neo completed bug fixes on both PRs following reviewer lockout protocol:
 
 All branches pushed: squad/88-manim-image-support, squad/89-remotion-image-support
 Ready for Lead architecture re-review.
+
+### 2026-07-27 — Animation Projects Layout Review
+
+Thorough review of `manim-animation/` and `remotion-animation/` project layouts, comparing consistency with each other and with `image-generation/`.
+
+**17 findings** across 9 dimensions. See full report delivered to user.
+
+**Key issues:**
+1. `remotion-animation/BUILD_SUMMARY.txt` is a scaffolding artifact tracked in git — should be removed
+2. `remotion-animation/pyproject.toml` missing `[tool.pytest.ini_options]`, `authors`, `classifiers`, `wheel` in build-system, and `[tool.setuptools.packages.find]` — manim has all of these
+3. `manim-animation/.gitignore` missing `.pytest_cache/` and `.ruff_cache/` entries
+4. `remotion-animation/.gitignore` missing `.pytest_cache/`, `.ruff_cache/`, `*.log`, `*.tmp`
+5. Root `.gitignore` has no entries for animation projects (only image-generation outputs)
+6. `remotion-animation/tests/test_root_props.md` — a markdown spec file lives in the test directory (should be in docs or issues, not alongside pytest files)
+7. Ruff lint rule sets differ between projects (`"N"` in manim, not in remotion)
+
+**Pattern established:** Animation projects should mirror each other's pyproject.toml structure and .gitignore comprehensiveness. Root .gitignore should cover all subprojects.
