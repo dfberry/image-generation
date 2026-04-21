@@ -63,10 +63,11 @@ def render_scene(
         logger.info("Manim render completed successfully")
         logger.debug(f"stdout: {result.stdout}")
 
-        # Manim outputs to media/videos/<scene_file_stem>/[quality]/GeneratedScene.mp4
+        # Manim outputs media/ relative to its CWD, not relative to scene_file
+        base_dir = Path(assets_dir) if assets_dir else scene_file.parent
         scene_stem = scene_file.stem
         manim_output = (
-            scene_file.parent
+            base_dir
             / "media"
             / "videos"
             / scene_stem
@@ -80,7 +81,7 @@ def render_scene(
 
         if not manim_output.exists():
             # Fallback: search for any GeneratedScene.mp4
-            media_dir = scene_file.parent / "media"
+            media_dir = base_dir / "media"
             if media_dir.exists():
                 matches = list(media_dir.rglob("GeneratedScene.mp4"))
                 if matches:
