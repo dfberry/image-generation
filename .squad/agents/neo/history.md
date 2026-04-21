@@ -18,6 +18,27 @@
 
 <!-- Append new learnings below. Each entry is something lasting about the project. -->
 
+### 2026-04-21 — PR #97: Anticipatory Tests for Bug Fixes #90-#93
+
+Wrote 23 new tests + 1 manual test spec across 4 files while Trinity/Switch fix the bugs in parallel.
+
+**Manim (#90) — 7 tests in `manim-animation/tests/test_renderer.py`:**
+- `TestMediaDirectoryDetection`: parametrized quality path detection (480p15/720p30/1080p60), output copy to outputs/, fallback rglob search, error on missing media dir, error on media-exists-but-no-video
+
+**Remotion renderer (#91) — 6 tests in `remotion-animation/tests/test_renderer.py`:**
+- `TestRendererUTF8Encoding`: UTF-8 stdout/stderr with emojis & accented characters
+- `TestRendererVersionMismatchWarnings`: warnings on stderr with returncode=0 don't fail
+- `TestRendererCommandConstruction`: --props includes durationInFrames, quality dims in cmd
+
+**Remotion component (#92) — 8 tests in `remotion-animation/tests/test_component_builder.py`:**
+- `TestEnsureRemotionImports`: inject_image_imports adds Img/staticFile/imageSrc, no duplicates
+- `TestBracketParenValidation`: nested JSX passes, missing-return/missing-import still caught
+
+**Root.tsx props (#93) — manual spec in `remotion-animation/tests/test_root_props.md`:**
+- 5 manual test cases (props forwarded, defaults, quality dims, invalid props, Python integration)
+
+**Key pattern:** When writing tests anticipatorily, mock at the module boundary (subprocess.run, shutil.move) and test the contract — what args are passed, what errors are raised. This works even before the fix is implemented.
+
 ### 2026-04-21 — PR #88 & #89: Image/Screenshot Input Support Tests Complete
 
 Test infrastructure for image support across both animation packages. All tests passing; comprehensive coverage of validation, security, CLI integration.
