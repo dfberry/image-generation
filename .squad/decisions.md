@@ -1,7 +1,126 @@
 # Team Decisions
 
 **Last Updated:** 2026-04-22  
-**Session:** Documentation Review & Orchestration
+**Sessions:** Audio Research Session, Documentation Review & Orchestration
+
+---
+
+## Audio + Video Architecture Decision Set (2026-04-22)
+
+### Decision 1: Recommend Option B for Audio + Video Integration
+
+**Owner:** Morpheus (Lead)  
+**Status:** PROPOSAL  
+**Impact:** Defines Phase 0 MVP and implementation strategy for audio/video capability
+
+**Recommendation: Option B - Extend `remotion-animation` with audio capabilities**
+
+**Rationale:**
+- Remotion has native `<Audio />` component with per-frame volume control and built-in mixing
+- Architecture is already LLM-friendly (TSX generation)
+- Achievable in Phase 0 (~3-5 days work, no new framework dependencies)
+- Positions repo for Phase 1+ features (subtitles, transcripts, music sync)
+
+**Implementation Strategy:**
+1. Extend LLM system prompt to include audio APIs for Remotion
+2. Add CLI flags for audio inputs (TTS narration, background music, sound effects)
+3. Implement Python audio pre-processor (TTS generation via OpenAI/Azure, file validation, mixing)
+4. Use FFmpeg or pydub for simple audio muxing as fallback
+
+**Phase 0 MVP Scope:**
+- ✅ User provides text for TTS narration (optional)
+- ✅ User provides background music file path (optional)
+- ✅ User provides sound effect file paths with timing cues (optional)
+- ✅ Tool generates audio, overlays on video, exports MP4
+- ❌ Subtitle/transcript generation (Phase 1)
+- ❌ LLM-aware audio timing (Phase 1)
+- ❌ Music beat synchronization (Phase 2)
+
+**Key Findings from Analysis:**
+- Both manim-animation and remotion-animation already have audio APIs but unused
+- Option A (Manim) rejected: `add_sound()` designed for short SFX, not narration; no mixing support
+- Option C (post-production FFmpeg) viable but less elegant than Option B
+- Option D (third-party service) out of scope
+
+**Implementation Owner:** Trinity (Backend Dev)  
+**TTS Provider Decision:** Pending (OpenAI, Azure, edge-tts, or hybrid)  
+**Timeline:** Phase 0 target — next sprint after Squad decision on TTS provider
+
+---
+
+### Research Document 2: Technical Feasibility Report
+
+**Owner:** Trinity (Backend Dev)  
+**Status:** Complete  
+**Input:** Comprehensive research on Python audio/video libraries, TTS options, sync strategies, subtitle generation
+
+**Key Research Findings:**
+
+**Python Audio/Video Libraries (9 analyzed):**
+- **MoviePy** → RECOMMENDED for post-production (high-level compositing, audio mixing, effects)
+- **pydub** → RECOMMENDED for TTS preprocessing (audio trim, fade, normalize)
+- **FFmpeg-python** → RECOMMENDED for simple muxing (add audio to video)
+- **Manim add_sound()** → PREFERRED for manim-animation (native API, time-offset control)
+- **Remotion Audio** → PREFERRED for remotion-animation (frame-accurate sync, React component)
+- Skipped: librosa (overkill for use case), PyAV (too low-level), soundfile/scipy (rarely needed)
+
+**TTS Provider Comparison (6 evaluated):**
+| Provider | Type | Quality | Cost/min | Offline | Recommendation |
+|----------|------|---------|----------|---------|-----------------|
+| **Azure Cognitive Services** | Cloud | Premium Neural | $0.0135 | No | ✅ PROD: best balance (cost, quality, free tier 5M/mo) |
+| **OpenAI TTS** | Cloud | Premium | $0.0135 | No | ✅ ALT: simpler API if using OpenAI already |
+| **ElevenLabs** | Cloud | Ultra-realistic | $0.06-0.12 | No | 🎬 Demo: best quality, credit-based pricing |
+| **edge-tts** | Cloud (free) | Premium (Azure voices) | Free | No | ✅ DEV: free Azure voices, rate-limited |
+| **Coqui XTTS** | Local | High (neural) | Free | Yes | ✅ OFFLINE: best open-source, needs GPU |
+| **pyttsx3** | Local | Basic | Free | Yes | ✅ CI: zero dependencies, low quality |
+
+**Audio-Video Sync (3 strategies evaluated):**
+1. **FFmpeg Muxing** → Simple, fast, no re-encoding; cons: no frame-level control
+2. **Frame-aligned (Remotion)** → Per-frame volume control, best quality; matches Option B
+3. **Post-production (MoviePy)** → Flexible but slower; useful as fallback
+
+**Subtitle/Transcript Generation (4 approaches outlined):**
+- OpenAI Whisper (audio → SRT format) → RECOMMENDED
+- Cloud Speech-to-Text (Google, Azure)
+- Burn-in vs VTT sidecar files
+- Phase 1+ feature
+
+**TTS Cost Analysis (1 min narration ≈ 900 chars):**
+- Azure Neural: $0.0135/min
+- OpenAI tts-1: $0.0135/min
+- Google Neural2: $0.0144/min
+- ElevenLabs Turbo: $0.06-0.12/min
+- Free options (edge-tts, Coqui, pyttsx3): $0.00/min
+
+**Deliverables:**
+- 31 KB technical research document (`.squad/decisions/inbox/trinity-video-sound-research.md`)
+- Library comparison tables with pros/cons/recommendations
+- TTS provider cost/quality/latency comparison
+- FFmpeg command references and Python code examples
+- Subtitle generation walkthrough
+
+---
+
+### Next Steps
+
+1. **Squad Decision: Select TTS Provider**
+   - Production: Azure vs OpenAI (both $0.0135/min, Azure has free tier)
+   - Development: edge-tts (free Azure voices, rate-limited)
+   - Offline option: Coqui XTTS v2 (requires GPU, high quality)
+
+2. **Architecture Validation**
+   - Trinity reviews Morpheus recommendation and research
+   - Confirm Option B feasibility with selected TTS provider
+
+3. **Phase 0 Implementation Starts**
+   - Create audio module in image-generation/
+   - Extend remotion-animation CLI flags and LLM system prompt
+   - Write audio preprocessing/muxing functions
+
+4. **Phase 1 Roadmap**
+   - Subtitle/transcript generation via Whisper
+   - Multi-voice narration support
+   - Music beat synchronization
 
 ---
 
