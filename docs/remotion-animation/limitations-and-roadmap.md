@@ -555,10 +555,10 @@ Each tool serves a different purpose. Combine them for comprehensive multimedia 
 
 | Feature | Status | Phase |
 |---------|--------|-------|
-| Audio/Sound | ❌ Not supported | Phase 2+ |
+| Audio/Sound | ✅ Partial (TTS, music, SFX) | Phase 0 (basic) → Phase 1 (mixing) |
 | Subtitles/Captions | ❌ Not supported | Phase 2 |
-| Voice-Over Sync | ❌ Not supported | Phase 3 |
-| Text-to-Speech | ❌ Not supported | Phase 2 |
+| Voice-Over Sync | ⚠️ Partial (no auto-sync) | Phase 0 (manual) → Phase 3 (auto-sync) |
+| Text-to-Speech | ✅ Supported (edge-tts) | Phase 0 (basic) → Phase 1 (OpenAI TTS) |
 | 3D Animations | ❌ Not supported | Phase 3+ |
 | Multi-Scene | ❌ Not supported | Phase 2 |
 | Duration (5–30s) | ⚠️ Limited | Phase 1 (→120s) |

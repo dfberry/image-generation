@@ -271,5 +271,5 @@ generate_video(prompt="A sine wave animation", output="wave.mp4")
 - **5–30 second videos** — enforced by CLI
 - **Single-scene compositions** — no multi-scene sequencing
 - **2D animations only** — no Three.js integration
-- **No audio** — video-only output
+- **Audio support** — TTS narration (edge-tts), background music, and sound effects (Phase 0; OpenAI TTS planned for Phase 1)
 - **LLM quality varies** — smaller local models may produce invalid TSX more often; use `--debug` and retry
