@@ -508,3 +508,21 @@ Addressed 5 code quality issues from Morpheus's review. All 149 tests pass, ruff
 - **S7 (pyproject.toml):** Added upper bounds `manim<0.20.0` and `openai<2.0.0` to prevent silent breakage from major version bumps.
 - **S8 (test_cli.py):** Added `capsys` assertions to all three error-path tests — now verify stderr contains the error class label and the original message text, not just exit codes.
 - **S9 (conftest.py):** Changed subprocess fixtures to accept `monkeypatch` and call `monkeypatch.setattr(subprocess, "run", _fake_run)` inside the fixture. Previously they returned bare functions that no test ever applied.
+### 2026-07-22 — Morpheus Review Fixes (remotion-animation + manim-animation)
+
+Fixed 7 issues flagged by Morpheus's code review:
+
+**Critical (R1, R2):**
+- Removed unused pydantic dependency from remotion-animation (pyproject.toml + requirements.txt)
+- Converted eagerly-imported OpenAI classes to lazy imports inside `_create_client()` per-provider branches. Module now importable without openai installed.
+
+**High (S1):**
+- Both llm_client.py files now catch `AuthenticationError`, `RateLimitError`, `APIConnectionError` separately. LLMError messages include `[auth]`, `[rate_limit]`, `[connection]` tags so callers can distinguish retryable vs terminal failures.
+
+**Medium (S16, S17, S18, S5):**
+- S16: Refactored demo mode — `generate_video()` gained a `component_code` param; demo now calls it instead of duplicating path/preset/render logic.
+- S17: Changed `max_retries` default from 0 to 2 so TSX validation retries are active out-of-the-box.
+- S18: Moved per-provider temperature values to `PROVIDER_TEMPERATURES` dict in config.py.
+- S5: Added `"engines": { "node": ">=18.0.0" }` to remotion-project/package.json.
+
+**Ruff:** Both projects pass `ruff check` clean (pre-existing F541 in manim cli.py was not touched).

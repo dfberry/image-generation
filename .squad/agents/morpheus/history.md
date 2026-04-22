@@ -444,6 +444,26 @@ Reviewed Trinity's implementation of OOMError and batch_generate() against 10-po
 3. ✅ MPS OOM detection: isinstance(exc, RuntimeError) and "out of memory" in str(exc).lower() (line 202)
 4. ✅ finally block executes after OOM (lines 208-222 guaranteed by Python finally semantics)
 5. ✅ Error message actionable: "Out of GPU memory. Reduce steps with --steps or switch to CPU with --cpu." (line 205) — mentions both --steps AND --cpu
+
+### 2026-07-27 — Deep Code Review of Both Animation Projects
+
+Full code review of manim-animation/ and remotion-animation/ covering source, tests, configs, and TypeScript. **38 total findings** across 6 dimensions.
+
+**Key findings by severity:**
+- 🔴 Must Fix (5): Unused pydantic dep in remotion, eager OpenAI import in remotion llm_client.py (vs lazy in manim), 48 skipped tests in remotion (30% of test suite), component_builder import injection can silently produce invalid code, Root.tsx uses React.FC without importing React
+- 🟡 Should Fix (20): Generic exception masking in both llm_client.py, missing error propagation tests, weak test assertions (exit codes only without log checks), no `engines` field in remotion package.json, version constraints too loose, duplicate forbidden-call lists in scene_builder.py
+- 🟢 Nice to Have (13): Docstrings on error classes, .env gitignore patterns, demo_template cleanup, README clarifications
+
+**Critical cross-project inconsistencies:**
+1. Manim llm_client.py uses lazy OpenAI import; remotion uses eager top-level import that crashes on import if openai not installed
+2. Manim config uses Enum-based QualityPreset; remotion uses dataclass — different patterns for same concept
+3. Ruff lint rule sets differ (manim has `"N"` rule, remotion has per-file E501 ignore)
+
+**Test health:**
+- Manim: 147 test functions, 2 skips — healthy
+- Remotion: 160 test functions, 48 skips (30%) — many modules still stub-skipped "Waiting for Trinity's implementation" despite implementation being complete
+
+**Architecture assessment:** Both projects follow the same module decomposition (cli→llm_client→builder→renderer) with parallel image_handler.py security layers. This is good. The component_builder.py (remotion) is more complex than scene_builder.py (manim) due to TSX/JSX handling, and that complexity shows in fragile string-replace import injection logic.
 6. ✅ Non-OOM exceptions not swallowed: bare `raise` on line 207 re-raises non-OOM exceptions
 
 **batch_generate() (lines 227-270):**

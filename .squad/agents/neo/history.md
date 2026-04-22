@@ -732,3 +732,22 @@ Fixed Trinity's implementation bugs in both PRs following reviewer lockout proto
 - **Result**: 109 tests pass (65 unit + 44 integration)
 
 Both branches pushed and ready for re-review by Morpheus.
+
+### 2026-07-24 — Test Coverage Audit & Gap Fill
+
+Full test coverage audit across both animation projects. Identified and filled critical gaps.
+
+**Manim-Animation (149 tests, all passing):**
+- Fixed 1 failing test: `test_missing_prompt_raises_error` → `test_missing_prompt_defaults_to_none` because `--prompt` became optional when `--demo` mode was added. Test expected SystemExit but parse_args() now returns None for prompt.
+- Coverage is strong: all 8 source modules have corresponding test files, 111+ test methods covering happy paths, error cases, and edge cases.
+
+**Remotion-Animation (188 passed, 18 skipped — up from 128 passed, 49 skipped):**
+- Activated 10 skipped `test_config.py` tests → 18 active tests covering QualityPreset, resolution_name property, defaults, and constants
+- Created new `test_demo_template.py` (15 tests) — previously ZERO coverage for `demo_template.py`
+- Rewrote `test_llm_client.py` (20 tests) — replaced 9 stale skipped tests (using old `openai.ChatCompletion.create` API) with 20 active tests against actual `_extract_code_block`, `_create_client`, and `generate_component` functions
+- Activated `test_renderer.py` success/failure tests (7 active) + added 3 new edge case tests for `node_modules` missing, `npx` not found, and `Node.js` missing via render_video
+- Net: +60 passing tests, -31 skipped tests
+
+**Key finding:** 18 remaining skipped tests in remotion are in `test_cli.py` (11) and `test_integration.py` (6) + 1 symlink test. The CLI and integration tests use `pytest.skip("Waiting for Trinity's implementation")` but Trinity's code exists — they need the mock patterns updated to match the actual API (not the old `openai.ChatCompletion.create` stubs).
+
+**Pattern learned:** When implementations land before placeholder tests get activated, the old mocking patterns go stale. Better to write tests against the actual module interface (mock at `_call_llm`/`_create_client` boundary) than against third-party API endpoints.
