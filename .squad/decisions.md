@@ -1,7 +1,29 @@
 # Team Decisions
 
 **Last Updated:** 2026-04-22  
-**Sessions:** Audio Research Session, Documentation Review & Orchestration
+**Sessions:** Audio Research Session, Documentation Review & Orchestration, Video CSS Fix
+
+---
+
+## CSS Gradient Validation Decision (2026-04-22)
+
+### Decision: Add CSS gradient validation to component_builder
+
+**Owner:** Trinity (Backend Dev)  
+**Status:** Proposed  
+**Impact:** Prevents LLM-generated component validation blind spots
+
+**Context:**
+The LLM-generated component for `theorem_dina.mp4` used `backgroundColor: 'linear-gradient(...)'` — invalid CSS that's silently ignored by browsers/Remotion. This produced a video with no visible visuals (transparent background, no text color). The `component_builder.py` validator didn't catch it.
+
+**Decision:**
+The `validate_component()` or `validate_tsx_syntax()` function in `component_builder.py` should check for `backgroundColor` containing gradient syntax (`linear-gradient`, `radial-gradient`, `conic-gradient`) and either:
+1. Auto-fix by replacing `backgroundColor` with `background`, or
+2. Raise a `ValidationError` with a clear message.
+
+**Impact:**
+- Prevents invisible-visual bugs in LLM-generated components
+- No breaking changes — purely additive validation
 
 ---
 
