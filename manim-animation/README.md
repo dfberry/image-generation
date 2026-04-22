@@ -22,6 +22,7 @@ Built for quick prototyping of educational math/CS visualizations with no Manim 
 - **Ollama** (default, local inference — no API key needed)
   - Install: `curl -fsSL https://ollama.com/install.sh | sh`
   - Windows: [Download from ollama.com](https://ollama.com/download)
+- **OpenAI SDK** (optional — only required for `--provider openai` or `--provider azure`)
 
 ## Installation
 
