@@ -240,3 +240,73 @@ class TestMainWithImageErrors:
         )
         mock_gen.side_effect = ImageValidationError("bad image format")
         assert main() == 5
+
+    @patch("manim_gen.cli.render_scene")
+    @patch("manim_gen.cli.LLMClient")
+    def test_image_validation_error_from_strict_policy(
+        self, mock_llm_client, mock_render, tmp_path
+    ):
+        """ImageValidationError propagates when strict policy rejects a file."""
+        bad_file = tmp_path / "script.py"
+        bad_file.write_text("not an image", encoding="utf-8")
+        output = tmp_path / "output.mp4"
+
+        with pytest.raises(ImageValidationError, match="Unsupported image format"):
+            generate_video(
+                prompt="show file",
+                output=output,
+                quality=QualityPreset.MEDIUM,
+                duration=10,
+                provider="ollama",
+                images=[bad_file],
+                image_policy="strict",
+            )
+
+    @patch("manim_gen.cli.render_scene")
+    @patch("manim_gen.cli.LLMClient")
+    def test_copy_failure_raises_image_validation_error(
+        self, mock_llm_client, mock_render, tmp_path
+    ):
+        """OSError during image copy surfaces as ImageValidationError."""
+        img = tmp_path / "photo.png"
+        img.write_bytes(_FAKE_IMAGE)
+        output = tmp_path / "output.mp4"
+
+        with patch("manim_gen.image_handler.shutil.copy2", side_effect=OSError("disk full")):
+            with pytest.raises(ImageValidationError, match="Failed to copy"):
+                generate_video(
+                    prompt="show photo",
+                    output=output,
+                    quality=QualityPreset.MEDIUM,
+                    duration=10,
+                    provider="ollama",
+                    images=[img],
+                    image_policy="strict",
+                )
+
+    @patch("manim_gen.cli.render_scene")
+    @patch("manim_gen.cli.LLMClient")
+    def test_llm_error_propagates_with_images(
+        self, mock_llm_client, mock_render, tmp_path
+    ):
+        """LLMError should propagate even when images are provided."""
+        from manim_gen.errors import LLMError
+
+        img = tmp_path / "photo.png"
+        img.write_bytes(_FAKE_IMAGE)
+        output = tmp_path / "output.mp4"
+
+        mock_client = MagicMock()
+        mock_client.generate_scene_code.side_effect = LLMError("API timeout")
+        mock_llm_client.return_value = mock_client
+
+        with pytest.raises(LLMError, match="API timeout"):
+            generate_video(
+                prompt="show photo",
+                output=output,
+                quality=QualityPreset.MEDIUM,
+                duration=10,
+                provider="ollama",
+                images=[img],
+                image_policy="strict",
+            )

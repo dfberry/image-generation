@@ -216,6 +216,31 @@ class TestCopyImagesToWorkspace:
         dest_names = {p.name for p in copies.values()}
         assert "image_1_photo.png" in dest_names
 
+    def test_strict_rejects_invalid_image(self, tmp_path):
+        """Strict policy raises ImageValidationError for missing images."""
+        missing = tmp_path / "gone.png"
+        workspace = tmp_path / "workspace"
+        with pytest.raises(ImageValidationError, match="Image not found"):
+            copy_images_to_workspace([missing], workspace, policy="strict")
+
+    def test_ignore_skips_invalid_silently(self, tmp_path, valid_png):
+        """Ignore policy silently skips invalid images without logging."""
+        missing = tmp_path / "gone.png"
+        workspace = tmp_path / "workspace"
+        copies = copy_images_to_workspace(
+            [missing, valid_png], workspace, policy="ignore"
+        )
+        assert len(copies) == 1
+        dest_names = {p.name for p in copies.values()}
+        assert "image_1_photo.png" in dest_names
+
+    @pytest.mark.parametrize("policy", ["strict", "warn", "ignore"])
+    def test_all_policies_copy_valid_images(self, valid_png, tmp_path, policy):
+        """All policies should successfully copy valid images."""
+        workspace = tmp_path / "workspace"
+        copies = copy_images_to_workspace([valid_png], workspace, policy=policy)
+        assert len(copies) == 1
+
     def test_empty_list_returns_empty_dict(self, tmp_path):
         workspace = tmp_path / "workspace"
         copies = copy_images_to_workspace([], workspace)
@@ -294,3 +319,56 @@ class TestGenerateImageContext:
         assert "Example usage:" in result
         assert "ImageMobject(" in result
         assert "FadeIn" in result
+
+
+# ===================================================================
+# Edge cases: unicode filenames, long names, permission errors
+# ===================================================================
+
+
+class TestImageHandlerEdgeCases:
+    """Edge case tests for image validation and copying."""
+
+    def test_unicode_filename_accepted(self, tmp_path):
+        """Unicode characters in filenames should be handled correctly."""
+        p = tmp_path / "日本語の画像.png"
+        p.write_bytes(_FAKE_IMAGE)
+        assert validate_image_path(p) is True
+
+    def test_unicode_filename_copies_successfully(self, tmp_path):
+        """Unicode filenames should copy to workspace without errors."""
+        p = tmp_path / "фото.png"
+        p.write_bytes(_FAKE_IMAGE)
+        workspace = tmp_path / "workspace"
+        copies = copy_images_to_workspace([p], workspace)
+        assert len(copies) == 1
+        dest = list(copies.values())[0]
+        assert dest.exists()
+        assert dest.read_bytes() == _FAKE_IMAGE
+
+    def test_long_filename_accepted(self, tmp_path):
+        """Very long filenames (within OS limits) should work."""
+        # Use a name that's long but within typical filesystem limits
+        long_name = "a" * 200 + ".png"
+        try:
+            p = tmp_path / long_name
+            p.write_bytes(_FAKE_IMAGE)
+        except OSError:
+            pytest.skip("Filesystem does not support this filename length")
+        assert validate_image_path(p) is True
+
+    def test_spaces_in_filename_accepted(self, tmp_path):
+        """Filenames with spaces should be handled correctly."""
+        p = tmp_path / "my photo file.png"
+        p.write_bytes(_FAKE_IMAGE)
+        assert validate_image_path(p) is True
+
+    def test_permission_error_during_copy(self, valid_png, tmp_path):
+        """PermissionError during copy surfaces as ImageValidationError."""
+        workspace = tmp_path / "workspace"
+        with patch(
+            "manim_gen.image_handler.shutil.copy2",
+            side_effect=PermissionError("access denied"),
+        ):
+            with pytest.raises(ImageValidationError, match="Failed to copy"):
+                copy_images_to_workspace([valid_png], workspace)

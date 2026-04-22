@@ -48,6 +48,18 @@ class TestRenderScene:
         result = render_scene(scene_file, output, QualityPreset.MEDIUM)
         assert result == output
 
+        # Verify subprocess was called with correct Manim CLI arguments
+        mock_run.assert_called_once()
+        call_args = mock_run.call_args
+        cmd = call_args[0][0]  # first positional arg is the command list
+        assert cmd[0] == "manim"
+        assert cmd[1] == "render"
+        assert str(scene_file) in cmd
+        assert "GeneratedScene" in cmd
+        assert "--format=mp4" in cmd
+        assert "-qm" in cmd
+        assert "--disable_caching" in cmd
+
     @patch("manim_gen.renderer.subprocess.run")
     @patch("manim_gen.renderer.check_manim_installed", return_value=True)
     def test_render_failure_raises_error(self, mock_check, mock_run, tmp_path):
@@ -60,6 +72,12 @@ class TestRenderScene:
         )
         with pytest.raises(RenderError, match="Manim render failed"):
             render_scene(scene_file, output)
+
+        # Verify subprocess was called with expected arguments
+        mock_run.assert_called_once()
+        cmd = mock_run.call_args[0][0]
+        assert cmd[0] == "manim"
+        assert cmd[1] == "render"
 
 class TestRenderSceneMediaDir:
     """Issue #90: media directory detection uses correct base when assets_dir is provided."""
