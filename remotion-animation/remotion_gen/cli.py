@@ -35,6 +35,7 @@ def generate_video(
     image_path: str = None,
     image_description: str = None,
     image_policy: str = "strict",
+    component_code: str = None,
 ) -> Path:
     """Generate video from prompt.
 
@@ -49,6 +50,7 @@ def generate_video(
         image_path: Optional path to an image file to include
         image_description: Optional description of the image for LLM context
         image_policy: Image validation policy ("strict", "warn", "ignore")
+        component_code: Pre-built TSX code (skips LLM generation when set)
 
     Returns:
         Path to generated video
@@ -73,37 +75,42 @@ def generate_video(
         f"{preset.resolution_name} {preset.fps}fps..."
     )
 
-    # Step 0: Handle image input
-    image_context = None
-    image_filename = None
-    if image_path:
-        print(f"→ Processing image: {image_path}")
+    if component_code is None:
+        # Step 0: Handle image input
+        image_context = None
+        image_filename = None
+        if image_path:
+            print(f"→ Processing image: {image_path}")
+            try:
+                image_filename = copy_image_to_public(
+                    image_path, project_root, image_policy
+                )
+                image_context = generate_image_context(
+                    image_filename, image_description
+                )
+                print(f"  Image copied as: {image_filename}")
+            except ImageValidationError as e:
+                print(f"✗ Image validation failed: {e}", file=sys.stderr)
+                raise
+
+        # Step 1: Generate component with LLM
+        print(f"→ Calling {provider} LLM to generate component...")
         try:
-            image_filename = copy_image_to_public(
-                image_path, project_root, image_policy
+            component_code = generate_component(
+                prompt,
+                duration,
+                preset.fps,
+                provider=provider,
+                model=model,
+                image_context=image_context,
             )
-            image_context = generate_image_context(
-                image_filename, image_description
-            )
-            print(f"  Image copied as: {image_filename}")
-        except ImageValidationError as e:
-            print(f"✗ Image validation failed: {e}", file=sys.stderr)
+        except LLMError as e:
+            print(f"✗ LLM generation failed: {e}", file=sys.stderr)
             raise
 
-    # Step 1: Generate component with LLM
-    print(f"→ Calling {provider} LLM to generate component...")
-    try:
-        component_code = generate_component(
-            prompt,
-            duration,
-            preset.fps,
-            provider=provider,
-            model=model,
-            image_context=image_context,
-        )
-    except LLMError as e:
-        print(f"✗ LLM generation failed: {e}", file=sys.stderr)
-        raise
+        image_filename_for_write = image_filename
+    else:
+        image_filename_for_write = None
 
     # Step 2: Write component to project
     print("→ Writing component to Remotion project...")
@@ -112,7 +119,7 @@ def generate_video(
             component_code,
             project_root,
             debug,
-            image_filename=image_filename,
+            image_filename=image_filename_for_write,
         )
         if debug:
             debug_path = repo_root / "outputs" / "GeneratedScene.debug.tsx"
@@ -247,28 +254,23 @@ Environment variables:
 
     # Handle --demo mode: bypass LLM with pre-built template
     if args.demo:
-        from datetime import datetime
+        from datetime import datetime  # noqa: I001
+
         from remotion_gen.demo_template import get_demo_component
 
         now = datetime.now().strftime("%B %d, %Y at %I:%M %p")
-        component_code = get_demo_component(now)
+        demo_code = get_demo_component(now)
 
-        repo_root = Path(__file__).parent.parent
-        project_root = repo_root / "remotion-project"
-        output_path = Path(args.output).resolve()
-
-        if not project_root.exists():
-            print(f"✗ Remotion project not found: {project_root}", file=sys.stderr)
-            return 1
-
-        preset = QUALITY_PRESETS[args.quality]
-        duration_frames = args.duration * preset.fps
-
-        print(f"🎬 Demo mode: writing pre-built title card (bypassing LLM)")
+        print("🎬 Demo mode: writing pre-built title card (bypassing LLM)")
         try:
-            write_component(component_code, project_root, args.debug)
-            result_path = render_video(project_root, output_path, preset, duration_frames)
-            print(f"✓ Demo video generated: {result_path}")
+            generate_video(
+                prompt="demo",
+                output=args.output,
+                quality=args.quality,
+                duration=args.duration,
+                debug=args.debug,
+                component_code=demo_code,
+            )
             return 0
         except RemotionGenError as e:
             print(f"\nError: {e}", file=sys.stderr)
