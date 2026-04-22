@@ -657,3 +657,16 @@ Thorough review of `manim-animation/` and `remotion-animation/` project layouts,
 7. Ruff lint rule sets differ between projects (`"N"` in manim, not in remotion)
 
 **Pattern established:** Animation projects should mirror each other's pyproject.toml structure and .gitignore comprehensiveness. Root .gitignore should cover all subprojects.
+---
+
+## Session: Code Review — Animation Projects (2026-04-22)
+
+**Agents:** Morpheus (Lead), Neo (Tester), Trinity (Backend Dev x2)
+**Outcome:** Deep review completed, 38 issues found (5 red, 20 yellow, 13 green)
+
+**Work Completed:**
+- Comprehensive code review of `manim-animation/` and `remotion-animation/`-  Identified P0 and P1 fixes needed for both packages
+- Decision written to inbox, merged to decisions ledger
+
+**Next:** Team review of PR on branch `fix/morpheus-review-issues`
+

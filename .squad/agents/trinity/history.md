@@ -526,3 +526,39 @@ Fixed 7 issues flagged by Morpheus's code review:
 - S5: Added `"engines": { "node": ">=18.0.0" }` to remotion-project/package.json.
 
 **Ruff:** Both projects pass `ruff check` clean (pre-existing F541 in manim cli.py was not touched).
+
+---
+
+## Session: Code Quality Fixes — Manim & Remotion (2026-04-22)
+
+**Agents:** Morpheus (Lead), Neo (Tester), Trinity (Backend Dev x2)  
+**Branch:** fix/morpheus-review-issues  
+
+**Work Completed (Manim):**
+- S2: Consolidated forbidden-call lists
+- S3: Removed dead numpy alias
+- S7: Added version ceilings (manim>=0.18.0,<0.20.0, openai>=1.0.0,<2.0.0)
+- S8: Strengthened test assertions with capsys
+- S9: Fixed mock subprocess fixtures with monkeypatch
+
+**Verification (Manim):**
+- Ruff: 0 new issues (clean)
+- Pytest: 149/149 passed (1.95s)
+
+**Work Completed (Remotion):**
+- R1: Removed unused pydantic dependency
+- R2: Implemented lazy OpenAI import
+- S1: Specific exception catching (auth, rate_limit, connection tags)
+- S5: Added engines field to package.json
+- S16: Demo refactoring
+- S17: Default max_retries value
+- S18: Moved temperature to config
+
+**Verification (Remotion):**
+- Ruff: Clean (0 new issues)
+
+**Decisions Written:**
+- trinity-manim-quality-fixes.md
+- trinity-llm-exception-tags.md (shared with manim)
+
+**Next:** Team PR review on branch fix/morpheus-review-issues
