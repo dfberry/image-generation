@@ -636,3 +636,26 @@ Created comprehensive documentation suite for the remotion-animation package in 
 - **installation.md** — System reqs (Python 3.10+, ~7GB disk), GPU matrix (CUDA/MPS/CPU with perf numbers), step-by-step venv setup, dependency tables, CUDA-specific torch install, verification steps, environment variables, model download sizes, offline usage, troubleshooting.
 - **user-guide.md** — What the tool does, quick start, all 16 CLI flags with types/defaults, quality presets table, generation time expectations, batch JSON format, shell script batch, prompt writing rules (5 rules: style anchor, ≥3 colors, no text, distant silhouette, light sources), scheduler reference, output format, negative prompt, 8 troubleshooting entries.
 - Key patterns captured: lazy import testing requires __dict__ injection (not @patch), batch tests must patch generate_with_retry (not generate), MagicMock spec requires instance not class, ruff ignores E501 but enforces 120-char via formatter.
+
+
+## 2026-04-22 - Documentation Fix Implementation Plan
+
+**Session:** Prioritized implementation of all review findings  
+**Status:** Plan prepared, ready to execute
+
+Coordinated Morpheus (structural review) and Neo (QA review) findings into prioritized fix plan:
+
+**Phase 1 (P0 - 1.5 hours):**
+- Create docs/README.md with 4-project comparison matrix
+- Fix circular reference in manim-animation limitations doc
+
+**Phase 2 (P1 - 50 minutes):**
+- Add FORBIDDEN_NAMES to manim troubleshooting.md
+- Strengthen cross-project references in all 4 limitations docs
+- Add 'Related Tools' sections to all user guides
+
+**Phase 3 (P2 - next sprint):**
+- Add 'Back to Index' navigation links
+- Standardize limitation heading structure
+
+**Output:** .squad/orchestration-log/2026-04-22T0642-trinity.md
