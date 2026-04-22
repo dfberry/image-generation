@@ -86,6 +86,16 @@ def _dimension(value):
     return ivalue
 
 
+def _flush_gpu_memory():
+    """Reclaim GPU/MPS memory: garbage-collect Python objects, then free device caches."""
+    gc.collect()
+    if torch.cuda.is_available():
+        torch.cuda.empty_cache()
+    mps_backend = getattr(torch.backends, "mps", None)
+    if mps_backend is not None and mps_backend.is_available():
+        torch.mps.empty_cache()
+
+
 def validate_dimensions(width: int, height: int):
     """Runtime guard: width and height must be divisible by 8."""
     for name, val in [("width", width), ("height", height)]:
@@ -344,12 +354,7 @@ def generate(args) -> str:
 
     # Fix 3: Pre-flight flush — reclaim any GPU memory from a prior generate()
     # call before loading new pipelines. Reduces OOM risk in back-to-back runs.
-    gc.collect()
-    if torch.cuda.is_available():
-        torch.cuda.empty_cache()
-    mps_backend = getattr(torch.backends, "mps", None)
-    if mps_backend is not None and mps_backend.is_available():
-        torch.mps.empty_cache()
+    _flush_gpu_memory()
 
     # Set up generator for reproducible output
     generator = None
@@ -392,11 +397,7 @@ def generate(args) -> str:
 
             del base
             base = None
-            if hasattr(torch.backends, "mps") and torch.backends.mps.is_available():
-                torch.mps.empty_cache()
-            if torch.cuda.is_available():
-                torch.cuda.empty_cache()
-            gc.collect()
+            _flush_gpu_memory()
 
             # Stage 2: refiner sharpens the latents into a final image
             refiner, image = _run_refiner(
@@ -422,12 +423,7 @@ def generate(args) -> str:
         # base may already be None (freed mid-refine path) but del is safe on None.
         del base, refiner, latents, text_encoder_2, vae
         image = None
-        gc.collect()
-        if torch.cuda.is_available():
-            torch.cuda.empty_cache()
-        mps_backend = getattr(torch.backends, "mps", None)
-        if mps_backend is not None and mps_backend.is_available():
-            torch.mps.empty_cache()
+        _flush_gpu_memory()
         # Fix 2: torch.compile (used on CUDA in load_base) populates a process-global
         # dynamo cache that survives del base. Reset it to prevent accumulation across
         # repeated generate() calls. If torch.compile is added for other devices later,
@@ -563,12 +559,7 @@ def batch_generate(prompts: list[dict], device: str = None, args=None) -> list[d
 
         # Flush GPU memory between items (not needed after the last item)
         if i < len(prompts) - 1:
-            gc.collect()
-            if torch.cuda.is_available():
-                torch.cuda.empty_cache()
-            mps_backend = getattr(torch.backends, "mps", None)
-            if mps_backend is not None and mps_backend.is_available():
-                torch.mps.empty_cache()
+            _flush_gpu_memory()
 
     return results
 

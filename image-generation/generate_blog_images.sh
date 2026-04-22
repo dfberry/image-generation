@@ -16,6 +16,9 @@ source venv/bin/activate
 
 BATCH_FILE="batch_prompts_$$.json"
 
+# Ensure temp file is cleaned up on error, interrupt, or exit
+trap 'rm -f "$BATCH_FILE"' EXIT
+
 # Build the JSON prompts array via Python (avoids jq dependency)
 python - <<'EOF' > "$BATCH_FILE"
 import json
@@ -50,7 +53,5 @@ print(json.dumps(prompts, indent=2))
 EOF
 
 python -u generate.py --batch-file "$BATCH_FILE" 2>&1 | tee -a generation.log
-
-rm -f "$BATCH_FILE"
 
 echo "ALL IMAGES DONE" >> generation.log

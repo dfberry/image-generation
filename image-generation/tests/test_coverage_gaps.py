@@ -14,11 +14,8 @@ from contextlib import contextmanager
 from types import SimpleNamespace
 from unittest.mock import MagicMock, patch
 
-import pytest
-
 import generate as gen_module
 from generate import apply_scheduler
-
 
 # ---------------------------------------------------------------------------
 # Helpers — inject mocks directly into gen_module.__dict__ to bypass PEP 562
@@ -210,7 +207,7 @@ class TestOutputPathHandling:
         target = str(tmp_path / "explicit.png")
         args = _base_args(tmp_path, output=target)
 
-        with _patch_heavy() as mock_torch:
+        with _patch_heavy():
             mock_pipe = _make_mock_pipe()
             with patch.object(gen_module, "load_base", return_value=mock_pipe), \
                  patch.object(gen_module, "get_device", return_value="cpu"):
@@ -222,8 +219,8 @@ class TestOutputPathHandling:
         """When output is None, generate() creates outputs/image_<timestamp>.png."""
         args = _base_args(tmp_path, output=None)
 
-        with _patch_heavy() as mock_torch, \
-             patch("os.makedirs") as mock_makedirs:
+        with _patch_heavy(), \
+             patch("os.makedirs"):
             mock_pipe = _make_mock_pipe()
             with patch.object(gen_module, "load_base", return_value=mock_pipe), \
                  patch.object(gen_module, "get_device", return_value="cpu"):
@@ -237,7 +234,7 @@ class TestOutputPathHandling:
         import re
         args = _base_args(tmp_path, output=None)
 
-        with _patch_heavy() as mock_torch, \
+        with _patch_heavy(), \
              patch("os.makedirs"):
             mock_pipe = _make_mock_pipe()
             with patch.object(gen_module, "load_base", return_value=mock_pipe), \

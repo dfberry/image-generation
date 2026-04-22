@@ -182,8 +182,8 @@ def test_batch_file_device_passed_to_batch_generate(tmp_path):
 # Test 8 — results are printed (at least one line of output per item)
 # ---------------------------------------------------------------------------
 
-def test_batch_file_results_printed(tmp_path, capsys):
-    """main() should print a result summary — at minimum, one output line per item."""
+def test_batch_file_results_printed(tmp_path, caplog):
+    """main() should log a result summary — at minimum, one output line per item."""
     prompts = [
         {"prompt": "a mountain range", "output": "out1.png"},
         {"prompt": "a coastal village", "output": "out2.png"},
@@ -196,14 +196,13 @@ def test_batch_file_results_printed(tmp_path, capsys):
         {"prompt": "a coastal village", "output": "out2.png", "status": "ok", "error": None},
     ]
 
-    with patch("generate.batch_generate") as mock_batch:
-        mock_batch.return_value = results
-        # AttributeError until generate.main() exists
-        _run_main(["--batch-file", str(json_file)])
+    import logging
+    with caplog.at_level(logging.INFO, logger="generate"):
+        with patch("generate.batch_generate") as mock_batch:
+            mock_batch.return_value = results
+            _run_main(["--batch-file", str(json_file)])
 
-    captured = capsys.readouterr()
-    output = captured.out + captured.err
-    assert len(output.strip()) > 0, "Expected at least one printed summary line"
+    assert len(caplog.text.strip()) > 0, "Expected at least one logged summary line"
 
 
 # ---------------------------------------------------------------------------

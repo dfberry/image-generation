@@ -55,7 +55,7 @@ class TestSchedulerApplied:
              patch("generate.torch.cuda.empty_cache"), \
              patch("generate.torch.cuda.is_available", return_value=False), \
              patch("generate.torch.backends.mps.is_available", return_value=False), \
-             patch("diffusers.DPMSolverMultistepScheduler", mock_scheduler_cls, create=True):
+             patch.object(gen.diffusers, "DPMSolverMultistepScheduler", mock_scheduler_cls):
             gen.generate(mock_args_base)
         assert mock_scheduler_cls.from_config.called
 
@@ -74,7 +74,7 @@ class TestSchedulerApplied:
              patch("generate.torch.cuda.empty_cache"), \
              patch("generate.torch.cuda.is_available", return_value=False), \
              patch("generate.torch.backends.mps.is_available", return_value=False), \
-             patch("diffusers.DPMSolverMultistepScheduler", mock_scheduler_cls, create=True):
+             patch.object(gen.diffusers, "DPMSolverMultistepScheduler", mock_scheduler_cls):
             gen.generate(mock_args_refine)
         assert mock_scheduler_cls.from_config.called
 
@@ -153,7 +153,7 @@ class TestBatchGenerateDefaults:
 class TestInvalidSchedulerHandling:
     def test_invalid_scheduler_raises_value_error(self):
         p = MockPipeline(return_latents=False)
-        with pytest.raises(ValueError, match="Unknown scheduler"):
+        with pytest.raises(ValueError, match="not a supported scheduler"):
             apply_scheduler(p, "NotARealScheduler")
 
     def test_invalid_scheduler_error_lists_available(self):
@@ -180,5 +180,5 @@ class TestInvalidSchedulerHandling:
              patch("generate.torch.cuda.empty_cache"), \
              patch("generate.torch.cuda.is_available", return_value=False), \
              patch("generate.torch.backends.mps.is_available", return_value=False):
-            with pytest.raises(ValueError, match="Unknown scheduler"):
+            with pytest.raises(ValueError, match="not a supported scheduler"):
                 gen.generate(mock_args_base)

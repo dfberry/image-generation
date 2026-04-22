@@ -121,7 +121,7 @@ class TestExceptionSafety:
         with patch("generate.load_base", return_value=base), \
              patch("generate.gc"), \
              patch("generate.torch.cuda.empty_cache") as mock_cuda, \
-             patch("generate.torch.cuda.is_available", return_value=False), \
+             patch("generate.torch.cuda.is_available", return_value=True), \
              patch("generate.torch.backends.mps.is_available", return_value=False):
             gen.generate(mock_args_base)
 

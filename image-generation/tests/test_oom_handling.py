@@ -22,7 +22,6 @@ No GPU required.
 from unittest.mock import MagicMock, patch
 
 import pytest
-import torch
 
 import generate as gen
 
@@ -62,12 +61,8 @@ def _base_args(tmp_path, refine=False, cpu=False):
 
 
 def _make_cuda_oom():
-    """Construct a torch.cuda.OutOfMemoryError (or RuntimeError fallback)."""
-    try:
-        # torch >= 2.1 exposes OutOfMemoryError directly
-        return torch.cuda.OutOfMemoryError("CUDA out of memory. Tried to allocate 2.00 GiB")
-    except AttributeError:
-        return RuntimeError("CUDA out of memory. Tried to allocate 2.00 GiB")
+    """Construct a CUDA OOM error (RuntimeError — no real torch needed)."""
+    return RuntimeError("CUDA out of memory. Tried to allocate 2.00 GiB")
 
 
 def _make_mps_oom():
@@ -182,7 +177,7 @@ class TestOOMCleanupStillRuns:
         with patch("generate.load_base", side_effect=_make_cuda_oom()), \
              patch("generate.gc"), \
              patch("generate.torch.cuda.empty_cache") as mock_cuda_cache, \
-             patch("generate.torch.cuda.is_available", return_value=False), \
+             patch("generate.torch.cuda.is_available", return_value=True), \
              patch("generate.torch.backends.mps.is_available", return_value=False):
 
             try:

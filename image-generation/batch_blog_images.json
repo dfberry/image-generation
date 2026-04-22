@@ -2,31 +2,31 @@
   {
     "prompt": "Two glowing lighthouses on opposite shores of a tropical bay at dusk, left lighthouse shines a broad scattered beam of coral light, right lighthouse shines a tight focused beam of warm gold, beams reach toward each other but do not connect leaving a luminous gap over teal water, dense emerald foliage along both shores with magenta bougainvillea, Latin American folk art style, magical realism illustration, warm amber sunset glow, no text",
     "seed": 42,
-    "output": "C:\\Users\\diberry\\project-dfb\\dfberry.github.io\\website\\blog\\media\\2026-04-15-session-storage-decision-guide\\bellingham-bay-two-lighthouses.png",
+    "output": "outputs/bellingham-bay-two-lighthouses.png",
     "negative_prompt": "blurry, bad quality, worst quality, low resolution, text, watermark, signature, deformed, ugly, duplicate, morbid"
   },
   {
     "prompt": "Two rocky cliff faces close together with no bridge between them, left cliff covered in scattered glowing notebooks and loose papers, right cliff holds a neat stack of luminous field guides and folded maps, a distant silhouette stands on the left cliff looking across, deep teal water below, emerald tropical vines climbing the rocks, magenta and coral wildflowers, Latin American folk art style, magical realism illustration, warm gold light filtering through foliage, no text",
     "seed": 43,
-    "output": "C:\\Users\\diberry\\project-dfb\\dfberry.github.io\\website\\blog\\media\\2026-04-15-session-storage-decision-guide\\deception-pass-no-bridge.png",
+    "output": "outputs/deception-pass-no-bridge.png",
     "negative_prompt": "blurry, bad quality, worst quality, low resolution, text, watermark, signature, deformed, ugly, duplicate, morbid"
   },
   {
     "prompt": "A distant silhouette of a fisherman on a weathered wooden dock sorting a glowing morning catch, fish separated into colorful wooden crates while smaller ones return to teal water, warm gold lanterns hanging from dock posts, emerald tropical plants along the shore, magenta and coral dawn sky, Latin American folk art style, magical realism illustration, soft amber morning light over the bay, no text",
     "seed": 44,
-    "output": "C:\\Users\\diberry\\project-dfb\\dfberry.github.io\\website\\blog\\media\\2026-04-15-session-storage-decision-guide\\bellingham-dock-sorting-catch.png",
+    "output": "outputs/bellingham-dock-sorting-catch.png",
     "negative_prompt": "blurry, bad quality, worst quality, low resolution, text, watermark, signature, deformed, ugly, duplicate, morbid"
   },
   {
     "prompt": "A winding tropical river curving in a wide loop with a luminous mountain in the background, upstream small glowing papers and notes float on teal water, at the bend the papers magically transform into small bound books with golden spines, dense emerald and coral tropical forest lining both banks, magenta flowers trailing into the water, Latin American folk art style, magical realism illustration, warm amber light, no text",
     "seed": 45,
-    "output": "C:\\Users\\diberry\\project-dfb\\dfberry.github.io\\website\\blog\\media\\2026-04-15-session-storage-decision-guide\\nooksack-river-feedback-loop.png",
+    "output": "outputs/nooksack-river-feedback-loop.png",
     "negative_prompt": "blurry, bad quality, worst quality, low resolution, text, watermark, signature, deformed, ugly, duplicate, morbid"
   },
   {
     "prompt": "Cross-section view of a tropical village, upper half shows colorful buildings and emerald trees on the surface with magenta and teal market stalls, lower half reveals a luminous underground aquifer with glowing gold root systems and water channels, a single well shaft connects both layers with water visibly flowing between them as light particles, coral and amber earth tones, Latin American folk art style, magical realism illustration, warm diffused golden light, no text",
     "seed": 46,
-    "output": "C:\\Users\\diberry\\project-dfb\\dfberry.github.io\\website\\blog\\media\\2026-04-15-session-storage-decision-guide\\whatcom-county-surface-and-aquifer.png",
+    "output": "outputs/whatcom-county-surface-and-aquifer.png",
     "negative_prompt": "blurry, bad quality, worst quality, low resolution, text, watermark, signature, deformed, ugly, duplicate, morbid"
   }
 ]

@@ -16,10 +16,14 @@ from types import SimpleNamespace
 from unittest.mock import MagicMock, patch
 
 import pytest
-import torch
 
 import generate as gen
 from generate import get_device, get_dtype, load_base, load_refiner, main
+
+# Sentinel values standing in for torch.float16 / torch.float32
+# since real torch is not installed in the test environment.
+_FLOAT16 = "torch.float16_sentinel"
+_FLOAT32 = "torch.float32_sentinel"
 
 # ── 1. get_device() ─────────────────────────────────────────────────────────
 
@@ -70,17 +74,17 @@ class TestGetDtype:
     """get_dtype(device) returns appropriate dtype per device."""
 
     def test_cuda_returns_float16(self):
-        assert get_dtype("cuda") == torch.float16
+        assert get_dtype("cuda") == gen.torch.float16
 
     def test_mps_returns_float16(self):
-        assert get_dtype("mps") == torch.float16
+        assert get_dtype("mps") == gen.torch.float16
 
     def test_cpu_returns_float32(self):
-        assert get_dtype("cpu") == torch.float32
+        assert get_dtype("cpu") == gen.torch.float32
 
     def test_unknown_device_returns_float32(self):
         """Any device not in ('cuda', 'mps') gets float32."""
-        assert get_dtype("xla") == torch.float32
+        assert get_dtype("xla") == gen.torch.float32
 
 
 # ── 3. load_base() ──────────────────────────────────────────────────────────
@@ -94,8 +98,8 @@ class TestLoadBase:
         """from_pretrained is called with the SDXL base model ID."""
         mock_pipe = MagicMock()
         mock_dp.from_pretrained.return_value = mock_pipe
-        mock_torch.float32 = torch.float32
-        mock_torch.float16 = torch.float16
+        mock_torch.float32 = _FLOAT32
+        mock_torch.float16 = _FLOAT16
 
         load_base("cpu")
 
@@ -109,13 +113,13 @@ class TestLoadBase:
         """CPU device uses float32 dtype."""
         mock_pipe = MagicMock()
         mock_dp.from_pretrained.return_value = mock_pipe
-        mock_torch.float32 = torch.float32
-        mock_torch.float16 = torch.float16
+        mock_torch.float32 = _FLOAT32
+        mock_torch.float16 = _FLOAT16
 
         load_base("cpu")
 
         _, kwargs = mock_dp.from_pretrained.call_args
-        assert kwargs["torch_dtype"] == torch.float32
+        assert kwargs["torch_dtype"] == _FLOAT32
 
     @patch("generate.torch")
     @patch("generate.DiffusionPipeline")
@@ -123,8 +127,8 @@ class TestLoadBase:
         """CUDA device uses float16 dtype."""
         mock_pipe = MagicMock()
         mock_dp.from_pretrained.return_value = mock_pipe
-        mock_torch.float16 = torch.float16
-        mock_torch.float32 = torch.float32
+        mock_torch.float16 = _FLOAT16
+        mock_torch.float32 = _FLOAT32
         # Prevent torch.compile branch
         mock_torch.compile = None
         delattr(mock_torch, 'compile')
@@ -132,7 +136,7 @@ class TestLoadBase:
         load_base("cuda")
 
         _, kwargs = mock_dp.from_pretrained.call_args
-        assert kwargs["torch_dtype"] == torch.float16
+        assert kwargs["torch_dtype"] == _FLOAT16
 
     @patch("generate.torch")
     @patch("generate.DiffusionPipeline")
@@ -140,8 +144,8 @@ class TestLoadBase:
         """CUDA uses variant='fp16' for faster loading."""
         mock_pipe = MagicMock()
         mock_dp.from_pretrained.return_value = mock_pipe
-        mock_torch.float16 = torch.float16
-        mock_torch.float32 = torch.float32
+        mock_torch.float16 = _FLOAT16
+        mock_torch.float32 = _FLOAT32
         delattr(mock_torch, 'compile')
 
         load_base("cuda")
@@ -155,8 +159,8 @@ class TestLoadBase:
         """CPU does not use fp16 variant."""
         mock_pipe = MagicMock()
         mock_dp.from_pretrained.return_value = mock_pipe
-        mock_torch.float32 = torch.float32
-        mock_torch.float16 = torch.float16
+        mock_torch.float32 = _FLOAT32
+        mock_torch.float16 = _FLOAT16
 
         load_base("cpu")
 
@@ -169,8 +173,8 @@ class TestLoadBase:
         """CPU device calls pipe.to('cpu') (not cpu_offload which requires GPU)."""
         mock_pipe = MagicMock()
         mock_dp.from_pretrained.return_value = mock_pipe
-        mock_torch.float32 = torch.float32
-        mock_torch.float16 = torch.float16
+        mock_torch.float32 = _FLOAT32
+        mock_torch.float16 = _FLOAT16
 
         load_base("cpu")
 
@@ -183,8 +187,8 @@ class TestLoadBase:
         """MPS device calls enable_model_cpu_offload()."""
         mock_pipe = MagicMock()
         mock_dp.from_pretrained.return_value = mock_pipe
-        mock_torch.float16 = torch.float16
-        mock_torch.float32 = torch.float32
+        mock_torch.float16 = _FLOAT16
+        mock_torch.float32 = _FLOAT32
 
         load_base("mps")
 
@@ -197,8 +201,8 @@ class TestLoadBase:
         """CUDA device calls pipe.to('cuda') instead of cpu_offload."""
         mock_pipe = MagicMock()
         mock_dp.from_pretrained.return_value = mock_pipe
-        mock_torch.float16 = torch.float16
-        mock_torch.float32 = torch.float32
+        mock_torch.float16 = _FLOAT16
+        mock_torch.float32 = _FLOAT32
         # Prevent torch.compile branch
         delattr(mock_torch, 'compile')
 
@@ -213,8 +217,8 @@ class TestLoadBase:
         """from_pretrained always uses use_safetensors=True."""
         mock_pipe = MagicMock()
         mock_dp.from_pretrained.return_value = mock_pipe
-        mock_torch.float32 = torch.float32
-        mock_torch.float16 = torch.float16
+        mock_torch.float32 = _FLOAT32
+        mock_torch.float16 = _FLOAT16
 
         load_base("cpu")
 
@@ -227,8 +231,8 @@ class TestLoadBase:
         """On CUDA with torch.compile available, UNet gets compiled."""
         mock_pipe = MagicMock()
         mock_dp.from_pretrained.return_value = mock_pipe
-        mock_torch.float16 = torch.float16
-        mock_torch.float32 = torch.float32
+        mock_torch.float16 = _FLOAT16
+        mock_torch.float32 = _FLOAT32
         mock_compiled = MagicMock(name="compiled_unet")
         mock_torch.compile.return_value = mock_compiled
 
@@ -238,7 +242,7 @@ class TestLoadBase:
         load_base("cuda")
 
         mock_torch.compile.assert_called_once_with(
-            original_unet, mode="reduce-overhead", fullgraph=True
+            original_unet, mode="reduce-overhead"
         )
         assert mock_pipe.unet == mock_compiled
 
@@ -254,8 +258,8 @@ class TestLoadRefiner:
         """from_pretrained is called with the SDXL refiner model ID."""
         mock_refiner = MagicMock()
         mock_dp.from_pretrained.return_value = mock_refiner
-        mock_torch.float32 = torch.float32
-        mock_torch.float16 = torch.float16
+        mock_torch.float32 = _FLOAT32
+        mock_torch.float16 = _FLOAT16
 
         te2 = MagicMock()
         vae = MagicMock()
@@ -270,8 +274,8 @@ class TestLoadRefiner:
         """Refiner receives shared text_encoder_2 and vae from base."""
         mock_refiner = MagicMock()
         mock_dp.from_pretrained.return_value = mock_refiner
-        mock_torch.float32 = torch.float32
-        mock_torch.float16 = torch.float16
+        mock_torch.float32 = _FLOAT32
+        mock_torch.float16 = _FLOAT16
 
         te2 = MagicMock(name="text_encoder_2")
         vae = MagicMock(name="vae")
@@ -287,8 +291,8 @@ class TestLoadRefiner:
         """CPU device calls refiner.to('cpu') (not cpu_offload which requires GPU)."""
         mock_refiner = MagicMock()
         mock_dp.from_pretrained.return_value = mock_refiner
-        mock_torch.float32 = torch.float32
-        mock_torch.float16 = torch.float16
+        mock_torch.float32 = _FLOAT32
+        mock_torch.float16 = _FLOAT16
 
         load_refiner(MagicMock(), MagicMock(), "cpu")
 
@@ -301,8 +305,8 @@ class TestLoadRefiner:
         """CUDA device calls refiner.to('cuda')."""
         mock_refiner = MagicMock()
         mock_dp.from_pretrained.return_value = mock_refiner
-        mock_torch.float16 = torch.float16
-        mock_torch.float32 = torch.float32
+        mock_torch.float16 = _FLOAT16
+        mock_torch.float32 = _FLOAT32
 
         load_refiner(MagicMock(), MagicMock(), "cuda")
 
@@ -315,13 +319,13 @@ class TestLoadRefiner:
         """CUDA refiner uses float16 and fp16 variant."""
         mock_refiner = MagicMock()
         mock_dp.from_pretrained.return_value = mock_refiner
-        mock_torch.float16 = torch.float16
-        mock_torch.float32 = torch.float32
+        mock_torch.float16 = _FLOAT16
+        mock_torch.float32 = _FLOAT32
 
         load_refiner(MagicMock(), MagicMock(), "cuda")
 
         _, kwargs = mock_dp.from_pretrained.call_args
-        assert kwargs["torch_dtype"] == torch.float16
+        assert kwargs["torch_dtype"] == _FLOAT16
         assert kwargs["variant"] == "fp16"
 
     @patch("generate.torch")
@@ -330,8 +334,8 @@ class TestLoadRefiner:
         """MPS device calls enable_model_cpu_offload on refiner."""
         mock_refiner = MagicMock()
         mock_dp.from_pretrained.return_value = mock_refiner
-        mock_torch.float16 = torch.float16
-        mock_torch.float32 = torch.float32
+        mock_torch.float16 = _FLOAT16
+        mock_torch.float32 = _FLOAT32
 
         load_refiner(MagicMock(), MagicMock(), "mps")
 
@@ -374,7 +378,7 @@ class TestPreFlightCacheFlush:
         """torch.cuda.empty_cache() called during pre-flight on CUDA."""
         mock_torch.cuda.is_available.return_value = True
         mock_torch.backends.mps.is_available.return_value = False
-        mock_torch.float16 = torch.float16
+        mock_torch.float16 = _FLOAT16
         # Set up _dynamo for finally block
         mock_torch._dynamo = MagicMock()
         mock_pipe = MagicMock()
@@ -399,7 +403,7 @@ class TestPreFlightCacheFlush:
         """torch.mps.empty_cache() called during pre-flight on MPS."""
         mock_torch.cuda.is_available.return_value = False
         mock_torch.backends.mps.is_available.return_value = True
-        mock_torch.float16 = torch.float16
+        mock_torch.float16 = _FLOAT16
         mock_pipe = MagicMock()
         mock_pipe.return_value.images = [MagicMock()]
         mock_load_base.return_value = mock_pipe

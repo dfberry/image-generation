@@ -84,3 +84,43 @@ The project has TWO mocking approaches for `_ensure_heavy_imports()`:
 6. **P2 — Add missing edge case tests**: empty prompt, image save failures, LoRA error paths, very large dimensions
 7. **P2 — Add `pyproject.toml` test config**: testpaths, markers, default options
 8. **P2 — Add coverage reporting to CI**: `pytest --cov=generate --cov-report=term-missing`
+
+## Learnings
+
+### 2026-07-25 — Standardized Test Mocking Pattern
+
+**Problem:** 57 tests failed and 2 files wouldn't collect because of inconsistent mocking of `_ensure_heavy_imports()`. Tests that called `generate()`, `batch_generate()`, or `load_base()` without patching `_ensure_heavy_imports` triggered real `import torch` at runtime. Two files (`test_oom_handling.py`, `test_unit_functions.py`) had `import torch` at module level, crashing during collection.
+
+**Solution — autouse fixture in conftest.py:**
+```python
+@pytest.fixture(autouse=True)
+def _patch_heavy_imports():
+    import generate as gen_mod
+    mock_torch = MagicMock()
+    mock_torch.cuda.is_available.return_value = False
+    mock_torch.backends.mps.is_available.return_value = False
+    mock_torch.cuda.OutOfMemoryError = _MockCudaOOM  # real class for isinstance()
+    gen_mod.__dict__["torch"] = mock_torch
+    gen_mod.__dict__["diffusers"] = MagicMock()
+    gen_mod.__dict__["DiffusionPipeline"] = MagicMock()
+    gen_mod._ensure_heavy_imports = lambda: None
+    yield mock_torch
+    # ... restore originals
+```
+
+**Key insight:** `torch.cuda.OutOfMemoryError` must be a real exception class (not a MagicMock) so that `isinstance()` checks in `generate.py`'s except block work.
+
+**Files changed (6):**
+- `conftest.py` — added `_patch_heavy_imports` autouse fixture with mock torch/diffusers/DiffusionPipeline
+- `test_oom_handling.py` — removed `import torch`, replaced `torch.cuda.OutOfMemoryError` with plain RuntimeError
+- `test_unit_functions.py` — removed `import torch`, replaced `torch.float16`/`torch.float32` with sentinel values
+- `test_scheduler.py` — changed `patch("diffusers.X")` to `patch.object(gen.diffusers, "X")`, fixed ValueError regex
+- `test_memory_cleanup.py` — fixed `cuda.is_available` return value for cache-clearing test
+- `test_batch_cli.py` — changed `capsys` to `caplog` (main() uses logger, not print)
+
+**Additional fixes (pre-existing test bugs exposed by mocking fix):**
+- `test_scheduler.py`: regex `"Unknown scheduler"` → `"not a supported scheduler"` (matched actual error message)
+- `test_unit_functions.py`: removed `fullgraph=True` from `torch.compile` assertion (code doesn't pass it)
+- `test_memory_cleanup.py`: `is_available=False` → `True` for test asserting `empty_cache` IS called
+
+**Results:** 263 passed, 1 skipped, 0 failed (was: 161 passed, 57 failed, 2 collection errors)

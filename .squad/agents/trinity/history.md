@@ -880,3 +880,12 @@ egative_prompt from the first item but keeps it in the rest — looks like an ed
 - **P2:** Make equirements.lock a real lock file with transitive deps (pip-compile).
 - **P2:** Deduplicate near-identical batch JSON files (batch_blog_images.json vs v2 vs session_storage).
 - **P2:** Bump lock file versions — torch 2.1.0 is missing 2+ years of fixes.
+
+### 2026-04-22 — Review fixes: GPU helper, batch paths, lint, cleanup
+
+- **Extracted `_flush_gpu_memory()` helper:** Consolidated 4 duplicated GPU flush blocks (gc.collect + cuda.empty_cache + mps.empty_cache) into a single helper at module level. All 4 call sites now use it. The mid-refine flush had a different order (mps before cuda before gc) — normalized to the canonical order (gc first, then cuda, then mps) which matches the function's docstring intent.
+- **Batch JSON absolute paths were DOA:** All batch JSON files used `C:\Users\diberry\...` absolute paths, which `_validate_output_path()` rejects. Converted to relative `outputs/<filename>.png`. Batch files should always use relative paths.
+- **`batch_session_storage.json` was an exact duplicate** of `batch_blog_images.json` and `batch_blog_images_v2.json` (all three byte-identical). Deleted the duplicate.
+- **`_write_tests.py` scaffold removed:** File header said "run once, then delete" — was still tracked. git rm'd.
+- **Shell script trap pattern:** Added `trap 'rm -f ""' EXIT` after temp file variable declaration. Removed the redundant explicit `rm -f` since EXIT trap fires on both success and failure.
+- **Ruff lint fixes in test_coverage_gaps.py:** Removed unused `pytest` import, removed 3 unused `as mock_torch` and 1 `as mock_makedirs` variable bindings. Fixed import sort order (I001).
