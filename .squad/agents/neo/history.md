@@ -18,6 +18,21 @@
 
 <!-- Append new learnings below. Each entry is something lasting about the project. -->
 
+### 2026-07-27 — Activated 17 Remaining Skipped Tests in test_cli.py / test_integration.py
+
+**Problem:** 17 tests across `remotion-animation/tests/test_cli.py` (11) and `tests/test_integration.py` (6) were skipped with `pytest.skip("Waiting for Trinity's cli.py implementation")`. They used stale `openai.ChatCompletion.create` mock patterns from the old OpenAI SDK.
+
+**Fix:** Rewrote all 17 tests to mock at the module boundary:
+- **CLI validation tests (8):** Test `main()` via mocked `sys.argv` and patched `remotion_gen.cli.generate_video`. Validates argument parsing (prompt, output, quality, duration, debug) independently of the pipeline.
+- **CLI integration tests (3):** Test `generate_video()` directly, patching `remotion_gen.cli.generate_component`, `write_component`, and `render_video`. Validates error propagation (LLMError, RenderError).
+- **Pipeline integration tests (6):** Same module-boundary mocking. Validates full flow: prompt → LLM → component write → render, plus error paths (LLM failure, render failure, dangerous import rejection) and output path correctness.
+
+**One test renamed:** `test_missing_output_uses_default` → `test_missing_output_causes_argparse_error` because the actual CLI implementation requires `--output` (no default).
+
+**Result:** 208 passed, 1 skipped (symlink test on Windows — unrelated). Ruff clean. Zero skips remain in test_cli.py and test_integration.py.
+
+**Key pattern:** For `generate_video()` tests, mock at `remotion_gen.cli.<function>` (where imported), not at `remotion_gen.llm_client.generate_component` (where defined). This is the standard Python mock rule: patch where the name is looked up, not where it lives.
+
 ### 2026-04-21 — PR #97: Anticipatory Tests for Bug Fixes #90-#93
 
 Wrote 23 new tests + 1 manual test spec across 4 files while Trinity/Switch fix the bugs in parallel.

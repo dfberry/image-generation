@@ -259,6 +259,32 @@ Full five-agent simultaneous code review identified key architectural consensus 
 - Batch error handling: Per-item exceptions caught, converted to error dicts, returned in results list. Batch never raises — caller decides what to do with error list.
 - Device parameter conversion: Converted to cpu flag for generate() call. SimpleNamespace args object matches existing pattern.
 
+### 2026-07-27 — Morpheus Code Review Fixes (R4-R5, S4-S20, N1-N13)
+
+Fixed remaining 27 issues from Morpheus's deep code review across both animation projects.
+
+**Critical (R4-R5):**
+- `ensure_remotion_imports()` and `inject_image_imports()` now validate post-injection and raise `ValidationError` on failure instead of silently producing broken code
+- Root.tsx drops `React.FC` for plain function signature (consistent with template files)
+
+**Should Fix (S4-S20):**
+- Security hardening: block encoded `file://`, `data:` URIs, URL-encoded path traversal
+- Pin react@18.2.0, typescript@5.5.4 (exact, no caret)
+- Added strict/ignore policy tests for `copy_images_to_workspace`
+- Added error propagation tests (ImageValidationError, copy OSError, LLMError)
+- Verify subprocess CLI arguments in renderer tests
+- Removed 3 dead conftest fixtures
+- Replaced weak `count <= 3` assertion with precise import-line checks
+- Standardized ruff lint rule order to `["E", "F", "I", "N", "W"]`
+- Documented OpenAI SDK as optional in both READMEs
+
+**Nice to Have (N1-N13):**
+- Exception class docstrings, .env gitignore, demo_template React cleanup
+- File size as MB, Config docstring, exit code docs, credential risk note
+- Better "Unknown error" fallback, UTF-8 encoding test, edge case image tests
+
+**Verification:** Ruff clean (both), 162/162 manim tests pass, 208/209 remotion tests pass (1 skip).
+
 **Production readiness:** Both OOMError and batch_generate() fully tested (31 new tests + 22 regression), exception-safe, error messages actionable, edge cases covered. Ready for production batch workflows.
 
 **Sprint status:** ✅ COMPLETE — All 53 tests on main, TDD cycle complete, CI workflow live, README accurate, batch generation and OOM handling production-ready.
