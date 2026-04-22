@@ -567,6 +567,24 @@ Fixed 7 issues flagged by Morpheus's code review:
 - S8: Strengthened test assertions with capsys
 - S9: Fixed mock subprocess fixtures with monkeypatch
 
+---
+
+## Session: Voice Customization & Documentation (2026-04-22)
+
+**Agent:** Trinity (Backend Dev)  
+**Commit:** 1839abe (main)
+
+**Work Completed:**
+- Added --voice flag support to remotion-animation video generation
+- Updated user-guide.md with --voice flag documentation and usage examples
+- Regenerated remotion example video with en-US-JennyNeural female voice
+- Feature enables users to specify different text-to-speech voice options
+
+**Deliverables:**
+- Feature: --voice flag implemented and integrated
+- Documentation: user-guide.md updated with examples
+- Validation: Example video regenerated and pushed to main branch
+
 **Verification (Manim):**
 - Ruff: 0 new issues (clean)
 - Pytest: 149/149 passed (1.95s)
@@ -753,3 +771,9 @@ Implemented comprehensive audio support for remotion-animation following plan-fu
 - Subtitle generation
 - Audio format conversion
 - Post-generation warning for unused audio files
+
+### 2026-04-22 — Personalized TTS video + docs contradiction fix
+
+- **remotion-gen CLI flag is --narration-text, not --tts-text:** The user-guide.md documents --tts-text but the actual argparse uses --narration-text. Docs should be updated to match (or vice versa). Used --narration-text successfully.
+- **Generated theorem_dina.mp4:** 8s medium-quality video with TTS narration via edge-tts. Ollama LLM generated the component successfully.
+- **Fixed 4 doc contradictions:** user-guide.md line 274 said "No audio" despite the Audio Features section above it. Also fixed 3 rows in limitations-and-roadmap.md summary table (Audio/Sound, TTS, Voice-Over) that still showed "Not supported" despite detailed sections showing partial support.
