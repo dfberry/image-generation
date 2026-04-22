@@ -1,7 +1,7 @@
 # Team Decisions
 
 **Last Updated:** 2026-04-22  
-**Sessions:** Audio Research Session, Documentation Review & Orchestration, Video CSS Fix
+**Sessions:** Audio Research Session, Documentation Review & Orchestration, Video CSS Fix, Remotion Theorem Explainer
 
 ---
 
@@ -24,6 +24,30 @@ The `validate_component()` or `validate_tsx_syntax()` function in `component_bui
 **Impact:**
 - Prevents invisible-visual bugs in LLM-generated components
 - No breaking changes — purely additive validation
+
+---
+
+## Custom Component Pipeline for Complex Animations (2026-04-22)
+
+### Decision: Use direct pipeline calls for hand-crafted components with audio
+
+**Owner:** Trinity (Backend Dev)  
+**Status:** Implemented  
+**Impact:** Establishes pattern for hand-crafted components needing TTS/audio
+
+**Context:**
+When generating a Pythagorean theorem explainer video with TTS audio, the LLM bypass path (`component_code` parameter in `generate_video()`) skips all audio handling — TTS generation, audio file copying, and audio filename validation are all inside the `component_code is None` branch.
+
+**Decision:**
+For hand-crafted components that need audio, call the pipeline functions directly instead of going through `generate_video()`:
+1. `generate_narration()` → TTS audio to `public/`
+2. `write_component(code, ..., audio_filenames=[...])` → validates + writes TSX
+3. `render_video()` → Remotion CLI render
+
+Reference implementation: `remotion-animation/generate_theorem.py`
+
+**Implication:**
+The `generate_video()` function's `component_code` path should eventually support audio arguments too (narration_text + voice), so that `--demo`-style modes can include TTS without requiring a separate script. This is a Phase 1 enhancement.
 
 ---
 
