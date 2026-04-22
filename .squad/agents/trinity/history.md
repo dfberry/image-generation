@@ -777,3 +777,10 @@ Implemented comprehensive audio support for remotion-animation following plan-fu
 - **remotion-gen CLI flag is --narration-text, not --tts-text:** The user-guide.md documents --tts-text but the actual argparse uses --narration-text. Docs should be updated to match (or vice versa). Used --narration-text successfully.
 - **Generated theorem_dina.mp4:** 8s medium-quality video with TTS narration via edge-tts. Ollama LLM generated the component successfully.
 - **Fixed 4 doc contradictions:** user-guide.md line 274 said "No audio" despite the Audio Features section above it. Also fixed 3 rows in limitations-and-roadmap.md summary table (Audio/Sound, TTS, Voice-Over) that still showed "Not supported" despite detailed sections showing partial support.
+
+### 2026-04-22 — Fixed theorem_dina.mp4: audio-only → visuals + audio
+
+- **Root cause: LLM-generated component used `backgroundColor` with a `linear-gradient()` value.** CSS `backgroundColor` does not support gradients — only the `background` shorthand does. The invalid value was silently ignored, producing a transparent background. Combined with no explicit `color` on the text elements, the result was invisible text on a transparent/black background → "audio only, no visuals."
+- **Second issue: LLM omitted "Dina Berry" entirely.** The generated component only showed date/time text, missing the name that was the primary visual request.
+- **Fix:** Replaced the LLM-generated component with a demo-template-style component using `background` (not `backgroundColor`) for the gradient, explicit white text color, spring-animated "Dina Berry" title, date/time subtitle, and the existing `<Audio>` tag referencing `narration.mp3`.
+- **Lesson: LLM-generated CSS for Remotion is fragile.** `background` vs `backgroundColor` is a common LLM mistake. The component_builder validator should consider checking for `backgroundColor` with gradient values as a known bad pattern.
