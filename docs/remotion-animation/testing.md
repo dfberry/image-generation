@@ -17,6 +17,8 @@ The test suite contains **209+ tests** across 11 test files, covering every modu
 | `test_image_handler.py` | `image_handler.py` | Path validation, copy, context generation |
 | `test_image_security.py` | `component_builder.py` | Image path security, injection, integration |
 | `test_image_cli.py` | `cli.py` | Image CLI args, generate_video image pipeline |
+| `test_audio_handler.py` | `audio_handler.py` | Audio validation, copy, context generation |
+| `test_audio_cli.py` | `cli.py` | Audio CLI args, TTS, narration, music, sound effects |
 | `test_config.py` | `config.py` | Quality presets, resolution names, constants |
 | `test_demo_template.py` | `demo_template.py` | Template output, timestamp embedding, edge cases |
 | `test_integration.py` | Full pipeline | End-to-end with mocked LLM + renderer |

@@ -151,7 +151,10 @@ def validate_scene_class(code: str) -> None:
     raise ValidationError("Generated code must contain a class named 'GeneratedScene'")
 
 def build_scene(
-    llm_output: str, output_path: Path, image_filenames: Optional[Set[str]] = None
+    llm_output: str,
+    output_path: Path,
+    image_filenames: Optional[Set[str]] = None,
+    audio_filenames: Optional[Set[str]] = None,
 ) -> Tuple[str, Path]:
     """Build and validate Manim scene code, write to file
 
@@ -159,6 +162,7 @@ def build_scene(
         llm_output: Raw LLM response
         output_path: Path to write scene file
         image_filenames: If provided, also run image-operation validation
+        audio_filenames: If provided, also run audio-operation validation
 
     Returns:
         Tuple of (validated code, output path)
@@ -181,6 +185,11 @@ def build_scene(
     if image_filenames:
         logger.info("Validating image operations")
         validate_image_operations(code, image_filenames)
+
+    if audio_filenames:
+        logger.info("Validating audio operations")
+        from manim_gen.audio_handler import validate_audio_operations
+        validate_audio_operations(code, audio_filenames)
 
     # Write to file
     output_path.parent.mkdir(parents=True, exist_ok=True)

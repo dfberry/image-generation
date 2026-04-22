@@ -17,6 +17,8 @@ remotion-animation/
 │   ├── config.py              Quality presets, provider temps, constants
 │   ├── errors.py              Exception hierarchy
 │   ├── image_handler.py       Image validation, copy, LLM context
+│   ├── audio_handler.py       Audio validation, copy, LLM context
+│   ├── tts_providers.py       Text-to-speech (edge-tts, OpenAI TTS stub)
 │   └── demo_template.py       Pre-built demo TSX template
 ├── remotion-project/          Node.js Remotion sub-project
 │   ├── src/
@@ -24,7 +26,7 @@ remotion-animation/
 │   │   ├── Root.tsx            Composition registry
 │   │   ├── GeneratedScene.tsx  Runtime slot (overwritten each run)
 │   │   └── templates/          Reference TSX examples
-│   ├── public/                 Static assets (images copied here)
+│   ├── public/                 Static assets (images, audio copied here)
 │   ├── package.json            Dependencies (Remotion, React, TS)
 │   └── tsconfig.json
 ├── tests/                     Python test suite (209+ tests)

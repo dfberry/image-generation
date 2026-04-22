@@ -227,6 +227,38 @@ Override with `--output`:
 manim-gen --prompt "Hello world" --output my_animation.mp4
 ```
 
+## Sound Effects
+
+The `--sound-effects` flag allows you to include audio in your animations:
+
+```bash
+manim-gen --prompt "A bouncing ball" --sound-effects beep.mp3 -output bounce.mp4
+```
+
+### Supported Audio Formats
+
+- `.wav` — WAV (lossless)
+- `.mp3` — MP3 (compressed)
+- `.ogg` — OGG Vorbis (compressed)
+
+### Using Sound Effects
+
+Provide one or more audio files. The LLM will generate code using Manim's `self.add_sound()` API:
+
+```python
+# Generated scene code
+self.add_sound("beep.mp3", time_offset=2.5)  # Play at 2.5s into scene
+```
+
+**API:** `self.add_sound(sound_file, time_offset=0, gain=None)`
+- `sound_file` — Filename (string literal only, no variables)
+- `time_offset` — Seconds into scene to start playback
+- `gain` — Volume adjustment in dB (negative = quieter, None = original)
+
+### Audio Size Limits
+
+Maximum file size: **50 MB** per audio file.
+
 ## Troubleshooting
 
 ### "manim CLI not found"

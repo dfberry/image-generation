@@ -178,7 +178,7 @@ def validate_tsx_syntax(code: str) -> list[str]:
 
     # Check for JSX-specific issues: unclosed tags
     # Simple heuristic: count <Tag vs </Tag for known Remotion components
-    for tag in ["AbsoluteFill", "Sequence", "div", "Img"]:
+    for tag in ["AbsoluteFill", "Sequence", "div", "Img", "Audio"]:
         opens = len(re.findall(rf"<{tag}[\s>]", code))
         self_closes = len(re.findall(rf"<{tag}\s[^>]*/\s*>", code))
         closes = len(re.findall(rf"</{tag}>", code))
@@ -299,17 +299,19 @@ def write_component(
     project_root: Path,
     debug: bool = False,
     image_filename: Optional[str] = None,
+    audio_filenames: Optional[list[str]] = None,
 ) -> Path:
     """Write generated component to Remotion project.
 
     Runs full validation pipeline: import fixup, syntax check, component
-    structure validation, and optional image path validation.
+    structure validation, and optional image/audio path validation.
 
     Args:
         code: TSX component source code.
         project_root: Path to remotion-project directory.
         debug: Save a debug copy of the component.
         image_filename: If set, inject image imports and validate paths.
+        audio_filenames: If set, inject audio imports and validate paths.
 
     Returns:
         Path to written GeneratedScene.tsx
@@ -320,6 +322,10 @@ def write_component(
     if image_filename:
         code = inject_image_imports(code, image_filename)
         validate_image_paths(code, image_filename)
+
+    if audio_filenames:
+        code = inject_audio_imports(code, audio_filenames)
+        validate_audio_paths(code, audio_filenames)
 
     code = ensure_remotion_imports(code)
 
@@ -357,57 +363,7 @@ def validate_image_paths(code: str, allowed_image_filename: str) -> None:
     Raises:
         ValidationError: If unsafe image references are found.
     """
-    if re.search(r"file://", code, re.IGNORECASE):
-        raise ValidationError(
-            "file:// URLs are not allowed in generated components. "
-            "Use staticFile() to reference images."
-        )
-
-    # Block URL-encoded file:// (file%3A%2F%2F and variants)
-    if re.search(r"file%3A%2F%2F", code, re.IGNORECASE):
-        raise ValidationError(
-            "Encoded file:// URLs are not allowed in generated components. "
-            "Use staticFile() to reference images."
-        )
-
-    # Block data: URIs (data:image/..., data:text/..., etc.)
-    if re.search(r"data:", code, re.IGNORECASE):
-        raise ValidationError(
-            "data: URIs are not allowed in generated components. "
-            "Use staticFile() to reference images."
-        )
-
-    if "../" in code or "..\\" in code:
-        raise ValidationError(
-            "Path traversal ('../' or '..\\') is not allowed "
-            "in generated components."
-        )
-
-    # Block URL-encoded path traversal (%2E%2E%2F, %2e%2e%2f, etc.)
-    if re.search(r"%2E%2E%2F", code, re.IGNORECASE):
-        raise ValidationError(
-            "Encoded path traversal is not allowed "
-            "in generated components."
-        )
-
-    # Check staticFile() calls reference only the allowed filename
-    static_file_re = re.compile(r"""staticFile\s*\(\s*['"]([^'"]+)['"]\s*\)""")
-    for match in static_file_re.finditer(code):
-        referenced = match.group(1)
-        if referenced != allowed_image_filename:
-            raise ValidationError(
-                f"staticFile() references '{referenced}' but only "
-                f"'{allowed_image_filename}' is allowed."
-            )
-
-    # Reject non-literal staticFile() calls (template literals, variables, etc.)
-    all_calls = re.findall(r"staticFile\s*\(", code)
-    literal_calls = static_file_re.findall(code)
-    if len(all_calls) > len(literal_calls):
-        raise ValidationError(
-            "staticFile() must only be called with string literals, "
-            "not variables or template expressions."
-        )
+    _validate_static_file_refs(code, [allowed_image_filename], "image")
 
 
 def inject_image_imports(code: str, image_filename: str) -> str:
@@ -478,6 +434,158 @@ def inject_image_imports(code: str, image_filename: str) -> str:
                 last_import_idx = i
         lines.insert(last_import_idx + 1, f"\n{image_const}\n")
         code = "\n".join(lines)
+
+    return code
+
+
+def _validate_static_file_refs(
+    code: str, allowed_filenames: list[str], asset_type: str = "file"
+) -> None:
+    """Shared staticFile() validation for images and audio.
+
+    Blocks file:// URLs, path traversal, data: URIs, and non-literal calls.
+    Validates that all staticFile() references match allowed filenames.
+
+    Args:
+        code: TSX component source code.
+        allowed_filenames: List of approved filenames (e.g. ["image.png", "audio.mp3"]).
+        asset_type: Type of asset for error messages ("image" or "audio").
+
+    Raises:
+        ValidationError: If unsafe references are found.
+    """
+    if re.search(r"file://", code, re.IGNORECASE):
+        raise ValidationError(
+            "file:// URLs are not allowed in generated components. "
+            "Use staticFile() to reference assets."
+        )
+
+    # Block URL-encoded file:// (file%3A%2F%2F and variants)
+    if re.search(r"file%3A%2F%2F", code, re.IGNORECASE):
+        raise ValidationError(
+            "Encoded file:// URLs are not allowed in generated components. "
+            "Use staticFile() to reference assets."
+        )
+
+    # Block data: URIs (data:image/..., data:audio/..., etc.)
+    if re.search(r"data:", code, re.IGNORECASE):
+        raise ValidationError(
+            "data: URIs are not allowed in generated components. "
+            "Use staticFile() to reference assets."
+        )
+
+    if "../" in code or "..\\" in code:
+        raise ValidationError(
+            "Path traversal ('../' or '..\\') is not allowed "
+            "in generated components."
+        )
+
+    # Block URL-encoded path traversal (%2E%2E%2F, %2e%2e%2f, etc.)
+    if re.search(r"%2E%2E%2F", code, re.IGNORECASE):
+        raise ValidationError(
+            "Encoded path traversal is not allowed "
+            "in generated components."
+        )
+
+    # Block template literal backticks in staticFile() calls
+    if re.search(r"staticFile\s*\(\s*`", code):
+        raise ValidationError(
+            "Template literals are not allowed in staticFile() calls. "
+            "Use string literals only."
+        )
+
+    # Check staticFile() calls reference only the allowed filenames
+    static_file_re = re.compile(r"""staticFile\s*\(\s*['"]([^'"]+)['"]\s*\)""")
+    for match in static_file_re.finditer(code):
+        referenced = match.group(1)
+        if referenced not in allowed_filenames:
+            raise ValidationError(
+                f"staticFile() references '{referenced}' but only "
+                f"{allowed_filenames} are allowed."
+            )
+
+    # Reject non-literal staticFile() calls (template literals, variables, etc.)
+    all_calls = re.findall(r"staticFile\s*\(", code)
+    literal_calls = static_file_re.findall(code)
+    if len(all_calls) > len(literal_calls):
+        raise ValidationError(
+            "staticFile() must only be called with string literals, "
+            "not variables or template expressions."
+        )
+
+
+def validate_audio_paths(code: str, allowed_audio_filenames: list[str]) -> None:
+    """Validate that generated code only references the approved audio files.
+
+    Blocks file:// URLs, path traversal, and staticFile() calls
+    that don't match the allowed filenames.
+
+    Args:
+        code: TSX component source code.
+        allowed_audio_filenames: List of approved audio filenames.
+
+    Raises:
+        ValidationError: If unsafe audio references are found.
+    """
+    _validate_static_file_refs(code, allowed_audio_filenames, "audio")
+
+
+def inject_audio_imports(code: str, audio_filenames: list[str]) -> str:
+    """Ensure Audio and staticFile imports exist.
+
+    Args:
+        code: TSX component source.
+        audio_filenames: List of audio filenames in public/.
+
+    Returns:
+        Modified code with audio imports.
+
+    Raises:
+        ValidationError: If required imports could not be injected.
+    """
+    # Ensure Audio is imported
+    if "Audio" not in code:
+        additions = (
+            "Audio, staticFile" if "staticFile" not in code else "Audio"
+        )
+        code = code.replace(
+            "} from 'remotion'",
+            f", {additions}}} from 'remotion'",
+            1,
+        )
+        # Fallback: if the above didn't work (double-quote style)
+        if "Audio" not in code:
+            code = code.replace(
+                '} from "remotion"',
+                f', {additions}}} from "remotion"',
+                1,
+            )
+
+    # Ensure staticFile is imported
+    if "staticFile" not in code:
+        code = code.replace(
+            "} from 'remotion'",
+            ", staticFile} from 'remotion'",
+            1,
+        )
+        if "staticFile" not in code:
+            code = code.replace(
+                '} from "remotion"',
+                ', staticFile} from "remotion"',
+                1,
+            )
+
+    # Validate that Audio and staticFile are now present
+    if "Audio" not in code:
+        raise ValidationError(
+            "Failed to inject 'Audio' import into generated component. "
+            "The code may be missing a remotion import statement."
+        )
+    if "staticFile" not in code:
+        raise ValidationError(
+            "Failed to inject 'staticFile' import into generated component. "
+            "The code may be missing a remotion import statement."
+        )
 
     return code
 

@@ -144,6 +144,13 @@ ManimGenError (base)
 - **`copy_images_to_workspace()`** — Copies validated images to an isolated temp directory with deterministic names (`image_0_filename.ext`, `image_1_filename.ext`).
 - **`generate_image_context()`** — Builds an LLM context block listing available images with usage examples.
 
+### `audio_handler.py` — Audio Pipeline
+
+- **`validate_audio_path()`** — Checks existence, file type, extension (`.wav`, `.mp3`, `.ogg`), size (≤50MB), rejects symlinks. Policy modes: `strict` (raise), `warn` (log), `ignore` (skip).
+- **`copy_audio_to_workspace()`** — Copies validated audio files to an isolated temp directory with deterministic names (`sfx_0_filename.ext`, `sfx_1_filename.ext`).
+- **`generate_audio_context()`** — Builds an LLM context block listing available audio files with usage examples using `self.add_sound()`.
+- **`validate_audio_operations()`** — AST-validates that `self.add_sound()` calls only reference provided audio files with string literal filenames (no variables).
+
 ## Security Model
 
 ### Defense in Depth

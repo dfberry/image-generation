@@ -40,3 +40,20 @@ PROVIDER_TEMPERATURES = {
     "openai": 0.7,
     "azure": 0.7,
 }
+
+# Audio configuration
+ALLOWED_AUDIO_EXTENSIONS = {".mp3", ".wav", ".ogg", ".m4a", ".aac"}
+MAX_AUDIO_SIZE = 200 * 1024 * 1024  # 200 MB
+MAX_AUDIO_DURATION_SECONDS = 300  # 5 minutes
+MAX_TTS_TEXT_LENGTH = 10000  # characters
+
+DEFAULT_TTS_PROVIDER = "edge-tts"
+DEFAULT_MUSIC_VOLUME = 0.3
+DEFAULT_NARRATION_VOLUME = 1.0
+
+TTS_VOICE_DEFAULTS = {
+    "edge-tts": "en-US-GuyNeural",
+    "openai": "alloy",
+}
+
+TTS_OUTPUT_FORMAT = "mp3"

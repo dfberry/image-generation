@@ -431,6 +431,101 @@ npm install
 
 ---
 
+## Audio Issues
+
+### Error: "Audio file not found" or "Audio path is not a file"
+
+**Root Cause:** The `--narration`, `--music`, or `--sound-effects` path doesn't exist or points to a directory.
+
+**Solution:**
+1. Verify the audio file exists:
+   ```bash
+   ls -la /path/to/audio.mp3    # macOS/Linux
+   dir C:\path\to\audio.mp3     # Windows
+   ```
+2. Use the correct path:
+   ```bash
+   remotion-gen --prompt "..." --music ./background.mp3 --output test.mp4
+   ```
+
+### Error: "Unsupported audio extension '.flac'" or similar
+
+**Cause:** Audio file format is not supported.
+
+**Allowed formats:** `.wav`, `.mp3`, `.ogg` (max 100 MB per file)
+
+**Solution:** Convert the audio:
+```bash
+# ffmpeg example
+ffmpeg -i audio.flac -q:a 0 -map a audio.mp3
+ffmpeg -i audio.wma -c:a libmp3lame -q:a 0 audio.mp3
+```
+
+### Error: "Audio too large (150.0 MB). Max: 100 MB"
+
+**Root Cause:** Audio file exceeds 100 MB size limit.
+
+**Solution:** Compress or split the audio:
+```bash
+# Reduce bitrate
+ffmpeg -i audio.mp3 -b:a 128k smaller_audio.mp3
+
+# Or split into multiple files
+ffmpeg -i long.mp3 -t 300 part1.mp3  # First 5 minutes
+ffmpeg -i long.mp3 -ss 300 part2.mp3 # Rest
+```
+
+### Error: "Symlinks are not allowed for security"
+
+**Root Cause:** Audio path is a symbolic link.
+
+**Solution:**
+```bash
+# Copy the file instead
+cp /path/to/symlink /path/to/real/audio.mp3
+remotion-gen --prompt "..." --music /path/to/real/audio.mp3 --output test.mp4
+```
+
+### Error: "edge-tts not installed"
+
+**Cause:** Using `--tts-text` but edge-tts library is not installed.
+
+**Solution:**
+```bash
+pip install remotion-gen[audio]
+# or
+pip install edge-tts
+```
+
+### Error: "TTS generation failed" or "Text too long"
+
+**Cause:** TTS generation failed or text exceeds limits.
+
+**Solution:**
+1. Shorten the text (max 5000 characters):
+   ```bash
+   remotion-gen --prompt "..." --tts-text "Brief narration" --output test.mp4
+   ```
+2. Try a different TTS voice:
+   ```bash
+   # Edge TTS uses Microsoft voices like: "en-US-AriaNeural", "en-US-GuyNeural"
+   ```
+
+### Error: "No sound in output"
+
+**Cause:** Audio file wasn't included in generated component.
+
+**Solution:**
+1. Use `--debug` to inspect the generated TSX:
+   ```bash
+   remotion-gen --prompt "..." --music bg.mp3 --debug --output test.mp4
+   # Check outputs/GeneratedScene.debug.tsx for <Audio> usage
+   ```
+2. Try with a more explicit prompt:
+   ```bash
+   remotion-gen --prompt "Play background music while animating" --music bg.mp3 --output test.mp4
+   ```
+
 ## Remotion Rendering
 
 ### Error: "Remotion render failed: Unable to parse module"

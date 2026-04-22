@@ -67,6 +67,9 @@ Every test mocks external dependencies:
 | `test_image_handler.py` | Image validation, copying, context | Path validation, format checks, symlink rejection, workspace copying, LLM context |
 | `test_image_cli.py` | Image CLI args, pipeline wiring | `--image`, `--image-policy` parsing, `generate_video()` image integration |
 | `test_image_security.py` | AST-based image security checks | `validate_image_operations()`, `build_scene()` with image filenames |
+| `test_audio_handler.py` | Audio validation, copying, context | Path validation, format checks, size limits, workspace copying |
+| `test_audio_security.py` | AST-based audio operation validation | `validate_audio_operations()`, `self.add_sound()` filename validation |
+| `test_audio_cli.py` | Audio CLI args, pipeline integration | `--sound-effects` parsing, `generate_video()` audio integration |
 
 ## Shared Fixtures (`conftest.py`)
 
