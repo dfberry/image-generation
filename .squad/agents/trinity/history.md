@@ -89,12 +89,12 @@ Trinity's code-level audit converged with Morpheus's architectural review and Ne
 
 ### 2026-04-22 — Pythagorean Theorem Explainer Video (with TTS)
 
-Generated `remotion-animation/outputs/theorem_explained.mp4` — a 30-second 720p explainer video with TTS narration (en-US-JennyNeural via edge-tts).
+Generated `remotion-animation/outputs/theorem_explained.mp4` — a 45-second 720p explainer video with TTS narration (en-US-JennyNeural via edge-tts).
 
 **Approach:** Bypassed the LLM by writing a hand-crafted TSX component (`generate_theorem.py`). Used the `remotion_gen` library functions directly:
 1. `generate_narration()` → edge-tts TTS audio
 2. `write_component()` → validates + writes GeneratedScene.tsx (with `audio_filenames` for path validation)
-3. `render_video()` → Remotion CLI renders 900 frames at 30fps
+3. `render_video()` → Remotion CLI renders 1350 frames at 30fps
 
 **Architecture decisions:**
 - When `generate_video()` receives `component_code`, it skips all audio handling. For custom components with audio, call `generate_narration()`, `write_component()`, and `render_video()` directly.
@@ -102,11 +102,12 @@ Generated `remotion-animation/outputs/theorem_explained.mp4` — a 30-second 720
 - Used `background` (not `backgroundColor`) for all gradient CSS — `backgroundColor` silently ignores gradient values.
 - Used Unicode `\u00B2` for superscript 2 in JSX strings and `&#178;` in text content for the ² symbol.
 - Component uses 6-phase animation: title → triangle → square a → square b → square c → conclusion equation.
+- **Audio-video duration sync:** edge-tts narration (~42s) exceeded initial 30s video duration. Fixed by extending to 45s with animation phases remapped to narration timing. Added mutagen-based audio duration check to verify fit before rendering. Always measure TTS output duration and size video to match.
 
 **Key files:**
 - `remotion-animation/generate_theorem.py` — standalone generation script
-- `remotion-animation/outputs/theorem_explained.mp4` — output video (30s, 720p, ~1.6MB)
-- `remotion-animation/remotion-project/public/narration.mp3` — TTS audio (~247KB)
+- `remotion-animation/outputs/theorem_explained.mp4` — output video (45s, 720p, ~2.7MB)
+- `remotion-animation/remotion-project/public/narration.mp3` — TTS audio (~247KB, 42.2s)
 
 ### 2026-04-21 — PR #88 & #89: Image/Screenshot Input Support Merged
 

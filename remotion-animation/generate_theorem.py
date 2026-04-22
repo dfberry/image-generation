@@ -20,6 +20,7 @@ from remotion_gen.renderer import render_video
 from remotion_gen.config import QUALITY_PRESETS
 
 # ── Narration text ──────────────────────────────────────────────────
+# edge-tts en-US-JennyNeural reads this in ~42 seconds
 NARRATION_TEXT = (
     "The Pythagorean Theorem states that for any right triangle, "
     "the square of the hypotenuse equals the sum of the squares "
@@ -36,7 +37,25 @@ NARRATION_TEXT = (
     "and remains one of the most important theorems in all of mathematics."
 )
 
+# Video duration: 45 seconds at 30fps = 1350 frames
+# Narration is ~42s, so 45s gives a 3-second silent outro.
+VIDEO_DURATION_SECONDS = 45
+
 # ── TSX Component ───────────────────────────────────────────────────
+# Animation phases are synced to the narration timing:
+#
+#   Narration segment                                         Time       Frames
+#   ─────────────────────────────────────────────────────────  ─────────  ──────
+#   "The Pythagorean Theorem states that..."                  0–8s       0–240
+#   "If we call the sides a, b, and c..."                     8–15s      240–450
+#   "Watch as we draw a square on each side..."               15–18s     450–540
+#   "The blue square has area a squared."                     18–21s     540–630
+#   "The green square has area b squared."                    21–24s     630–720
+#   "And the orange square on the hypotenuse..."              24–28s     720–840
+#   "Together, the two smaller squares..."                    28–34s     840–1020
+#   "This fundamental relationship..."                        34–42s     1020–1260
+#   (silence / outro)                                         42–45s     1260–1350
+#
 COMPONENT_CODE = r'''import {
   useCurrentFrame,
   useVideoConfig,
@@ -65,51 +84,71 @@ const GeneratedScene = () => {
       config: { damping: 12, stiffness: 80 },
     });
 
-  // ── Phase timing (30s @ 30fps = 900 frames) ──
-  // Phase 1  (0–149):   Title
-  // Phase 2  (120–299): Triangle appears
-  // Phase 3  (270–449): Square on a (blue)
-  // Phase 4  (420–599): Square on b (green)
-  // Phase 5  (570–749): Square on c (orange)
-  // Phase 6  (720–899): Conclusion equation
+  // ── Phase timing (45s @ 30fps = 1350 frames, synced to narration) ──
+  //
+  // Phase 1  (0–270):     Title card
+  // Phase 2  (210–540):   Triangle with labeled sides
+  // Phase 3  (510–660):   Blue square on side a
+  // Phase 4  (630–750):   Green square on side b
+  // Phase 5  (720–870):   Orange square on hypotenuse c
+  // Phase 6  (840–1350):  Conclusion equation + outro
 
-  // Title
+  // ── Title (0–9s) ──
   const titleOpacity = interpolate(
     frame,
-    [0, 20, 120, 155],
+    [0, 25, 230, 270],
     [0, 1, 1, 0],
     { extrapolateLeft: "clamp", extrapolateRight: "clamp" }
   );
-  const subtitleOpacity = fadeIn(40, 25);
+  const subtitleOpacity = fadeIn(50, 25);
 
-  // Diagram
+  // ── Diagram (fades in at 7s, stays visible) ──
   const diagramOpacity = interpolate(
     frame,
-    [120, 150],
+    [210, 250],
     [0, 1],
     { extrapolateLeft: "clamp", extrapolateRight: "clamp" }
   );
-  const triScale = springIn(120);
+  const triScale = springIn(210);
 
-  // Squares
-  const sqAOpacity = fadeIn(270, 30);
-  const sqBOpacity = fadeIn(420, 30);
-  const sqCOpacity = fadeIn(570, 30);
+  // ── Squares (timed to narration cues) ──
+  const sqAOpacity = fadeIn(510, 30);   // "blue square" at ~17s
+  const sqBOpacity = fadeIn(630, 30);   // "green square" at ~21s
+  const sqCOpacity = fadeIn(720, 30);   // "orange square" at ~24s
 
-  // Step annotations
-  const annotAOpacity = fadeIn(300, 20);
-  const annotBOpacity = fadeIn(450, 20);
-  const annotCOpacity = fadeIn(600, 20);
+  // ── Annotations ──
+  const annotAOpacity = fadeIn(540, 20);
+  const annotBOpacity = fadeIn(660, 20);
+  const annotCOpacity = fadeIn(750, 20);
 
-  // Conclusion
-  const conclusionOpacity = fadeIn(720, 35);
-  const conclusionScale = springIn(720);
+  // ── Summary line under annotations ("a² + b² = c²") ──
+  const summaryOpacity = fadeIn(870, 25);
 
-  // Subtle step label on the left
-  const stepLabelA = fadeIn(270, 15);
-  const stepLabelB = fadeIn(420, 15);
-  const stepLabelC = fadeIn(570, 15);
-  const stepLabelFinal = fadeIn(720, 15);
+  // ── Conclusion box (28s onward) ──
+  const conclusionOpacity = fadeIn(840, 35);
+  const conclusionScale = springIn(840);
+
+  // ── "For all of mathematics" final emphasis (34s) ──
+  const finalGlow = interpolate(
+    frame,
+    [1020, 1080],
+    [0, 1],
+    { extrapolateLeft: "clamp", extrapolateRight: "clamp" }
+  );
+
+  // ── Outro fade (last 2s) ──
+  const outroFade = interpolate(
+    frame,
+    [1290, 1350],
+    [1, 0.4],
+    { extrapolateLeft: "clamp", extrapolateRight: "clamp" }
+  );
+
+  // ── Step indicators ──
+  const stepLabelA = fadeIn(510, 15);
+  const stepLabelB = fadeIn(630, 15);
+  const stepLabelC = fadeIn(720, 15);
+  const stepLabelFinal = fadeIn(840, 15);
 
   // ── Geometry: 3-4-5 triangle (a=120, b=160, c=200 px) ──
   const cx = 480;
@@ -126,6 +165,7 @@ const GeneratedScene = () => {
           "linear-gradient(160deg, #0b0b2e 0%, #161650 40%, #1a1a5e 70%, #0d0d3a 100%)",
         fontFamily: "'Segoe UI', 'Helvetica Neue', Arial, sans-serif",
         overflow: "hidden",
+        opacity: outroFade,
       }}
     >
       {/* Narration audio */}
@@ -411,7 +451,7 @@ const GeneratedScene = () => {
         {/* Summary line */}
         <div
           style={{
-            opacity: annotCOpacity,
+            opacity: summaryOpacity,
             marginTop: 12,
             paddingTop: 16,
             borderTop: "1px solid rgba(255,255,255,0.15)",
@@ -443,7 +483,7 @@ const GeneratedScene = () => {
             textTransform: "uppercase",
           }}
         >
-          {frame < 420 ? "Step 1 of 4" : ""}
+          {frame >= 510 && frame < 630 ? "Step 1 of 4" : ""}
         </div>
         <div
           style={{
@@ -454,7 +494,7 @@ const GeneratedScene = () => {
             textTransform: "uppercase",
           }}
         >
-          {frame >= 420 && frame < 570 ? "Step 2 of 4" : ""}
+          {frame >= 630 && frame < 720 ? "Step 2 of 4" : ""}
         </div>
         <div
           style={{
@@ -465,7 +505,7 @@ const GeneratedScene = () => {
             textTransform: "uppercase",
           }}
         >
-          {frame >= 570 && frame < 720 ? "Step 3 of 4" : ""}
+          {frame >= 720 && frame < 840 ? "Step 3 of 4" : ""}
         </div>
         <div
           style={{
@@ -476,7 +516,7 @@ const GeneratedScene = () => {
             textTransform: "uppercase",
           }}
         >
-          {frame >= 720 ? "Step 4 of 4" : ""}
+          {frame >= 840 ? "Step 4 of 4" : ""}
         </div>
       </div>
 
@@ -505,7 +545,7 @@ const GeneratedScene = () => {
             borderRadius: 12,
             border: "2px solid rgba(255,255,255,0.2)",
             letterSpacing: 5,
-            textShadow: "0 0 20px rgba(100,150,255,0.3)",
+            textShadow: `0 0 ${20 + finalGlow * 15}px rgba(100,150,255,${0.3 + finalGlow * 0.3})`,
           }}
         >
           {"a\u00B2 + b\u00B2 = c\u00B2"}
@@ -548,8 +588,24 @@ def main():
         voice="en-US-JennyNeural",
         output_dir=project_root / "public",
     )
+    narration_size = narration_path.stat().st_size
     print(f"  ✓ Narration saved: {narration_path}")
-    print(f"  Size: {narration_path.stat().st_size / 1024:.1f} KB")
+    print(f"  Size: {narration_size / 1024:.1f} KB")
+
+    # Get audio duration for verification
+    try:
+        from mutagen.mp3 import MP3
+        audio = MP3(str(narration_path))
+        audio_duration = audio.info.length
+        print(f"  Audio duration: {audio_duration:.1f}s")
+        if audio_duration > VIDEO_DURATION_SECONDS:
+            print(f"  ⚠ WARNING: Audio ({audio_duration:.1f}s) exceeds video "
+                  f"({VIDEO_DURATION_SECONDS}s) — narration will be cut off!")
+        else:
+            print(f"  ✓ Audio fits within {VIDEO_DURATION_SECONDS}s video "
+                  f"(buffer: {VIDEO_DURATION_SECONDS - audio_duration:.1f}s)")
+    except ImportError:
+        print("  (mutagen not installed — skipping duration check)")
 
     # ── Step 2: Write TSX component ──
     print("\n→ Step 2: Writing Remotion component...")
@@ -563,16 +619,16 @@ def main():
 
     # ── Step 3: Render video ──
     preset = QUALITY_PRESETS["medium"]  # 720p 30fps
-    duration_seconds = 30
-    duration_frames = duration_seconds * preset.fps
+    duration_frames = VIDEO_DURATION_SECONDS * preset.fps
 
-    print(f"\n→ Step 3: Rendering {duration_seconds}s video at "
+    print(f"\n→ Step 3: Rendering {VIDEO_DURATION_SECONDS}s video at "
           f"{preset.resolution_name} {preset.fps}fps ({duration_frames} frames)...")
     result_path = render_video(project_root, output_path, preset, duration_frames)
 
     print(f"\n{'=' * 60}")
     print(f"✓ Video generated: {result_path}")
     print(f"  Size: {result_path.stat().st_size / (1024 * 1024):.1f} MB")
+    print(f"  Duration: {VIDEO_DURATION_SECONDS}s ({duration_frames} frames)")
     print(f"{'=' * 60}")
 
     return 0

@@ -26,51 +26,71 @@ const GeneratedScene = () => {
       config: { damping: 12, stiffness: 80 },
     });
 
-  // ── Phase timing (30s @ 30fps = 900 frames) ──
-  // Phase 1  (0–149):   Title
-  // Phase 2  (120–299): Triangle appears
-  // Phase 3  (270–449): Square on a (blue)
-  // Phase 4  (420–599): Square on b (green)
-  // Phase 5  (570–749): Square on c (orange)
-  // Phase 6  (720–899): Conclusion equation
+  // ── Phase timing (45s @ 30fps = 1350 frames, synced to narration) ──
+  //
+  // Phase 1  (0–270):     Title card
+  // Phase 2  (210–540):   Triangle with labeled sides
+  // Phase 3  (510–660):   Blue square on side a
+  // Phase 4  (630–750):   Green square on side b
+  // Phase 5  (720–870):   Orange square on hypotenuse c
+  // Phase 6  (840–1350):  Conclusion equation + outro
 
-  // Title
+  // ── Title (0–9s) ──
   const titleOpacity = interpolate(
     frame,
-    [0, 20, 120, 155],
+    [0, 25, 230, 270],
     [0, 1, 1, 0],
     { extrapolateLeft: "clamp", extrapolateRight: "clamp" }
   );
-  const subtitleOpacity = fadeIn(40, 25);
+  const subtitleOpacity = fadeIn(50, 25);
 
-  // Diagram
+  // ── Diagram (fades in at 7s, stays visible) ──
   const diagramOpacity = interpolate(
     frame,
-    [120, 150],
+    [210, 250],
     [0, 1],
     { extrapolateLeft: "clamp", extrapolateRight: "clamp" }
   );
-  const triScale = springIn(120);
+  const triScale = springIn(210);
 
-  // Squares
-  const sqAOpacity = fadeIn(270, 30);
-  const sqBOpacity = fadeIn(420, 30);
-  const sqCOpacity = fadeIn(570, 30);
+  // ── Squares (timed to narration cues) ──
+  const sqAOpacity = fadeIn(510, 30);   // "blue square" at ~17s
+  const sqBOpacity = fadeIn(630, 30);   // "green square" at ~21s
+  const sqCOpacity = fadeIn(720, 30);   // "orange square" at ~24s
 
-  // Step annotations
-  const annotAOpacity = fadeIn(300, 20);
-  const annotBOpacity = fadeIn(450, 20);
-  const annotCOpacity = fadeIn(600, 20);
+  // ── Annotations ──
+  const annotAOpacity = fadeIn(540, 20);
+  const annotBOpacity = fadeIn(660, 20);
+  const annotCOpacity = fadeIn(750, 20);
 
-  // Conclusion
-  const conclusionOpacity = fadeIn(720, 35);
-  const conclusionScale = springIn(720);
+  // ── Summary line under annotations ("a² + b² = c²") ──
+  const summaryOpacity = fadeIn(870, 25);
 
-  // Subtle step label on the left
-  const stepLabelA = fadeIn(270, 15);
-  const stepLabelB = fadeIn(420, 15);
-  const stepLabelC = fadeIn(570, 15);
-  const stepLabelFinal = fadeIn(720, 15);
+  // ── Conclusion box (28s onward) ──
+  const conclusionOpacity = fadeIn(840, 35);
+  const conclusionScale = springIn(840);
+
+  // ── "For all of mathematics" final emphasis (34s) ──
+  const finalGlow = interpolate(
+    frame,
+    [1020, 1080],
+    [0, 1],
+    { extrapolateLeft: "clamp", extrapolateRight: "clamp" }
+  );
+
+  // ── Outro fade (last 2s) ──
+  const outroFade = interpolate(
+    frame,
+    [1290, 1350],
+    [1, 0.4],
+    { extrapolateLeft: "clamp", extrapolateRight: "clamp" }
+  );
+
+  // ── Step indicators ──
+  const stepLabelA = fadeIn(510, 15);
+  const stepLabelB = fadeIn(630, 15);
+  const stepLabelC = fadeIn(720, 15);
+  const stepLabelFinal = fadeIn(840, 15);
 
   // ── Geometry: 3-4-5 triangle (a=120, b=160, c=200 px) ──
   const cx = 480;
@@ -87,6 +107,7 @@ const GeneratedScene = () => {
           "linear-gradient(160deg, #0b0b2e 0%, #161650 40%, #1a1a5e 70%, #0d0d3a 100%)",
         fontFamily: "'Segoe UI', 'Helvetica Neue', Arial, sans-serif",
         overflow: "hidden",
+        opacity: outroFade,
       }}
     >
       {/* Narration audio */}
@@ -372,7 +393,7 @@ const GeneratedScene = () => {
         {/* Summary line */}
         <div
           style={{
-            opacity: annotCOpacity,
+            opacity: summaryOpacity,
             marginTop: 12,
             paddingTop: 16,
             borderTop: "1px solid rgba(255,255,255,0.15)",
@@ -404,7 +425,7 @@ const GeneratedScene = () => {
             textTransform: "uppercase",
           }}
         >
-          {frame < 420 ? "Step 1 of 4" : ""}
+          {frame >= 510 && frame < 630 ? "Step 1 of 4" : ""}
         </div>
         <div
           style={{
@@ -415,7 +436,7 @@ const GeneratedScene = () => {
             textTransform: "uppercase",
           }}
         >
-          {frame >= 420 && frame < 570 ? "Step 2 of 4" : ""}
+          {frame >= 630 && frame < 720 ? "Step 2 of 4" : ""}
         </div>
         <div
           style={{
@@ -426,7 +447,7 @@ const GeneratedScene = () => {
             textTransform: "uppercase",
           }}
         >
-          {frame >= 570 && frame < 720 ? "Step 3 of 4" : ""}
+          {frame >= 720 && frame < 840 ? "Step 3 of 4" : ""}
         </div>
         <div
           style={{
@@ -437,7 +458,7 @@ const GeneratedScene = () => {
             textTransform: "uppercase",
           }}
         >
-          {frame >= 720 ? "Step 4 of 4" : ""}
+          {frame >= 840 ? "Step 4 of 4" : ""}
         </div>
       </div>
 
@@ -466,7 +487,7 @@ const GeneratedScene = () => {
             borderRadius: 12,
             border: "2px solid rgba(255,255,255,0.2)",
             letterSpacing: 5,
-            textShadow: "0 0 20px rgba(100,150,255,0.3)",
+            textShadow: `0 0 ${20 + finalGlow * 15}px rgba(100,150,255,${0.3 + finalGlow * 0.3})`,
           }}
         >
           {"a\u00B2 + b\u00B2 = c\u00B2"}
