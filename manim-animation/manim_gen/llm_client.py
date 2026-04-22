@@ -86,6 +86,7 @@ class LLMClient:
         duration: int,
         model: Optional[str] = None,
         image_context: Optional[str] = None,
+        audio_context: Optional[str] = None,
     ) -> str:
         """Generate Manim scene code from user prompt
 
@@ -94,6 +95,7 @@ class LLMClient:
             duration: Target duration in seconds
             model: Optional model override
             image_context: Optional context block describing available images
+            audio_context: Optional context block describing available audio files
 
         Returns:
             Python code string for Manim scene
@@ -107,6 +109,9 @@ class LLMClient:
         parts = [FEW_SHOT_EXAMPLES, ""]
         if image_context:
             parts.append(image_context)
+            parts.append("")
+        if audio_context:
+            parts.append(audio_context)
             parts.append("")
         parts.append(f"User request (target duration: {duration} seconds): {prompt}")
         parts.append("")

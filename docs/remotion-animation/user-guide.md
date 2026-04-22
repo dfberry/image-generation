@@ -48,6 +48,45 @@ remotion-gen --demo --output demo.mp4
 
 *`--prompt` is required unless using `--demo`.
 
+## Audio Features
+
+The `--narration`, `--music`, `--sound-effects`, `--narration-volume`, `--music-volume`, `--tts-text`, and `--tts-provider` flags add audio support:
+
+```bash
+# With narration (TTS-generated)
+remotion-gen --prompt "Bouncing ball" \
+  --tts-text "Watch the ball bounce" \
+  --narration-volume 0.8 \
+  --output ball.mp4
+
+# With background music
+remotion-gen --prompt "Bouncing ball" \
+  --music background.mp3 \
+  --music-volume 0.3 \
+  --output ball.mp4
+
+# With sound effects
+remotion-gen --prompt "Bouncing ball" \
+  --sound-effects beep.mp3 \
+  --output ball.mp4
+```
+
+**Audio Formats:** WAV, MP3, OGG (max 100 MB per file)
+
+**TTS Providers:** `edge-tts` (free, no API key) — generates narration from text
+
+**Volume Levels:** 0.0 (silent) to 1.0 (full volume)
+
+| Flag | Default | Description |
+|------|---------|-------------|
+| `--tts-text` | None | Text to generate as narration (uses TTS) |
+| `--tts-provider` | `edge-tts` | TTS provider: `edge-tts` only (Phase 0) |
+| `--narration` | None | Path to pre-recorded narration audio |
+| `--narration-volume` | `0.8` | Narration volume (0.0–1.0) |
+| `--music` | None | Path to background music file |
+| `--music-volume` | `0.3` | Music volume (0.0–1.0) |
+| `--sound-effects` | None | Path(s) to sound effect files |
+
 ## Quality Presets
 
 | Preset | Resolution | FPS | Use Case |

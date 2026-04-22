@@ -391,3 +391,54 @@ pip install -e ".[dev]"
 4. **Check logs:** Logging uses `%(asctime)s [%(levelname)s] %(name)s: %(message)s` format
 5. **Try a simpler prompt** to isolate whether the issue is prompt-dependent
 6. **Try a different provider** (`--provider openai` vs `--provider ollama`)
+
+---
+
+## 21. Audio Issues
+
+### "Unsupported audio format"
+
+**Error:**
+```
+AudioValidationError: Unsupported audio format '.flac'. Allowed: ['.mp3', '.ogg', '.wav']
+```
+
+**Cause:** Audio file is in an unsupported format. Only WAV, MP3, and OGG are supported.
+
+**Solution:** Convert the file:
+```bash
+ffmpeg -i audio.flac -q:a 0 -map a audio.mp3
+```
+
+**Supported formats:** `.wav`, `.mp3`, `.ogg`
+
+### "Audio file not found"
+
+**Error:**
+```
+AudioValidationError: Audio file not found: /path/to/missing.mp3
+```
+
+**Cause:** The audio file path is incorrect or the file doesn't exist.
+
+**Solution:** Verify the file exists and use the correct path:
+```bash
+manim-gen --prompt "..." --sound-effects /correct/path/to/audio.mp3
+```
+
+### "Audio file too large"
+
+**Error:**
+```
+AudioValidationError: Audio file too large (75.0 MB). Max: 50 MB
+```
+
+**Cause:** Audio file exceeds the 50 MB size limit.
+
+**Solution:** Compress the audio or split into multiple files.
+
+### "No sound in output"
+
+**Cause:** The LLM-generated code didn't include `self.add_sound()` calls.
+
+**Solution:** Try re-running or use `--debug` to inspect the generated scene code.

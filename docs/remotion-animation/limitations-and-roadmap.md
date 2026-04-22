@@ -12,20 +12,39 @@ This is a **Phase 0 Proof of Concept** focused on core functionality. Many featu
 
 ### Audio & Sound
 
-**Status:** ❌ Not supported
+**Status:** ✅ Partially supported (Phase 0 — basic audio only)
 
-- **No audio tracks** — videos are silent (video-only)
-- **No background music** — cannot attach audio files
-- **No sound effects** — animations are mute
-- **No ambient soundscapes** — no environmental audio
+**What's supported:**
+- `--narration` — Add pre-recorded narration audio file
+- `--music` — Add background music (loops with volume control)
+- `--sound-effects` — Add sound effects (timed playback)
+- `--tts-text` — Generate narration from text using edge-tts (Microsoft voices)
+- Volume control — Adjust narration and music volume independently
 
-**Why:** Audio requires additional LLM context, Remotion audio API complexity, and sync challenges. MVP prioritizes visual animation generation.
+**What's NOT supported:**
+- No audio mixing — single audio track only
+- No audio-reactive animations — timing is fixed, not driven by audio cues
+- No narration sync — cannot auto-sync to speech phonemes
+- No OpenAI TTS — only edge-tts (free) in Phase 0
 
-**Use case workaround:** Export the MP4 and add audio in post-production using:
-- FFmpeg: `ffmpeg -i video.mp4 -i audio.mp3 -c:v copy -c:a aac output.mp4`
-- Adobe Premiere, DaVinci Resolve, or CapCut
+**Supported formats:** `.wav`, `.mp3`, `.ogg` (max 100 MB per file)
 
-**Roadmap:** Phase 2 — audio track support with LLM-aware timing (see [Audio Integration](#audio-integration) below).
+**Example usage:**
+```bash
+# With generated narration (TTS)
+remotion-gen --prompt "Bouncing ball" --tts-text "Watch the ball bounce" --output ball.mp4
+
+# With pre-recorded narration
+remotion-gen --prompt "Bouncing ball" --narration voice.mp3 --output ball.mp4
+
+# With background music
+remotion-gen --prompt "Bouncing ball" --music bgm.mp3 --music-volume 0.3 --output ball.mp4
+
+# With sound effects
+remotion-gen --prompt "Bouncing ball" --sound-effects beep.mp3 --output ball.mp4
+```
+
+**Roadmap:** Phase 1 — audio mixing, multiple sound effects. Phase 2 — audio-reactive keyframes, OpenAI TTS.
 
 ---
 
@@ -51,48 +70,43 @@ This is a **Phase 0 Proof of Concept** focused on core functionality. Many featu
 
 ### Voice-Over & Narration Sync
 
-**Status:** ❌ Not supported
+**Status:** ⚠️ Partial (narration supported, but no auto-sync)
 
-- **No audio narration** in generated videos
-- **No voice-over timing** — can't sync animations to speech
-- **No speech-to-animation** — narration doesn't drive animation timing
-- **No audio-reactive keyframes** — animation duration is fixed, not responsive to audio length
+- **Narration added** — Use `--narration` or `--tts-text` to add audio
+- **No voice-over timing** — Narration doesn't drive animation duration
+- **No speech-to-animation** — Animations have fixed timing; narration must fit
+- **No audio-reactive keyframes** — Can't sync animation keyframes to speech timing
 
-**Why:** This requires:
-1. Speech input (user-provided or generated via TTS)
-2. LLM understanding of audio duration and sync points
-3. Animation keyframe generation tied to phonemes/words
-4. Complex timing logic
+**Why:** Full sync requires:
+1. Speech-to-text or phoneme extraction
+2. LLM understanding of animation keyframe timing
+3. Complex audio-to-animation mapping
 
-**Use case workaround:**
-1. Generate the video silently
-2. Record/generate narration separately (see [Text-to-Speech](#text-to-speech-integration) below)
-3. Manually sync timing in post-production
+**Workaround:**
+1. Generate video with narration using `--tts-text` or `--narration`
+2. Adjust animation duration (`--duration`) to match audio length
+3. LLM generates animations that fit the narration
 
-**Roadmap:** Phase 3 — voice-over sync with speech timing analysis (see [Voice-Over Sync](#voice-over-synchronization) below).
+**Roadmap:** Phase 3 — audio-driven keyframes with speech timing analysis.
 
 ---
 
 ### Text-to-Speech Integration
 
-**Status:** ❌ Not supported
+**Status:** ✅ Supported (edge-tts in Phase 0; OpenAI TTS deferred to Phase 1)
 
-- **No TTS API integration** (no Azure Cognitive Services, Google Cloud Speech, etc.)
-- **Cannot generate narration** from prompt text
-- **No natural language to speech** pipeline
-- **No voice selection** or speaker customization
+- **TTS via edge-tts** — Free, no API key, Microsoft voices, outputs MP3 natively
+- **Voice selection** — Use default "en-US-GuyNeural" or choose from Microsoft voice list
+- **Text limits** — Max 5000 characters per narration
 
-**Why:** Adds dependency on TTS APIs, adds complexity, and requires sync with animation timing (not yet supported).
+**Usage:**
+```bash
+remotion-gen --prompt "..." --tts-text "Hello world" --output out.mp4
+```
 
-**Use case workaround:**
-1. Generate narration manually with:
-   - Google Text-to-Speech (free, high quality)
-   - Azure Cognitive Services
-   - ElevenLabs or similar
-   - Record yourself
-2. Add it to the video in post-production (see above)
+**Available voices:** Microsoft Azure voices (e.g., `en-US-AriaNeural`, `en-US-GuyNeural`, etc.)
 
-**Roadmap:** Phase 2 — optional TTS integration (see [Text-to-Speech Integration](#text-to-speech-integration) below).
+**Roadmap:** Phase 1 — OpenAI TTS, voice caching, multiple narration segments.
 
 ---
 
@@ -388,12 +402,24 @@ result = generate_video(prompt="...", output="video.mp4")
 - Optimize compilation & memory for longer videos
 - **Impact:** Enables longer narrative content, cinematic sequences
 
+#### Audio Mixing & Multi-Track Support
+- **NEW:** Multi-track composition (narration + music + SFX)
+- Volume automation (fade in/out)
+- Crossfading between audio segments
+- **Impact:** Professional audio workflows, richer soundscapes
+
 #### Template Library System
 - Named templates: `--template bounce-squares`, `--template text-fade`
 - User-contributed templates (JSON schema)
 - Template composition: combine templates
 - Version management
 - **Impact:** Faster iteration, reusable patterns, community contributions
+
+#### Text-to-Speech Improvements
+- **NEW:** OpenAI TTS provider (higher quality)
+- Voice caching for faster re-runs
+- Multiple narration segments
+- **Impact:** Professional narration, voice customization
 
 #### Multi-Asset Support
 - Multiple images per video
@@ -417,11 +443,11 @@ result = generate_video(prompt="...", output="video.mp4")
 
 ### Phase 2 (Q3–Q4 2025)
 
-#### Text-to-Speech Integration
-- Optional TTS provider (Azure Cognitive Services, Google Cloud)
-- Voice selection, language support
-- LLM-aware TTS duration estimation
-- **Impact:** Voice-over narration capability
+#### Audio-Reactive Animations
+- **NEW:** Extract audio features (BPM, energy, frequency bins)
+- LLM generates keyframe animations responsive to audio
+- Automatic timing adjustment based on narration length
+- **Impact:** Music videos, audio visualization, synchronized effects
 
 #### Subtitle Generation
 - Auto-generate .srt/.vtt files from LLM descriptions

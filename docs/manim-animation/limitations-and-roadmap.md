@@ -10,21 +10,25 @@ An honest assessment of what this package does NOT do today, and where it could 
 
 ## Current Limitations
 
-### 1. No Audio or Sound Support
+### 1. Sound Effects — Phase 0 Complete
 
-Animations are **completely silent**. There is no support for:
-- Background music or sound effects
-- Audio tracks in the output MP4
-- Audio-reactive animations (visualizing waveforms, beat detection)
+**Status:** ✅ Supported (basic sound effects only)
 
-**Workaround:** Add audio in post-production with FFmpeg:
+Sound effects can be added to animations using the `--sound-effects` flag:
+
 ```bash
-ffmpeg -i animation.mp4 -i narration.mp3 -c:v copy -c:a aac -shortest output.mp4
+manim-gen --prompt "Bouncing ball" --sound-effects beep.mp3 --output bounce.mp4
 ```
 
-**Future opportunity:** Integrate `pydub` or FFmpeg audio mixing into the pipeline. Manim itself has some audio support via `add_sound()` that could be exposed.
+**Supported formats:** `.wav`, `.mp3`, `.ogg` (max 50 MB per file)
 
----
+**Limitations of Phase 0:**
+- **No background music** — only sound effects via `self.add_sound()`
+- **No audio mixing** — single audio track only, no multi-track composition
+- **No narration** — no TTS integration or voice-over support
+- **No audio-reactive animations** — timing is fixed, not driven by audio cues
+
+**Future opportunity (Phase 1):** Audio mixing, background music loops, TTS narration, audio duration detection.
 
 ### 2. No Transcript or Subtitle Generation
 
@@ -185,16 +189,19 @@ If the LLM generates code that fails validation or rendering, the pipeline stops
 | GIF/WebM export (`--format`) | Low | High |
 | Retry with error feedback | Medium | High |
 | Template library (`templates/`) | Medium | Medium |
+| **Audio mixing** | Low | Medium |
+| **Background music / narration** | Medium | High |
 
 ### Phase 2 — Major Capabilities
 
 | Feature | Effort | Impact |
 |---------|--------|--------|
-| Audio/TTS integration | High | High |
+| ~~Audio/TTS integration~~ | ~~High~~ | ~~High~~ | **[Phase 0]** |
 | Subtitle generation | Medium | High |
 | Multi-scene sequencing | High | High |
 | Web UI (Gradio/Flask) | Medium | Medium |
 | 3D scene support | High | Medium |
+| **Audio-reactive keyframes** | High | Medium |
 
 ### Phase 3 — Ambitious Goals
 

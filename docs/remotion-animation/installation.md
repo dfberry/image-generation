@@ -22,7 +22,15 @@ pip install -e .
 
 This installs:
 - `openai>=1.0.0` — OpenAI SDK (used for all LLM providers via compatible API)
+- `edge-tts>=6.1.0` — Text-to-speech (optional, for `--tts-text` feature)
 - Registers `remotion-gen` as a CLI command
+
+**For audio support (optional):**
+```bash
+pip install -e ".[audio]"
+```
+
+This additionally installs `edge-tts` for TTS narration generation.
 
 ### 2. Install Node.js dependencies
 
