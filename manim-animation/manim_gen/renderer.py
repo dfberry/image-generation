@@ -52,6 +52,8 @@ def render_scene(
         "--disable_caching",  # Avoid caching issues between runs
     ]
 
+    # NOTE: cmd is logged here. Manim CLI args don't contain credentials,
+    # but if this pattern is reused for other tools, redact sensitive args.
     logger.info(f"Running: {' '.join(cmd)}")
 
     try:

@@ -2,25 +2,42 @@
 
 
 class RemotionGenError(Exception):
-    """Base exception for remotion-gen package."""
+    """Base exception for remotion-gen package.
+
+    All remotion-gen exceptions inherit from this for catch-all handling.
+    """
     pass
 
 
 class LLMError(RemotionGenError):
-    """LLM API call failed or returned invalid output."""
+    """Raised when an LLM API call fails or returns invalid output.
+
+    Covers auth failures, rate limits, timeouts, and malformed responses.
+    """
     pass
 
 
 class RenderError(RemotionGenError):
-    """Remotion rendering process failed."""
+    """Raised when the Remotion rendering subprocess fails.
+
+    Covers npx/node not found, non-zero exit codes, and missing output files.
+    """
     pass
 
 
 class ValidationError(RemotionGenError):
-    """Generated component failed validation."""
+    """Raised when a generated TSX component fails validation.
+
+    Covers bracket mismatch, missing exports, forbidden imports, and
+    structural issues detected before rendering.
+    """
     pass
 
 
 class ImageValidationError(RemotionGenError):
-    """Image input validation failed."""
+    """Raised when image input validation fails.
+
+    Covers bad file paths, unsupported formats, oversized files, and
+    symlink rejection.
+    """
     pass

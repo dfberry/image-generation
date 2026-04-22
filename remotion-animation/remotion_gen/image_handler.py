@@ -57,7 +57,8 @@ def validate_image_path(image_path: str, policy: str = "strict") -> Path:
 
     file_size = path.stat().st_size
     if file_size > MAX_IMAGE_SIZE:
-        msg = f"Image too large ({file_size} bytes). Max: {MAX_IMAGE_SIZE} bytes"
+        size_mb = file_size / (1024 * 1024)
+        msg = f"Image too large ({size_mb:.1f} MB). Max: {MAX_IMAGE_SIZE / (1024 * 1024):.0f} MB"
         if policy == "strict":
             raise ImageValidationError(msg)
         print(f"⚠ {msg}")

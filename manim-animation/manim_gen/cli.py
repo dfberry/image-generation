@@ -212,7 +212,16 @@ def generate_video(
     return video_path
 
 def main() -> int:
-    """CLI entry point"""
+    """CLI entry point.
+
+    Exit codes:
+        0 — Success
+        1 — LLM error (API failure, missing credentials)
+        2 — Validation error (generated code failed safety/syntax checks)
+        3 — Render error (Manim/FFmpeg failure)
+        4 — Unexpected error
+        5 — Image validation error (bad path, format, size)
+    """
     args = parse_args()
     setup_logging(args.debug)
 
@@ -226,7 +235,7 @@ def main() -> int:
             f"After 3 seconds, FadeOut the name and date, then fade in 'Generated with Manim' in smaller text. "
             f"Use smooth FadeIn and FadeOut transitions — never stack text on top of existing text. Always remove previous text before showing new text."
         )
-        print(f"🎬 Demo mode: generating personalized title card")
+        print("🎬 Demo mode: generating personalized title card")
     elif not args.prompt:
         print("✗ Error: --prompt is required (or use --demo)", file=sys.stderr)
         return 1

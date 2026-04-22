@@ -16,10 +16,11 @@ class TestCLIValidation:
             args = parse_args()
             assert args.prompt == "A blue circle"
 
-    def test_missing_prompt_raises_error(self):
+    def test_missing_prompt_defaults_to_none(self):
+        """Missing --prompt defaults to None (--demo or error handled in main())."""
         with patch.object(sys, "argv", ["manim-gen"]):
-            with pytest.raises(SystemExit):
-                parse_args()
+            args = parse_args()
+            assert args.prompt is None
 
     def test_missing_output_uses_default(self):
         with patch.object(sys, "argv", ["manim-gen", "--prompt", "test"]):
@@ -59,30 +60,39 @@ class TestMainFunction:
 
     @patch("manim_gen.cli.generate_video")
     @patch("manim_gen.cli.parse_args")
-    def test_main_returns_1_on_llm_error(self, mock_args, mock_gen):
+    def test_main_returns_1_on_llm_error(self, mock_args, mock_gen, capsys):
         mock_args.return_value = MagicMock(
             prompt="test", output=None, quality="medium",
             duration=10, provider="ollama", model=None, debug=False,
         )
         mock_gen.side_effect = LLMError("API failed")
         assert main() == 1
+        captured = capsys.readouterr()
+        assert "LLM Error" in captured.err
+        assert "API failed" in captured.err
 
     @patch("manim_gen.cli.generate_video")
     @patch("manim_gen.cli.parse_args")
-    def test_main_returns_2_on_validation_error(self, mock_args, mock_gen):
+    def test_main_returns_2_on_validation_error(self, mock_args, mock_gen, capsys):
         mock_args.return_value = MagicMock(
             prompt="test", output=None, quality="medium",
             duration=10, provider="ollama", model=None, debug=False,
         )
         mock_gen.side_effect = ValidationError("bad code")
         assert main() == 2
+        captured = capsys.readouterr()
+        assert "Validation Error" in captured.err
+        assert "bad code" in captured.err
 
     @patch("manim_gen.cli.generate_video")
     @patch("manim_gen.cli.parse_args")
-    def test_main_returns_3_on_render_error(self, mock_args, mock_gen):
+    def test_main_returns_3_on_render_error(self, mock_args, mock_gen, capsys):
         mock_args.return_value = MagicMock(
             prompt="test", output=None, quality="medium",
             duration=10, provider="ollama", model=None, debug=False,
         )
         mock_gen.side_effect = RenderError("render failed")
         assert main() == 3
+        captured = capsys.readouterr()
+        assert "Render Error" in captured.err
+        assert "render failed" in captured.err

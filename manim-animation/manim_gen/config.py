@@ -29,7 +29,15 @@ class QualityPreset(Enum):
 
 @dataclass
 class Config:
-    """Runtime configuration for video generation"""
+    """Runtime configuration for video generation.
+
+    Attributes:
+        quality: Video quality preset (LOW, MEDIUM, HIGH).
+        duration: Target duration in seconds. Must be between 5 and 30 inclusive.
+        output_dir: Directory for output files.
+        debug: If True, save intermediate scene code for inspection.
+        provider: LLM provider — "ollama" (local), "openai", or "azure".
+    """
 
     quality: QualityPreset = QualityPreset.MEDIUM
     duration: int = 10  # seconds
@@ -45,12 +53,13 @@ class Config:
         if self.duration < 5 or self.duration > 30:
             raise ValueError("Duration must be between 5 and 30 seconds")
 
-# Allowed imports in generated code (security whitelist)
+# Allowed imports in generated code (security whitelist).
+# NOTE: AST validation checks module names (e.g. "numpy"), not aliases
+# (e.g. "np"), so only real module names belong here.
 ALLOWED_IMPORTS = {
     "manim",
     "math",
     "numpy",
-    "np",  # common alias for numpy
 }
 
 # System prompt for LLM

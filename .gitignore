@@ -35,7 +35,18 @@ image-generation/outputs/*.webp
 .AppleDouble
 .LSOverride
 
+# Animation outputs
+manim-animation/outputs/
+manim-animation/media/
+remotion-animation/outputs/*.mp4
+remotion-animation/outputs/*.tsx
+!remotion-animation/outputs/.gitkeep
+
 # IDE
 .vscode/
 .idea/
 *.swp
+
+# Tool caches
+.pytest_cache/
+.ruff_cache/

@@ -94,7 +94,11 @@ def render_video(
         )
 
         if result.returncode != 0:
-            error_msg = result.stderr or result.stdout or "Unknown error"
+            error_msg = result.stderr or result.stdout or (
+                f"Unknown error (exit code {result.returncode}). "
+                "Check that the generated component is valid TSX and "
+                "remotion-project dependencies are installed."
+            )
             raise RenderError(f"Remotion render failed: {error_msg}")
 
         if not output_path.exists():

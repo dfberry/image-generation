@@ -135,5 +135,28 @@ class LLMClient:
             logger.info(f"Received {len(code)} characters from LLM")
             return code
 
+        except LLMError:
+            raise
         except Exception as e:
-            raise LLMError(f"LLM API call failed: {e}")
+            # Lazy-import OpenAI exceptions to preserve specific error info
+            try:
+                from openai import (
+                    APIConnectionError,
+                    AuthenticationError,
+                    RateLimitError,
+                )
+                if isinstance(e, AuthenticationError):
+                    raise LLMError(
+                        f"[auth] Authentication failed for {self.provider}: {e}"
+                    ) from e
+                if isinstance(e, RateLimitError):
+                    raise LLMError(
+                        f"[rate_limit] Rate limited by {self.provider} (retryable): {e}"
+                    ) from e
+                if isinstance(e, APIConnectionError):
+                    raise LLMError(
+                        f"[connection] Cannot reach {self.provider} API (retryable): {e}"
+                    ) from e
+            except ImportError:
+                pass
+            raise LLMError(f"LLM API call failed: {e}") from e

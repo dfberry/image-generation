@@ -255,6 +255,17 @@ def ensure_remotion_imports(code: str) -> str:
         import_line = f"import {{{additions}}} from 'remotion';\n"
         replaced = import_line + code
 
+    # Validate that all missing imports were actually injected
+    for hook in missing:
+        import_check = re.compile(
+            rf"""import\s+\{{[^}}]*\b{hook}\b[^}}]*\}}\s+from\s+['"]remotion['"]"""
+        )
+        if not import_check.search(replaced):
+            raise ValidationError(
+                f"Failed to inject required Remotion import '{hook}'. "
+                "The generated code structure may be too unusual to auto-fix."
+            )
+
     return replaced
 
 
@@ -352,9 +363,30 @@ def validate_image_paths(code: str, allowed_image_filename: str) -> None:
             "Use staticFile() to reference images."
         )
 
+    # Block URL-encoded file:// (file%3A%2F%2F and variants)
+    if re.search(r"file%3A%2F%2F", code, re.IGNORECASE):
+        raise ValidationError(
+            "Encoded file:// URLs are not allowed in generated components. "
+            "Use staticFile() to reference images."
+        )
+
+    # Block data: URIs (data:image/..., data:text/..., etc.)
+    if re.search(r"data:", code, re.IGNORECASE):
+        raise ValidationError(
+            "data: URIs are not allowed in generated components. "
+            "Use staticFile() to reference images."
+        )
+
     if "../" in code or "..\\" in code:
         raise ValidationError(
             "Path traversal ('../' or '..\\') is not allowed "
+            "in generated components."
+        )
+
+    # Block URL-encoded path traversal (%2E%2E%2F, %2e%2e%2f, etc.)
+    if re.search(r"%2E%2E%2F", code, re.IGNORECASE):
+        raise ValidationError(
+            "Encoded path traversal is not allowed "
             "in generated components."
         )
 
@@ -387,6 +419,9 @@ def inject_image_imports(code: str, image_filename: str) -> str:
 
     Returns:
         Modified code with image imports and constant.
+
+    Raises:
+        ValidationError: If required imports could not be injected.
     """
     # Ensure Img is imported
     if "Img" not in code:
@@ -419,6 +454,18 @@ def inject_image_imports(code: str, image_filename: str) -> str:
                 ', staticFile} from "remotion"',
                 1,
             )
+
+    # Validate that Img and staticFile are now present
+    if "Img" not in code:
+        raise ValidationError(
+            "Failed to inject 'Img' import into generated component. "
+            "The code may be missing a remotion import statement."
+        )
+    if "staticFile" not in code:
+        raise ValidationError(
+            "Failed to inject 'staticFile' import into generated component. "
+            "The code may be missing a remotion import statement."
+        )
 
     # Add image source constant if not present
     image_const = f"const imageSrc = staticFile('{image_filename}');"

@@ -1,12 +1,9 @@
 """Shared test fixtures for remotion-animation tests.
 
 Follows pattern from mermaid-diagrams and image-generation tests.
-Mock subprocess.run for Remotion CLI (npx remotion render),
-mock OpenAI API, provide temp directories.
+Mock OpenAI API, provide temp directories.
 """
 
-import subprocess
-from pathlib import Path
 from unittest.mock import MagicMock
 
 import pytest
@@ -94,66 +91,3 @@ _FAKE_MP4 = (
     b"\x00\x00\x00\x08free"
     b"\x00\x00\x00\x00mdat"
 )
-
-
-@pytest.fixture
-def mock_subprocess_success():
-    """Mock subprocess.run that simulates successful Remotion render.
-
-    Creates a fake MP4 file at the expected output path.
-    """
-    original_run = subprocess.run
-
-    def _fake_run(cmd, **kwargs):
-        # Detect Remotion CLI calls: ["npx", "remotion", "render", ...]
-        if (
-            isinstance(cmd, list)
-            and len(cmd) >= 4
-            and cmd[1] == "remotion"
-            and cmd[2] == "render"
-        ):
-            # Output path is usually the last argument
-            output_path = Path(cmd[-1])
-            output_path.parent.mkdir(parents=True, exist_ok=True)
-            output_path.write_bytes(_FAKE_MP4)
-
-            return subprocess.CompletedProcess(
-                cmd, 0, stdout="Render complete", stderr=""
-            )
-
-        return original_run(cmd, **kwargs)
-
-    return _fake_run
-
-
-@pytest.fixture
-def mock_subprocess_failure():
-    """Mock subprocess.run that simulates Remotion render failure."""
-
-    def _fake_run(cmd, **kwargs):
-        if isinstance(cmd, list) and len(cmd) >= 4 and cmd[1] == "remotion":
-            return subprocess.CompletedProcess(
-                cmd,
-                1,
-                stdout="",
-                stderr=(
-                    "Error: Component not found\n"
-                    "TypeError: Cannot read property"
-                    " 'map' of undefined"
-                ),
-            )
-        return subprocess.run(cmd, **kwargs)
-
-    return _fake_run
-
-
-@pytest.fixture
-def mock_subprocess_remotion_not_found():
-    """Mock subprocess.run that simulates Remotion CLI not installed."""
-
-    def _fake_run(cmd, **kwargs):
-        if isinstance(cmd, list) and cmd[0] == "npx" and cmd[1] == "remotion":
-            raise FileNotFoundError("npx command not found")
-        return subprocess.run(cmd, **kwargs)
-
-    return _fake_run

@@ -17,6 +17,7 @@ Architecture: Python CLI orchestrator wraps a Node.js/Remotion project (same pat
 - **Ollama** (default, local inference — no API key needed)
   - Install: `curl -fsSL https://ollama.com/install.sh | sh`
   - Windows: [Download from ollama.com](https://ollama.com/download)
+- **OpenAI SDK** (optional — only required for `--provider openai` or `--provider azure`)
 
 ## Installation
 

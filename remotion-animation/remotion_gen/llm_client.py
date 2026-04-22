@@ -4,14 +4,8 @@ import logging
 import os
 from typing import Optional
 
+from remotion_gen.config import PROVIDER_TEMPERATURES
 from remotion_gen.errors import LLMError
-
-try:
-    from openai import AzureOpenAI, OpenAI
-except ImportError:
-    raise ImportError(
-        "OpenAI package not found. Install with: pip install openai"
-    )
 
 logger = logging.getLogger(__name__)
 
@@ -105,50 +99,60 @@ def _extract_code_block(response: str) -> str:
 
 def _create_client(provider: str) -> tuple:
     """Create an OpenAI-compatible client for the given provider.
-    
+
+    Uses lazy imports so the module can be imported without openai installed.
+
     Args:
         provider: "ollama", "openai", or "azure"
-        
+
     Returns:
         Tuple of (client, model_name)
-        
+
     Raises:
-        LLMError: If credentials are missing or provider is unknown
+        LLMError: If credentials are missing, provider is unknown, or openai
+            is not installed
     """
     provider = provider.lower()
 
-    if provider == "ollama":
-        ollama_host = os.getenv("OLLAMA_HOST", "http://localhost:11434")
-        client = OpenAI(
-            base_url=f"{ollama_host}/v1",
-            api_key="ollama",
-        )
-        model = DEFAULT_MODELS["ollama"]
-        return client, model
-
-    if provider == "azure":
-        azure_endpoint = os.getenv("AZURE_OPENAI_ENDPOINT")
-        azure_key = os.getenv("AZURE_OPENAI_KEY")
-        azure_deployment = os.getenv("AZURE_OPENAI_DEPLOYMENT")
-
-        if not all([azure_endpoint, azure_key, azure_deployment]):
-            raise LLMError(
-                "Azure OpenAI requires AZURE_OPENAI_ENDPOINT, "
-                "AZURE_OPENAI_KEY, and AZURE_OPENAI_DEPLOYMENT"
+    try:
+        if provider == "ollama":
+            from openai import OpenAI
+            ollama_host = os.getenv("OLLAMA_HOST", "http://localhost:11434")
+            client = OpenAI(
+                base_url=f"{ollama_host}/v1",
+                api_key="ollama",
             )
-        client = AzureOpenAI(
-            api_key=azure_key,
-            api_version="2024-02-15-preview",
-            azure_endpoint=azure_endpoint,
-        )
-        return client, azure_deployment
+            model = DEFAULT_MODELS["ollama"]
+            return client, model
 
-    if provider == "openai":
-        openai_key = os.getenv("OPENAI_API_KEY")
-        if not openai_key:
-            raise LLMError("OpenAI requires OPENAI_API_KEY environment variable")
-        client = OpenAI(api_key=openai_key)
-        return client, DEFAULT_MODELS["openai"]
+        if provider == "azure":
+            from openai import AzureOpenAI
+            azure_endpoint = os.getenv("AZURE_OPENAI_ENDPOINT")
+            azure_key = os.getenv("AZURE_OPENAI_KEY")
+            azure_deployment = os.getenv("AZURE_OPENAI_DEPLOYMENT")
+
+            if not all([azure_endpoint, azure_key, azure_deployment]):
+                raise LLMError(
+                    "Azure OpenAI requires AZURE_OPENAI_ENDPOINT, "
+                    "AZURE_OPENAI_KEY, and AZURE_OPENAI_DEPLOYMENT"
+                )
+            client = AzureOpenAI(
+                api_key=azure_key,
+                api_version="2024-02-15-preview",
+                azure_endpoint=azure_endpoint,
+            )
+            return client, azure_deployment
+
+        if provider == "openai":
+            from openai import OpenAI
+            openai_key = os.getenv("OPENAI_API_KEY")
+            if not openai_key:
+                raise LLMError("OpenAI requires OPENAI_API_KEY environment variable")
+            client = OpenAI(api_key=openai_key)
+            return client, DEFAULT_MODELS["openai"]
+
+    except ImportError as e:
+        raise LLMError(f"Failed to import openai library: {e}")
 
     raise LLMError(
         f"Unknown provider '{provider}'. Use 'ollama', 'openai', or 'azure'."
@@ -202,10 +206,31 @@ def _call_llm(
 
         return code
 
+    except LLMError:
+        raise
     except Exception as e:
-        if isinstance(e, LLMError):
-            raise
-        raise LLMError(f"LLM API call failed: {e}")
+        # Lazy-import OpenAI exceptions to preserve specific error info
+        try:
+            from openai import (
+                APIConnectionError,
+                AuthenticationError,
+                RateLimitError,
+            )
+            if isinstance(e, AuthenticationError):
+                raise LLMError(
+                    f"[auth] Authentication failed for {provider}: {e}"
+                ) from e
+            if isinstance(e, RateLimitError):
+                raise LLMError(
+                    f"[rate_limit] Rate limited by {provider} (retryable): {e}"
+                ) from e
+            if isinstance(e, APIConnectionError):
+                raise LLMError(
+                    f"[connection] Cannot reach {provider} API (retryable): {e}"
+                ) from e
+        except ImportError:
+            pass
+        raise LLMError(f"LLM API call failed: {e}") from e
 
 
 def generate_component(
@@ -215,7 +240,7 @@ def generate_component(
     provider: str = "ollama",
     model: Optional[str] = None,
     image_context: Optional[str] = None,
-    max_retries: int = 0,
+    max_retries: int = 2,
     validation_errors: Optional[list[str]] = None,
 ) -> str:
     """Generate Remotion component code from user prompt.
@@ -254,8 +279,8 @@ def generate_component(
 
     base_prompt += "\nReturn ONLY raw TSX code. No markdown fences. Component must be named GeneratedScene with export default."
 
-    # Lower temperature for small models to reduce structural errors
-    temperature = 0.4 if provider == "ollama" else 0.7
+    # Use provider-specific temperature from config
+    temperature = PROVIDER_TEMPERATURES.get(provider, 0.7)
 
     client, default_model = _create_client(provider)
     model_name = model or default_model

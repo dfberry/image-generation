@@ -3,7 +3,7 @@ import GeneratedScene from './GeneratedScene';
 
 const inputProps = getInputProps();
 
-export const Root: React.FC = () => {
+export const Root = () => {
   return (
     <>
       <Composition

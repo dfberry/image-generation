@@ -1,16 +1,27 @@
+[build-system]
+requires = ["setuptools>=61.0", "wheel"]
+build-backend = "setuptools.build_meta"
+
 [project]
 name = "remotion-gen"
 version = "0.1.0"
 description = "Generate animated videos from text prompts using Remotion and LLMs"
 readme = "README.md"
 requires-python = ">=3.10"
+authors = [
+    {name = "dfberry", email = "dfberry@example.com"}
+]
+classifiers = [
+    "Development Status :: 3 - Alpha",
+    "Intended Audience :: Developers",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+]
 dependencies = [
     "openai>=1.0.0",
-    "pydantic>=2.0.0",
 ]
-
-[project.scripts]
-remotion-gen = "remotion_gen.cli:main"
 
 [project.optional-dependencies]
 dev = [
@@ -18,18 +29,29 @@ dev = [
     "ruff>=0.1.0",
 ]
 
-[build-system]
-requires = ["setuptools>=61.0"]
-build-backend = "setuptools.build_meta"
+[project.scripts]
+remotion-gen = "remotion_gen.cli:main"
+
+[tool.setuptools.packages.find]
+include = ["remotion_gen*"]
 
 [tool.ruff]
 line-length = 88
 target-version = "py310"
 
 [tool.ruff.lint]
-select = ["E", "F", "I", "W"]
-ignore = []
+select = ["E", "F", "I", "N", "W"]
+ignore = ["E501"]
 
 [tool.ruff.lint.per-file-ignores]
 # LLM prompt strings contain long TSX examples that cannot be wrapped
 "remotion_gen/llm_client.py" = ["E501"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+python_files = ["test_*.py"]
+python_classes = ["Test*"]
+python_functions = ["test_*"]
+markers = [
+    "integration: marks tests as integration tests",
+]
