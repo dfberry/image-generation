@@ -12,3 +12,75 @@ Verified technical accuracy across all 4 projects:
 - CLI flags, defaults, error messages, validation logic all verified
 
 **Output:** .squad/decisions/inbox/neo-doc-review.md - merged to decisions.md
+
+## 2026-07-25 - Test Coverage & Quality Audit for image-generation/
+
+**Session:** Thorough review of all 15 test files in image-generation/tests/
+
+### Test Run Results
+- **219 tests collected** across 15 files
+- **2 files fail to import** (test_oom_handling.py, test_unit_functions.py) — `import torch` at module level
+- Of the remaining 217 tests: **161 passed, 57 failed, 1 skipped**
+- **All 57 failures are caused by missing `torch` dependency** — not code bugs
+
+### Root Cause of Failures: Inconsistent Mocking Pattern
+The project has TWO mocking approaches for `_ensure_heavy_imports()`:
+
+**GOOD pattern (used by 5 files, all pass):**
+- test_batch_generation.py, test_coverage_gaps.py, test_input_validation.py — use `_patch_heavy()` context manager
+- test_oom_retry.py, test_bug_fixes.py (partial) — patch `generate.generate` directly
+
+**BROKEN pattern (used by 8 files, 57 failures):**
+- test_security.py, test_memory_cleanup.py, test_negative_prompt.py, test_scheduler.py, test_pipeline_enhancements.py — call `batch_generate()` or `generate()` without patching `_ensure_heavy_imports()`, so real `import torch` fires
+- test_oom_handling.py, test_unit_functions.py — `import torch` at module top level, instant collection failure
+
+### What's Well Covered (161 passing tests)
+1. **CLI argument parsing** — all 12 flags tested (steps, guidance, width, height, seed, output, refine, refiner-steps, scheduler, negative-prompt, lora, lora-weight, batch-file)
+2. **Validator functions** — `_positive_int()`, `_non_negative_float()`, `_dimension()` all thoroughly tested
+3. **Batch generation logic** — memory flush between items, partial failure handling, result ordering, empty batch
+4. **OOM retry logic** — step halving, floor at 1, max retries, non-OOM exception passthrough
+5. **Bug regressions** — args.steps mutation fix, batch CLI param forwarding
+6. **Batch schema validation** — missing keys, wrong types, unexpected keys
+7. **Per-item overrides** — scheduler, refiner_steps, negative_prompt overrides in batch
+8. **Security** — directory traversal prevention, absolute path rejection (tests exist but fail due to mock issue)
+9. **Scheduler whitelist** — rejects invalid names, accepts all supported schedulers
+10. **Coverage gaps** — seed binding, output path handling, xformers fallback, karras sigmas
+
+### What's NOT Tested (Coverage Gaps)
+1. **`_apply_performance_opts()` with xformers failure on CUDA** — only tested on CPU path
+2. **`apply_lora()` error handling** — no test for invalid LoRA path or failed download
+3. **`_run_inference()` directly** — only tested indirectly through `generate()`
+4. **`_run_refiner()` directly** — only tested indirectly
+5. **`_load_pipeline()` directly** — only tested indirectly
+6. **`_validate_output_path()` standalone** — tested via batch_generate but not unit-tested alone
+7. **`_validate_batch_item()` standalone** — tested via batch_generate but not unit-tested alone
+8. **`main()` batch-file path with error logging** — FileNotFoundError/JSONDecodeError logging paths
+9. **Concurrent/parallel batch generation** — no stress tests
+10. **Image save failure** (disk full, permission denied) — no test
+11. **Empty/whitespace-only prompt** — no validation or test
+12. **Very large dimensions** (e.g., 8192×8192) — no test for memory estimation
+13. **`__getattr__` PEP 562 module accessor** — no direct test
+14. **`_ensure_heavy_imports()` itself** — no direct test
+15. **Scheduler config edge case: non-dict config** — tested but only in coverage_gaps
+
+### Test Infrastructure Assessment
+- **conftest.py**: Good — has MockImage, MockPipeline, 4 fixture variants (base, refine, cuda, cuda_refine)
+- **Fixtures**: Reusable but not universally used — many test files build their own args helpers
+- **No pytest.ini/pyproject.toml config** — test runner not explicitly configured
+- **No pytest markers** — no @pytest.mark.slow, no GPU-required markers
+- **`_write_tests.py`**: Orphaned helper script — should be deleted (duplicates test_cli_validation.py content)
+
+### requirements-dev.txt Assessment
+- Has: pytest>=7.0, ruff>=0.4.0, pytest-cov>=4.0 — adequate basics
+- Missing: **pytest-mock** (would simplify mock patterns), **no torch mock package**
+- The `-r requirements.txt` include pulls in torch/diffusers — but they're NOT installed in this env
+
+### Prioritized Recommendations
+1. **P0 — Fix 57 failing tests**: Add `_patch_heavy()` or `@patch("generate._ensure_heavy_imports")` to test_security.py, test_memory_cleanup.py, test_negative_prompt.py, test_scheduler.py, test_pipeline_enhancements.py, test_batch_cli.py (5 tests)
+2. **P0 — Fix 2 collection errors**: Remove `import torch` from test_oom_handling.py and test_unit_functions.py top-level; use `generate.torch` via mock instead
+3. **P1 — Add pytest markers**: `@pytest.mark.gpu` for tests that need real torch, run all others in CI without GPU
+4. **P1 — Delete `_write_tests.py`**: Orphaned scaffold script
+5. **P1 — Standardize mock pattern**: Create shared `_patch_heavy()` in conftest.py so all test files use it
+6. **P2 — Add missing edge case tests**: empty prompt, image save failures, LoRA error paths, very large dimensions
+7. **P2 — Add `pyproject.toml` test config**: testpaths, markers, default options
+8. **P2 — Add coverage reporting to CI**: `pytest --cov=generate --cov-report=term-missing`

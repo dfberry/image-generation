@@ -814,3 +814,69 @@ Implemented comprehensive audio support for remotion-animation following plan-fu
 - **Step-by-step annotation pattern:** FadeOut previous step text before FadeIn of next step. Keeps bottom-of-screen annotation area clean. Same pattern as the config's SYSTEM_PROMPT rule about not stacking text.
 - **Scene file:** `manim-animation/outputs/theorem_explained_scene.py` — annotated Pythagorean theorem with title, intro text, 5 step annotations, highlighted squares, final equation with box.
 - **Output:** `manim-animation/outputs/theorem_explained.mp4` — 720p30, ~0.9MB, ~22s duration.
+
+### 2026-07-24 — Implementation Review of image-generation/ subfolder
+
+Performed detailed code review of all files in the image-generation/ directory. Findings below.
+
+**generate.py — SOLID (627 lines)**
+- Architecture is clean: lazy imports via _ensure_heavy_imports() + PEP 562 __getattr__ keeps module importable without GPU stack. Good pattern.
+- Argument parsing is thorough: custom types (_positive_int, _non_negative_float, _dimension) provide clear validation with helpful error messages.
+- Device detection cascade (CUDA → MPS → CPU) is correct. MPS uses nable_model_cpu_offload() instead of .to("mps") — correct for memory-constrained Apple Silicon.
+- Memory management is excellent: pre-flight flush, latents CPU transfer before cache clear, dynamo reset, and comprehensive finally block. All documented in prior PRs.
+- OOM retry logic (generate_with_retry) is well-designed: halves steps on retry, doesn't mutate original args.
+- Batch validation (_validate_batch_item, _validate_output_path) catches traversal attacks and type errors. Good security posture.
+
+**Issues found (generate.py):**
+1. **Duplicated GPU flush logic (Code smell):** The gc.collect() + cuda.empty_cache() + mps.empty_cache() pattern appears 4 times (lines 347-352, 395-399, 425-430, 565-571). Should be extracted to a _flush_gpu_memory() helper. Not blocking but increases maintenance burden.
+2. **_validate_output_path bypassed for absolute paths in batch JSONs:** All 4 batch JSON files use absolute Windows paths (C:\\Users\\diberry\\...). But _validate_output_path() rejects absolute paths. This means batch_generate() would error on the shipped batch configs. The batch_generate() call site does call _validate_output_path, so the existing batch JSON files would fail validation. These configs only work because they were likely run before the path validation was added, or run outside atch_generate().
+3. **logging.basicConfig only runs under __name__ == "__main__":** If main() is called as a library function, no logging output. Minor — correct for CLI tool.
+4. **TODO comments on lines 189, 218:** "Replace main with specific commit SHA" for model reproducibility. Low priority but worth tracking.
+5. **_HIGH_NOISE_FRAC = 0.8 is hardcoded:** Not configurable via CLI. Acceptable for current use case but noted.
+
+**generate_blog_images.sh — GOOD**
+- set -euo pipefail — correct strict mode.
+- Uses $$ PID for temp file naming — avoids race conditions.
+- source venv/bin/activate assumes venv exists at ./venv. No guard for missing venv.
+- Cleanup of temp batch file (m -f "") runs even on success. But NOT on pipeline failure (set -e exits before rm). Should use trap for cleanup.
+- Missing 	rap 'rm -f ""' EXIT — temp file leaks on error.
+- Hardcoded prompts duplicate content from batch_blog_images.json (different prompts though). Two sources of truth for batch configs.
+
+**requirements.txt — ACCEPTABLE**
+- Versions use >= floors: diffusers>=0.21.0, 	orch>=2.1.0, ccelerate>=0.24.0 — these were explicitly audited in PR#3/#5 to ensure memory management correctness.
+- invisible-watermark>=0.2.0 is required by SDXL but rarely updated. Fine.
+- No upper bounds means a future breaking change in diffusers/torch could break things silently. Acceptable for a tool repo, would be a concern for a library.
+
+**requirements.lock — CONCERN**
+- Pinned to the exact floor versions (e.g., diffusers==0.21.0, 	orch==2.1.0). These are ~2 years old. The lock file serves reproducibility but the versions are significantly outdated. 	orch==2.1.0 misses significant MPS and compile improvements in 2.2-2.4.
+- Does NOT include transitive dependencies. This is not a true lock file — it's just pinned direct deps. A real lock would come from pip freeze or pip-compile.
+
+**requirements-dev.txt — GOOD**
+- Pulls in prod deps via -r requirements.txt, adds pytest, ruff, pytest-cov. Clean.
+
+**Makefile — GOOD**
+- Cross-platform (Windows/Unix) path detection works.
+- python3 -m venv in setup target — correct.
+- .PHONY declared for all non-file targets.
+- Missing: generate target to actually run image generation. Only has setup/lint/test/format/clean.
+
+**Batch JSON files — STRUCTURAL ISSUE**
+- atch_blog_images.json, atch_blog_images_v2.json, atch_session_storage.json are nearly identical (same 5 prompts, same seeds 42-46). v2 drops 
+egative_prompt from the first item but keeps it in the rest — looks like an editing artifact, not intentional.
+- atch_you_have_a_team.json has different content (3 items, PNW watercolor style). Clean.
+- ALL batch files use absolute Windows paths (C:\\Users\\diberry\\...). These are machine-specific and would fail on any other machine. Should use relative paths or a configurable base path.
+- As noted above, absolute paths also conflict with _validate_output_path() security checks.
+
+**ruff.toml — GOOD**
+- Targets Python 3.10, 120 char line length, ignores E501 (line length handled by formatter).
+- Selects E/F/W/I rules — standard and sensible.
+- Excludes venv, __pycache__, outputs — correct.
+- known-first-party = ["generate"] — enables correct isort grouping.
+
+**Summary of actionable items (prioritized):**
+- **P0:** batch JSON files use absolute paths that fail _validate_output_path(). Either make paths relative or add an --allow-absolute flag.
+- **P1:** Extract duplicated GPU flush logic to _flush_gpu_memory() helper.
+- **P1:** Add 	rap cleanup to generate_blog_images.sh for temp file.
+- **P2:** Make equirements.lock a real lock file with transitive deps (pip-compile).
+- **P2:** Deduplicate near-identical batch JSON files (batch_blog_images.json vs v2 vs session_storage).
+- **P2:** Bump lock file versions — torch 2.1.0 is missing 2+ years of fixes.

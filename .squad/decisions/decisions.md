@@ -665,6 +665,81 @@ All MEDIUM-priority memory fixes (PR #4–#6) verified correct:
 
 ---
 
+## Recent Decisions (2026-04-22)
+
+### Architecture Review — P1 and P2 Issues
+
+**Date:** 2026-04-22  
+**Owner:** Morpheus (Lead)  
+**Status:** PROPOSED  
+**Impact:** Test reliability, contributor onboarding, CI stability
+
+#### P1 Issues (Blocking)
+1. **`test_oom_handling.py` and `test_unit_functions.py` import `torch` at module level** — causes `ModuleNotFoundError` during pytest collection on machines without torch. These two files break `pytest tests/` entirely.
+2. **6 ruff lint violations in `test_coverage_gaps.py`** — unused variables and unsorted imports. Lint gate fails.
+3. **`_write_tests.py` is a scaffold file** — file header says "Run once, then delete." Still tracked in git.
+
+#### P2 Issues (Degrading)
+1. Batch JSON configs use hardcoded absolute Windows paths (`C:\Users\diberry\...`)
+2. Duplicate batch JSON file: `batch_session_storage.json` mirrors `batch_blog_images.json`
+3. Stale lock file in repo
+
+#### Proposed Actions
+| Owner | Action | Priority |
+|-------|--------|----------|
+| Trinity | Refactor `test_oom_handling.py` and `test_unit_functions.py` to use `@patch` for torch instead of top-level import | P1 |
+| Trinity | Fix 6 ruff lint errors in `test_coverage_gaps.py` | P1 |
+| Trinity | Delete `_write_tests.py` from tracked files | P1 |
+| Trinity | Make batch JSON output paths relative (remove hardcoded `C:\Users\diberry\...`) | P2 |
+| Trinity | Remove or differentiate `batch_session_storage.json` | P2 |
+
+**Overall Assessment:** Codebase is mature and well-designed (A- grade). Pipeline architecture, OOM handling, security validation, and prompt documentation are strong. These P1 items are cleanup debt, not architectural problems.
+
+---
+
+### Test Mock Standardization
+
+**Date:** 2026-04-22  
+**Owner:** Neo (Tester)  
+**Status:** Proposed  
+**Impact:** Fixes 57 failing tests + 2 collection errors (26% of test suite)
+
+#### Context
+The test suite has two incompatible mocking strategies for `_ensure_heavy_imports()`. Five files use a `_patch_heavy()` context manager that injects mock torch/diffusers into `generate.__dict__` — these all pass. Eight files either call production code without patching or `import torch` at module top-level — these fail with `ModuleNotFoundError`.
+
+#### Decision
+1. Move `_patch_heavy()` into `conftest.py` as a shared fixture
+2. Apply it to all test files that call `generate()`, `batch_generate()`, or other functions hitting `_ensure_heavy_imports()`
+3. Remove `import torch` from test_oom_handling.py and test_unit_functions.py top-level imports; access via `generate.torch` mock
+4. Add `@pytest.mark.gpu` marker for any future tests needing real torch
+
+#### Expected Outcome
+- 57 failures → 0 (mock fix only, no production code changes)
+- 2 collection errors → 0
+- All 219 tests runnable without GPU/torch installed
+
+---
+
+### Batch JSON Absolute Paths Conflict with Path Validation
+
+**Date:** 2026-04-22  
+**Owner:** Trinity (Backend Dev)  
+**Status:** Proposed  
+**Impact:** All 4 batch JSON configs fail `_validate_output_path()` security check
+
+#### Context
+`_validate_output_path()` in `generate.py` rejects absolute paths and directory traversal (good security). But all shipped batch JSON files use absolute Windows paths like `C:\Users\diberry\...`. These paths would be rejected by `batch_generate()` which calls `_validate_output_path()` on each item.
+
+#### Options
+1. **Make batch JSON paths relative** — cleanest. Use paths like `outputs/01.png` or `../dfberry.github.io/...`
+2. **Add `--allow-absolute` CLI flag** — opt-in bypass for power users who know what they're doing
+3. **Skip validation for absolute paths** — weakens security, not recommended
+
+#### Recommendation
+Option 1 (relative paths) as default. If output needs to go outside the project tree, Option 2 as escape hatch.
+
+---
+
 ### 7. Do you have a spec? ⚠️ PARTIAL
 
 **What exists:**
