@@ -1,4 +1,43 @@
-import {
+"""Generate Pythagorean Theorem explainer video with TTS narration.
+
+Bypasses LLM — uses a hand-crafted TSX component with step-by-step
+geometric visualization and edge-tts narration.
+
+Usage:
+    cd remotion-animation
+    python generate_theorem.py
+"""
+
+import sys
+from pathlib import Path
+
+# Ensure package is importable
+sys.path.insert(0, str(Path(__file__).parent))
+
+from remotion_gen.tts_providers import generate_narration
+from remotion_gen.component_builder import write_component
+from remotion_gen.renderer import render_video
+from remotion_gen.config import QUALITY_PRESETS
+
+# ── Narration text ──────────────────────────────────────────────────
+NARRATION_TEXT = (
+    "The Pythagorean Theorem states that for any right triangle, "
+    "the square of the hypotenuse equals the sum of the squares "
+    "of the other two sides. "
+    "If we call the two shorter sides a and b, and the hypotenuse c, "
+    "then a squared plus b squared equals c squared. "
+    "Watch as we draw a square on each side of the triangle. "
+    "The blue square has area a squared. "
+    "The green square has area b squared. "
+    "And the orange square on the hypotenuse has area c squared. "
+    "Together, the two smaller squares have exactly the same area "
+    "as the large square. "
+    "This fundamental relationship has been known for thousands of years "
+    "and remains one of the most important theorems in all of mathematics."
+)
+
+# ── TSX Component ───────────────────────────────────────────────────
+COMPONENT_CODE = r'''import {
   useCurrentFrame,
   useVideoConfig,
   spring,
@@ -487,3 +526,57 @@ const GeneratedScene = () => {
 };
 
 export default GeneratedScene;
+'''
+
+
+def main():
+    repo_root = Path(__file__).parent
+    project_root = repo_root / "remotion-project"
+    output_dir = repo_root / "outputs"
+    output_dir.mkdir(parents=True, exist_ok=True)
+    output_path = (output_dir / "theorem_explained.mp4").resolve()
+
+    print("=" * 60)
+    print("Pythagorean Theorem Explainer — Video Generator")
+    print("=" * 60)
+
+    # ── Step 1: Generate TTS narration ──
+    print("\n→ Step 1: Generating TTS narration (edge-tts, en-US-JennyNeural)...")
+    narration_path = generate_narration(
+        NARRATION_TEXT,
+        provider_name="edge-tts",
+        voice="en-US-JennyNeural",
+        output_dir=project_root / "public",
+    )
+    print(f"  ✓ Narration saved: {narration_path}")
+    print(f"  Size: {narration_path.stat().st_size / 1024:.1f} KB")
+
+    # ── Step 2: Write TSX component ──
+    print("\n→ Step 2: Writing Remotion component...")
+    component_path = write_component(
+        COMPONENT_CODE,
+        project_root,
+        debug=True,
+        audio_filenames=["narration.mp3"],
+    )
+    print(f"  ✓ Component written: {component_path}")
+
+    # ── Step 3: Render video ──
+    preset = QUALITY_PRESETS["medium"]  # 720p 30fps
+    duration_seconds = 30
+    duration_frames = duration_seconds * preset.fps
+
+    print(f"\n→ Step 3: Rendering {duration_seconds}s video at "
+          f"{preset.resolution_name} {preset.fps}fps ({duration_frames} frames)...")
+    result_path = render_video(project_root, output_path, preset, duration_frames)
+
+    print(f"\n{'=' * 60}")
+    print(f"✓ Video generated: {result_path}")
+    print(f"  Size: {result_path.stat().st_size / (1024 * 1024):.1f} MB")
+    print(f"{'=' * 60}")
+
+    return 0
+
+
+if __name__ == "__main__":
+    sys.exit(main())
