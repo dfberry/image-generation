@@ -2,6 +2,9 @@
   "name": "remotion-animation-project",
   "version": "0.1.0",
   "description": "Remotion project for LLM-generated animations",
+  "engines": {
+    "node": ">=18.0.0"
+  },
   "scripts": {
     "render": "remotion render",
     "preview": "remotion preview"
