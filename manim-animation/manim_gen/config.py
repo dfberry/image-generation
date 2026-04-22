@@ -29,7 +29,15 @@ class QualityPreset(Enum):
 
 @dataclass
 class Config:
-    """Runtime configuration for video generation"""
+    """Runtime configuration for video generation.
+
+    Attributes:
+        quality: Video quality preset (LOW, MEDIUM, HIGH).
+        duration: Target duration in seconds. Must be between 5 and 30 inclusive.
+        output_dir: Directory for output files.
+        debug: If True, save intermediate scene code for inspection.
+        provider: LLM provider — "ollama" (local), "openai", or "azure".
+    """
 
     quality: QualityPreset = QualityPreset.MEDIUM
     duration: int = 10  # seconds

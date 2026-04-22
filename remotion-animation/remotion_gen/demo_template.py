@@ -14,8 +14,7 @@ def get_demo_component(datetime_str: str) -> str:
     Returns:
         Valid TSX source for a GeneratedScene component.
     """
-    return f'''import React from "react";
-import {{
+    return f'''import {{
   useCurrentFrame,
   useVideoConfig,
   spring,
@@ -24,7 +23,7 @@ import {{
   Sequence,
 }} from "remotion";
 
-const GeneratedScene: React.FC = () => {{
+const GeneratedScene = () => {{
   const frame = useCurrentFrame();
   const {{ fps }} = useVideoConfig();
 

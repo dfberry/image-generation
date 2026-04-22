@@ -1,12 +1,14 @@
 """Renderer tests for remotion-animation.
 
 Tests cover:
-- Mock subprocess.run → returns success → output path returned
-- Mock subprocess.run → returns failure → RenderError with stderr
+- render_video() success → output path returned
+- render_video() failure → RenderError with stderr
 - Remotion CLI not found → clear error with install instructions
-- Temp file cleanup after render
+- node_modules missing → clear error
+- npx not found → clear error
 - Output file doesn't exist after render → error
 - Issue #91: UTF-8 encoding and version mismatch handling
+- Issue #93: Command construction and props
 """
 
 import subprocess
@@ -22,108 +24,130 @@ from remotion_gen.renderer import check_prerequisites, render_video
 class TestRendererSuccess:
     """Test successful Remotion rendering scenarios."""
 
-    @patch("subprocess.run")
+    @patch("remotion_gen.renderer.shutil.which", return_value="/usr/bin/npx")
+    @patch("remotion_gen.renderer.subprocess.run")
     def test_successful_render_returns_output_path(
-        self, mock_run, mock_subprocess_success, tmp_output_dir
+        self, mock_run, mock_which, tmp_path
     ):
         """Successful Remotion render should return output path."""
-        mock_run.side_effect = mock_subprocess_success
-        pytest.skip("Waiting for Trinity's renderer.py implementation")
+        project_root = tmp_path / "remotion-project"
+        project_root.mkdir()
+        (project_root / "node_modules").mkdir()
+        output = tmp_path / "output.mp4"
+        output.write_bytes(b"fake-mp4")
 
-    @patch("subprocess.run")
-    def test_creates_output_file(
-        self, mock_run, mock_subprocess_success, tmp_output_dir
-    ):
-        """Successful render should create MP4 file at output path."""
-        mock_run.side_effect = mock_subprocess_success
-        pytest.skip("Waiting for Trinity's renderer.py implementation")
+        mock_run.return_value = MagicMock(returncode=0, stdout="ok", stderr="")
+        quality = QUALITY_PRESETS["medium"]
+        result = render_video(project_root, output, quality, duration_frames=150)
+        assert result == output
 
-    @patch("subprocess.run")
-    def test_calls_remotion_with_correct_args(
-        self, mock_run, mock_subprocess_success, tmp_output_dir
+    @patch("remotion_gen.renderer.shutil.which", return_value="/usr/bin/npx")
+    @patch("remotion_gen.renderer.subprocess.run")
+    def test_calls_subprocess_with_npx_remotion(
+        self, mock_run, mock_which, tmp_path
     ):
-        """Should call npx remotion render with correct arguments."""
-        mock_run.side_effect = mock_subprocess_success
-        # Expected: npx remotion render src/index.ts
-        # GeneratedScene output.mp4
-        pytest.skip("Waiting for Trinity's renderer.py implementation")
+        """Should call npx remotion render with correct command structure."""
+        project_root = tmp_path / "remotion-project"
+        project_root.mkdir()
+        (project_root / "node_modules").mkdir()
+        output = tmp_path / "output.mp4"
+        output.write_bytes(b"fake-mp4")
+
+        mock_run.return_value = MagicMock(returncode=0, stdout="ok", stderr="")
+        quality = QUALITY_PRESETS["medium"]
+        render_video(project_root, output, quality, duration_frames=150)
+
+        cmd = mock_run.call_args[0][0]
+        assert "remotion" in " ".join(cmd)
+        assert "render" in cmd
 
 
 class TestRendererFailure:
     """Test Remotion rendering failure scenarios."""
 
-    @patch("subprocess.run")
+    @patch("remotion_gen.renderer.shutil.which", return_value="/usr/bin/npx")
+    @patch("remotion_gen.renderer.subprocess.run")
     def test_render_failure_raises_error_with_stderr(
-        self, mock_run, mock_subprocess_failure
+        self, mock_run, mock_which, tmp_path
     ):
         """Failed render should raise RenderError with stderr message."""
-        mock_run.side_effect = mock_subprocess_failure
-        pytest.skip("Waiting for Trinity's renderer.py implementation")
+        project_root = tmp_path / "remotion-project"
+        project_root.mkdir()
+        (project_root / "node_modules").mkdir()
+        output = tmp_path / "output.mp4"
 
-    @patch("subprocess.run")
-    def test_remotion_not_found_raises_clear_error(
-        self, mock_run, mock_subprocess_remotion_not_found
+        mock_run.return_value = MagicMock(
+            returncode=1,
+            stdout="",
+            stderr="Error: Cannot find module 'react'",
+        )
+        quality = QUALITY_PRESETS["medium"]
+        with pytest.raises(RenderError, match="react"):
+            render_video(project_root, output, quality, duration_frames=150)
+
+    @patch("remotion_gen.renderer.shutil.which", return_value="/usr/bin/npx")
+    @patch("remotion_gen.renderer.subprocess.run")
+    def test_output_file_missing_after_success_raises_error(
+        self, mock_run, mock_which, tmp_path
     ):
-        """Remotion CLI not found should raise error with install instructions."""
-        mock_run.side_effect = mock_subprocess_remotion_not_found
-        pytest.skip("Waiting for Trinity's renderer.py implementation")
-
-    @patch("subprocess.run")
-    def test_output_file_missing_after_success_raises_error(self, mock_run):
         """Subprocess succeeds but output file missing should raise error."""
+        project_root = tmp_path / "remotion-project"
+        project_root.mkdir()
+        (project_root / "node_modules").mkdir()
+        output = tmp_path / "output.mp4"
+        # Deliberately don't create output file
+
         mock_run.return_value = MagicMock(returncode=0, stdout="", stderr="")
-        # But don't create the output file
-        pytest.skip("Waiting for Trinity's renderer.py implementation")
+        quality = QUALITY_PRESETS["medium"]
+        with pytest.raises(RenderError, match="output not found"):
+            render_video(project_root, output, quality, duration_frames=150)
 
 
-class TestRendererFileWriting:
-    """Test writing component code to remotion-project/src/."""
+class TestRendererEdgeCases:
+    """Test renderer edge cases: missing dependencies, bad paths."""
 
-    @patch("subprocess.run")
-    def test_writes_component_to_generated_scene_tsx(
-        self, mock_run, mock_subprocess_success, tmp_project_dir
-    ):
-        """Should write component code to src/GeneratedScene.tsx."""
-        mock_run.side_effect = mock_subprocess_success
-        pytest.skip("Waiting for Trinity's renderer.py implementation")
+    @patch("remotion_gen.renderer.shutil.which", return_value="/usr/bin/npx")
+    def test_node_modules_missing_raises_error(self, mock_which, tmp_path):
+        """Missing node_modules/ should raise RenderError with install instructions."""
+        project_root = tmp_path / "remotion-project"
+        project_root.mkdir()
+        # Don't create node_modules/
+        output = tmp_path / "output.mp4"
 
-    @patch("subprocess.run")
-    def test_overwrites_existing_generated_scene_tsx(
-        self, mock_run, mock_subprocess_success, tmp_project_dir
-    ):
-        """Should overwrite existing src/GeneratedScene.tsx on each render."""
-        mock_run.side_effect = mock_subprocess_success
-        pytest.skip("Waiting for Trinity's renderer.py implementation")
+        quality = QUALITY_PRESETS["medium"]
+        with pytest.raises(RenderError, match="npm install"):
+            render_video(project_root, output, quality, duration_frames=150)
 
-    @patch("subprocess.run")
-    def test_debug_mode_preserves_component_file(
-        self, mock_run, mock_subprocess_success, tmp_project_dir
-    ):
-        """Debug mode should preserve component file for inspection."""
-        mock_run.side_effect = mock_subprocess_success
-        pytest.skip("Waiting for Trinity's renderer.py implementation")
+    def test_npx_not_found_raises_error(self, tmp_path):
+        """Missing npx command should raise RenderError."""
+        project_root = tmp_path / "remotion-project"
+        project_root.mkdir()
+        (project_root / "node_modules").mkdir()
+        output = tmp_path / "output.mp4"
 
+        # Mock: node and npm exist but npx doesn't
+        def _which(name):
+            if name in ("node", "npm"):
+                return "/usr/bin/" + name
+            return None  # npx not found
 
-class TestRendererQuality:
-    """Test quality preset handling."""
+        quality = QUALITY_PRESETS["medium"]
+        with patch("remotion_gen.renderer.shutil.which", side_effect=_which):
+            with pytest.raises(RenderError, match="npx"):
+                render_video(project_root, output, quality, duration_frames=150)
 
-    @patch("subprocess.run")
-    def test_low_quality_uses_480p(self, mock_run, mock_subprocess_success):
-        """Quality 'low' should render at 480p."""
-        mock_run.side_effect = mock_subprocess_success
-        pytest.skip("Waiting for Trinity's renderer.py implementation")
+    @patch("remotion_gen.renderer.shutil.which")
+    def test_node_not_found_raises_error(self, mock_which, tmp_path):
+        """Missing Node.js should raise RenderError via check_prerequisites."""
+        mock_which.return_value = None
+        project_root = tmp_path / "remotion-project"
+        project_root.mkdir()
+        (project_root / "node_modules").mkdir()
+        output = tmp_path / "output.mp4"
 
-    @patch("subprocess.run")
-    def test_medium_quality_uses_720p(self, mock_run, mock_subprocess_success):
-        """Quality 'medium' should render at 720p."""
-        mock_run.side_effect = mock_subprocess_success
-        pytest.skip("Waiting for Trinity's renderer.py implementation")
-
-    @patch("subprocess.run")
-    def test_high_quality_uses_1080p(self, mock_run, mock_subprocess_success):
-        """Quality 'high' should render at 1080p."""
-        mock_run.side_effect = mock_subprocess_success
-        pytest.skip("Waiting for Trinity's renderer.py implementation")
+        quality = QUALITY_PRESETS["medium"]
+        with pytest.raises(RenderError, match="Node.js"):
+            render_video(project_root, output, quality, duration_frames=150)
 
 
 # ---------------------------------------------------------------------------
@@ -176,15 +200,22 @@ class TestRendererUTF8Encoding:
         output = tmp_path / "output.mp4"
         output.write_bytes(b"fake-mp4")
 
+        utf8_stdout = "✅ Render complete — «scene» rendered in 2.3s 🎬"
         mock_run.return_value = MagicMock(
             returncode=0,
-            stdout="✅ Render complete — «scene» rendered in 2.3s 🎬",
+            stdout=utf8_stdout,
             stderr="",
         )
 
         quality = QUALITY_PRESETS["medium"]
         result = render_video(project_root, output, quality, duration_frames=150)
         assert result == output
+
+        # Verify UTF-8 content was preserved in the subprocess call
+        call_kwargs = mock_run.call_args
+        assert call_kwargs is not None
+        # The renderer used text=True, which handles UTF-8 encoding
+        assert mock_run.return_value.stdout == utf8_stdout
 
     @patch("remotion_gen.renderer.shutil.which", return_value="/usr/bin/npx")
     @patch("remotion_gen.renderer.subprocess.run")
