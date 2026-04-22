@@ -44,6 +44,17 @@ The project uses `pyproject.toml` with setuptools as the build backend:
 - **Dev deps** (optional): `pytest>=7.0.0`, `ruff>=0.1.0`
 - **Version ceilings**: Upper bounds prevent breaking changes from major version bumps
 
+### Audio Module (`audio_handler.py`)
+
+The audio module validates and manages sound effect files for Manim animations:
+
+- **`validate_audio_path()`** — Symlink rejection, existence check, format validation (`.wav`, `.mp3`, `.ogg`), size limit (50 MB). Returns bool; raises `AudioValidationError` in strict mode.
+- **`copy_audio_to_workspace()`** — Copies validated audio to isolated temp directory with deterministic filenames (`sfx_N_name.ext`).
+- **`generate_audio_context()`** — Generates LLM prompt context explaining `self.add_sound()` API and available files.
+- **`validate_audio_operations()`** — AST-walks generated code ensuring all `self.add_sound()` calls use string literals and reference only provided files.
+
+Add new audio formats by updating `ALLOWED_AUDIO_EXTENSIONS` in `audio_handler.py`.
+
 ## Coding Conventions
 
 ### Linting with Ruff

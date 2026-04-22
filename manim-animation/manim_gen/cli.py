@@ -11,11 +11,13 @@ from typing import List, Optional
 
 from manim_gen.config import Config, QualityPreset
 from manim_gen.errors import (
+    AudioValidationError,
     ImageValidationError,
     LLMError,
     RenderError,
     ValidationError,
 )
+from manim_gen.audio_handler import copy_audio_to_workspace, generate_audio_context
 from manim_gen.image_handler import copy_images_to_workspace, generate_image_context
 from manim_gen.llm_client import LLMClient
 from manim_gen.renderer import render_scene
@@ -127,6 +129,22 @@ Environment variables:
         help="Image validation policy (default: strict)",
     )
 
+    # Audio input arguments
+    parser.add_argument(
+        "--sound-effects",
+        type=Path,
+        nargs="*",
+        help="Sound effect file(s) (.wav, .mp3, .ogg) to include in the animation",
+    )
+
+    parser.add_argument(
+        "--audio-policy",
+        type=str,
+        choices=["strict", "warn", "ignore"],
+        default="strict",
+        help="Audio validation policy (default: strict)",
+    )
+
     return parser.parse_args()
 
 def generate_video(
@@ -140,6 +158,8 @@ def generate_video(
     images: Optional[List[Path]] = None,
     image_descriptions: Optional[str] = None,
     image_policy: str = "strict",
+    sound_effects: Optional[List[Path]] = None,
+    audio_policy: str = "strict",
 ) -> Path:
     """Main video generation pipeline
 
@@ -154,6 +174,8 @@ def generate_video(
         images: Optional list of image file paths to include
         image_descriptions: Optional descriptions for images
         image_policy: Image validation policy
+        sound_effects: Optional list of audio file paths to include
+        audio_policy: Audio validation policy
 
     Returns:
         Path to generated video
@@ -163,11 +185,14 @@ def generate_video(
         ValidationError: If generated code is invalid
         RenderError: If Manim render fails
         ImageValidationError: If image validation fails (strict mode)
+        AudioValidationError: If audio validation fails (strict mode)
     """
     logger.info(f"Starting video generation for prompt: {prompt}")
 
     image_context = None
     image_copies = {}
+    audio_context = None
+    audio_copies = {}
 
     # Step 1: Generate scene code via LLM
     logger.info(f"Calling {provider} LLM to generate scene code")
@@ -186,8 +211,18 @@ def generate_video(
             )
             logger.info(f"Copied {len(image_copies)} image(s) to workspace")
 
+        # Handle audio if provided
+        if sound_effects:
+            logger.info(f"Processing {len(sound_effects)} audio file(s) with policy={audio_policy}")
+            audio_copies = copy_audio_to_workspace(sound_effects, workspace, audio_policy)
+            workspace_audio_paths = list(audio_copies.values())
+            audio_context = generate_audio_context(workspace_audio_paths)
+            logger.info(f"Copied {len(audio_copies)} audio file(s) to workspace")
+
         llm_output = client.generate_scene_code(
-            prompt, duration, model=model, image_context=image_context
+            prompt, duration, model=model,
+            image_context=image_context,
+            audio_context=audio_context
         )
 
         # Step 2: Build and validate scene
@@ -195,7 +230,12 @@ def generate_video(
         logger.info("Building and validating scene")
 
         image_filenames = {p.name for p in image_copies.values()} if image_copies else None
-        code, scene_path = build_scene(llm_output, scene_file, image_filenames)
+        audio_filenames = {p.name for p in audio_copies.values()} if audio_copies else None
+        code, scene_path = build_scene(
+            llm_output, scene_file,
+            image_filenames=image_filenames,
+            audio_filenames=audio_filenames
+        )
 
         # Save debug copy if requested
         if debug:
@@ -205,7 +245,7 @@ def generate_video(
 
         # Step 3: Render with Manim
         logger.info("Rendering video with Manim")
-        assets_dir = workspace if image_copies else None
+        assets_dir = workspace if (image_copies or audio_copies) else None
         video_path = render_scene(scene_path, output, quality, assets_dir=assets_dir)
 
     logger.info(f"Video generation complete: {video_path}")
@@ -221,6 +261,7 @@ def main() -> int:
         3 — Render error (Manim/FFmpeg failure)
         4 — Unexpected error
         5 — Image validation error (bad path, format, size)
+        6 — Audio validation error (bad path, format, size)
     """
     args = parse_args()
     setup_logging(args.debug)
@@ -271,12 +312,20 @@ def main() -> int:
             images=args.image,
             image_descriptions=args.image_descriptions,
             image_policy=args.image_policy,
+            sound_effects=args.sound_effects,
+            audio_policy=args.audio_policy,
         )
 
         print(f"\n✓ Video generated successfully: {result}")
         print(f"  Quality: {config.quality.name} ({config.quality.height}p @ {config.quality.fps}fps)")
         print(f"  Duration: ~{config.duration}s")
         return 0
+
+    except AudioValidationError as e:
+        logger.error(f"Audio validation error: {e}")
+        print(f"\n✗ Audio Error: {e}", file=sys.stderr)
+        print("  Check audio paths, formats, and sizes", file=sys.stderr)
+        return 6
 
     except ImageValidationError as e:
         logger.error(f"Image validation error: {e}")

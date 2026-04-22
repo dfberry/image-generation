@@ -48,6 +48,16 @@ When an image is provided:
 - Use <Img src={staticFile('filename.png')} style={{width: 1280, height: 720}} /> to display.
 - Animate images with interpolate() on opacity, scale, or position.
 
+When audio files are provided:
+- Add Audio and staticFile to your remotion import.
+- Use <Audio src={staticFile('filename.mp3')} volume={1.0} /> for narration.
+- Use <Audio src={staticFile('music.mp3')} volume={0.3} loop /> for background music.
+- Use <Sequence from={frameNumber}><Audio src={staticFile('sfx.mp3')} /></Sequence> for timed sound effects.
+- Volume can be a number (0.0-1.0) or a callback for per-frame control:
+  volume={(f) => interpolate(f, [0, 30], [0, 1], {extrapolateRight: 'clamp'})}
+- Audio elements are self-closing: <Audio ... /> (not <Audio>...</Audio>).
+- Do NOT import Audio from 'react' — import from 'remotion'.
+
 Working example (copy this pattern exactly):
 
 import {AbsoluteFill, useCurrentFrame, useVideoConfig, interpolate} from 'remotion';
@@ -240,6 +250,7 @@ def generate_component(
     provider: str = "ollama",
     model: Optional[str] = None,
     image_context: Optional[str] = None,
+    audio_context: Optional[str] = None,
     max_retries: int = 2,
     validation_errors: Optional[list[str]] = None,
 ) -> str:
@@ -256,6 +267,7 @@ def generate_component(
         provider: LLM provider ("ollama", "openai", or "azure")
         model: Optional model name override
         image_context: Optional context about an available image asset
+        audio_context: Optional context about available audio assets
         max_retries: Max retry attempts if validation fails (0 = no retry)
         validation_errors: Errors from a previous attempt, used for retry context
 
@@ -276,6 +288,9 @@ def generate_component(
 
     if image_context:
         base_prompt += f"\n{image_context}\n"
+
+    if audio_context:
+        base_prompt += f"\n{audio_context}\n"
 
     base_prompt += "\nReturn ONLY raw TSX code. No markdown fences. Component must be named GeneratedScene with export default."
 

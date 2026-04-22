@@ -46,3 +46,13 @@ class ImageValidationError(ManimGenError):
     """
 
     pass
+
+
+class AudioValidationError(ManimGenError):
+    """Raised when audio validation fails.
+
+    Covers bad file paths, unsupported formats, oversized files, symlink
+    rejection, and copy failures.
+    """
+
+    pass

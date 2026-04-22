@@ -59,10 +59,24 @@ User Prompt
 
 ## Module Breakdown
 
+## Module Breakdown
+
 ### cli.py — Entry Point
 
 - **`generate_video()`** — Programmatic entry point. Accepts prompt, output path, quality, duration, provider, model, debug, image options, and optional pre-built component code. Orchestrates the full pipeline: image handling → LLM generation → component writing → rendering.
 - **`main()`** — CLI entry point registered as `remotion-gen` console script. Parses `argparse` arguments and calls `generate_video()`. Handles `--demo` mode (bypasses LLM with pre-built template).
+
+### audio_handler.py — Audio Pipeline
+
+- **`validate_audio_path()`** — Checks symlinks, existence, format (`.wav`, `.mp3`, `.ogg`), size (≤100MB). Policy modes: `strict`, `warn`, `ignore`.
+- **`copy_audio_to_public()`** — Copies audio to `remotion-project/public/` with UUID-based safe filename.
+- **`generate_audio_context()`** — Builds LLM prompt context explaining `<Audio>` component usage for narration, music, and sound effects.
+
+### tts_providers.py — Text-to-Speech
+
+- **`EdgeTTSProvider.generate()`** — Generates speech from text using edge-tts (free, no API key). Outputs MP3 natively.
+- **`get_tts_provider()`** — Factory returning TTS provider by name. Phase 0 supports `edge-tts` only.
+- **`generate_narration()`** — High-level API: text → MP3 file path. Uses default voice if not specified.
 
 ### llm_client.py — LLM Integration
 

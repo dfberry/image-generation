@@ -41,3 +41,21 @@ class ImageValidationError(RemotionGenError):
     symlink rejection.
     """
     pass
+
+
+class AudioValidationError(RemotionGenError):
+    """Raised when audio input validation fails.
+
+    Covers bad file paths, unsupported formats, oversized files,
+    excessive duration, and symlink rejection.
+    """
+    pass
+
+
+class TTSError(RemotionGenError):
+    """Raised when text-to-speech generation fails.
+
+    Covers TTS provider errors, network failures, invalid voices,
+    missing API keys, and output file creation failures.
+    """
+    pass

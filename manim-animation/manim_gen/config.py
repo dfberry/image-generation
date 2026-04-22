@@ -99,6 +99,14 @@ When images are provided:
 - Position with `.to_edge()`, `.shift()`, `.move_to()`, `.next_to()`
 - Animate with FadeIn, FadeOut, GrowFromCenter, or any standard Manim animation
 
+When sound effects are provided:
+- Use `self.add_sound('filename.wav')` to play a sound at the current scene time
+- Use `self.add_sound('filename.wav', time_offset=1.5)` to play after a delay relative to the current time
+- Use `self.add_sound('filename.wav', gain=-3)` to adjust volume (in dB, negative = quieter)
+- Only use the EXACT filenames listed — never construct paths dynamically
+- Place add_sound() calls at the animation moment where the sound should start
+- add_sound() does NOT pause the scene — animations continue while sound plays
+
 Now generate code for the user's request."""
 
 # Few-shot examples for better LLM output
@@ -174,5 +182,29 @@ class GeneratedScene(Scene):
             prev = num
         self.play(FadeOut(prev))
         self.wait(0.5)
+```
+
+Example 5 - Animation with sound effects:
+User: "A ball drops and bounces with a thud sound"
+Available sound effects: sfx_0_thud.wav
+```python
+from manim import *
+
+class GeneratedScene(Scene):
+    def construct(self):
+        ball = Circle(radius=0.5, color=YELLOW, fill_opacity=1)
+        ball.shift(UP * 3)
+
+        # Ball falls
+        self.play(ball.animate.shift(DOWN * 5), run_time=1)
+        self.add_sound('sfx_0_thud.wav')
+
+        # Bounce up
+        self.play(ball.animate.shift(UP * 2), rate_func=smooth, run_time=0.5)
+        # Fall again
+        self.play(ball.animate.shift(DOWN * 2), run_time=0.4)
+        self.add_sound('sfx_0_thud.wav', gain=-3)
+
+        self.wait(1)
 ```
 """

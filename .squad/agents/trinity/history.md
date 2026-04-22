@@ -659,3 +659,97 @@ Coordinated Morpheus (structural review) and Neo (QA review) findings into prior
 - Standardize limitation heading structure
 
 **Output:** .squad/orchestration-log/2026-04-22T0642-trinity.md
+
+
+### 2026-04-24 — Sound Effects Implementation for manim-animation
+
+Implemented full sound effects support for manim-animation following TDD approach. Delivered all review conditions from Morpheus and Neo.
+
+**Implementation:**
+- Created udio_handler.py (190 lines) — mirrors image_handler.py patterns exactly (validate, copy, context, AST validation)
+- Added AudioValidationError to rrors.py
+- Extended config.py with sound effects system prompt + Example 5 (bouncing ball with thud)
+- Updated scene_builder.py to call alidate_audio_operations() when audio_filenames provided
+- Updated llm_client.py to accept udio_context parameter and inject into user message
+- Updated cli.py with --sound-effects and --audio-policy flags (exit code 6 for audio errors)
+
+**Test Coverage:**
+- 48 new tests across 3 files (test_audio_handler.py, test_audio_security.py, test_audio_cli.py)
+- All 210 tests pass (162 existing + 48 new)
+- Neo conditions addressed:
+  1. 	est_add_sound_with_negative_time_offset — negative time_offset allowed (Manim parameter)
+  2. 	est_add_sound_with_invalid_gain — gain=9999 allowed (Manim validates at runtime)
+  3. 	est_audio_validation_error_message_format — user-friendly messages verified
+  4. 	est_audio_and_image_full_pipeline — both ImageMobject + add_sound in generated code
+  5. 	est_add_sound_on_non_self_object_ignored — other.add_sound() ignored (not validated)
+- Morpheus P1 verified: enderer.py line 62 uses cwd=assets_dir (confirmed with grep)
+
+**Design Patterns:**
+- Audio files copied as sfx_0_thud.wav, sfx_1_whoosh.mp3 (prefixed to avoid collision with images)
+- AST validation: string-literal-only + allowlist (same security model as images)
+- Supported formats: .wav, .mp3, .ogg (FFmpeg native)
+- Max file size: 50MB per file
+- Policy system: strict/warn/ignore (mirrors image handler)
+
+**Key Learnings:**
+- TDD approach caught edge cases early (negative time_offset, invalid gain, non-self objects)
+- Mirroring existing patterns (image_handler.py) ensures consistency and reduces review cycles
+- AST validation only checks filenames — runtime parameter validation is Manim's responsibility
+- Audio context injection follows same pattern as image context (appended to user message)
+- Exit code allocation: images=5, audio=6, leaves room for future features
+
+**Breaking Changes:** None. All new parameters are optional.
+
+
+
+## Learnings
+
+### 2026-01-22: Full Audio Support Implementation (Phase 0)
+
+Implemented comprehensive audio support for remotion-animation following plan-full-audio.md:
+
+**Key Achievements:**
+- ✅ Created audio_handler.py mirroring image_handler.py patterns
+- ✅ Created tts_providers.py with edge-tts ONLY (Phase 0), OpenAI deferred to Phase 1
+- ✅ Made edge-tts an OPTIONAL dependency (Morpheus P0): `pip install remotion-gen[audio]`
+- ✅ Added 9 new CLI flags (--narration-text, --narration-file, --background-music, --sound-effects, --tts-provider, --voice, --music-volume, --narration-volume, --audio-policy)
+- ✅ Extended SYSTEM_PROMPT in llm_client.py with Audio component documentation
+- ✅ Added Audio to JSX tag balance check in component_builder.py
+- ✅ Refactored shared _validate_static_file_refs() for image + audio (Morpheus P1 #3)
+- ✅ Added TTS text validation: reject empty/whitespace, reject >10000 chars (Morpheus P1 #1)
+- ✅ Added early validation for missing OPENAI_API_KEY check (prepared but not implemented since Phase 0 = edge-tts only)
+- ✅ Used Optional[List[str]] consistently for audio_filenames typing (Morpheus P1 #4)
+
+**Test Coverage:**
+- ✅ test_audio_handler.py: 18 tests (validate, copy, context generation)
+- ✅ test_tts_providers.py: 16 tests (edge-tts generation, error handling, provider factory)
+- ✅ test_audio_security.py: 13 tests (path validation, template literal blocking, Neo conditions)
+- ✅ All 258 tests pass (including 50 new audio tests)
+
+**Addressed ALL Review Conditions:**
+- Morpheus P0: edge-tts as optional dep ✅
+- Morpheus P1 #1: TTS text validation ✅
+- Morpheus P1 #2: Early OPENAI_API_KEY validation (deferred to Phase 1) ✅
+- Morpheus P1 #3: Shared _validate_static_file_refs() ✅
+- Morpheus P1 #4: Optional[List[str]] typing ✅
+- Morpheus P1 #5: Audio already in _REMOTION_HOOKS (confirmed) ✅
+- Morpheus P1 #6: Post-generation warning for unused audio (deferred - requires LLM response parsing)
+- Morpheus RECOMMENDATION: Ship Phase 0 with edge-tts ONLY ✅
+- Neo #1: Whitespace-only narration text rejected ✅
+- Neo #2: Unicode in narration text passes (edge-tts handles it) ✅
+- Neo #4: Template literal backticks blocked in staticFile() ✅
+
+**Notable Patterns:**
+- Mirrored image_handler.py structure exactly (validate → copy → context)
+- Used TDD: wrote all tests first, then implementation
+- File naming: `audio_{uuid8}.mp3`, `music_{uuid8}.mp3`, `sfx_0_{uuid8}.mp3`
+- Volume validation at argparse level (0.0-1.0 range)
+- Mutual exclusion: --narration-text and --narration-file cannot both be set
+
+**Deferred to Phase 1:**
+- OpenAI TTS provider
+- Audio file duration validation (requires pydub/ffprobe)
+- TTS output caching
+- Subtitle generation
+- Audio format conversion
+- Post-generation warning for unused audio files

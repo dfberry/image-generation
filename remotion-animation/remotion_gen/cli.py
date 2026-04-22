@@ -7,21 +7,31 @@ from pathlib import Path
 from remotion_gen.component_builder import write_component
 from remotion_gen.config import (
     DEFAULT_DURATION_SECONDS,
+    DEFAULT_MUSIC_VOLUME,
+    DEFAULT_NARRATION_VOLUME,
     DEFAULT_PROVIDER,
+    DEFAULT_TTS_PROVIDER,
     MAX_DURATION_SECONDS,
     MIN_DURATION_SECONDS,
     QUALITY_PRESETS,
 )
 from remotion_gen.errors import (
+    AudioValidationError,
     ImageValidationError,
     LLMError,
     RemotionGenError,
     RenderError,
+    TTSError,
     ValidationError,
+)
+from remotion_gen.audio_handler import (
+    copy_audio_to_public,
+    generate_audio_context,
 )
 from remotion_gen.image_handler import copy_image_to_public, generate_image_context
 from remotion_gen.llm_client import generate_component
 from remotion_gen.renderer import render_video
+from remotion_gen.tts_providers import generate_narration
 
 
 def generate_video(
@@ -36,6 +46,15 @@ def generate_video(
     image_description: str = None,
     image_policy: str = "strict",
     component_code: str = None,
+    narration_text: str = None,
+    narration_file: str = None,
+    background_music: str = None,
+    sound_effects: list[str] = None,
+    tts_provider: str = DEFAULT_TTS_PROVIDER,
+    voice: str = None,
+    music_volume: float = DEFAULT_MUSIC_VOLUME,
+    narration_volume: float = DEFAULT_NARRATION_VOLUME,
+    audio_policy: str = "strict",
 ) -> Path:
     """Generate video from prompt.
 
@@ -51,6 +70,15 @@ def generate_video(
         image_description: Optional description of the image for LLM context
         image_policy: Image validation policy ("strict", "warn", "ignore")
         component_code: Pre-built TSX code (skips LLM generation when set)
+        narration_text: Inline text for TTS narration
+        narration_file: Text file containing narration
+        background_music: MP3/WAV file for background music
+        sound_effects: One or more SFX audio files
+        tts_provider: TTS engine ("edge-tts" or "openai")
+        voice: Voice name (e.g. "en-US-GuyNeural", "alloy")
+        music_volume: Background music volume 0.0–1.0
+        narration_volume: Narration volume 0.0–1.0
+        audio_policy: Audio file validation policy ("strict", "warn", "ignore")
 
     Returns:
         Path to generated video
@@ -93,6 +121,79 @@ def generate_video(
                 print(f"✗ Image validation failed: {e}", file=sys.stderr)
                 raise
 
+        # Step 0b: Handle audio input
+        audio_context = None
+        audio_filenames = []
+        audio_files = {}
+
+        # Handle narration (TTS or file)
+        if narration_text or narration_file:
+            print("→ Processing narration...")
+            try:
+                # Get narration text from file if needed
+                if narration_file:
+                    narration_path = Path(narration_file)
+                    if not narration_path.exists():
+                        raise AudioValidationError(
+                            f"Narration file not found: {narration_file}"
+                        )
+                    narration_text = narration_path.read_text(encoding="utf-8")
+
+                # Validate narration text (Morpheus P1 condition #1)
+                if not narration_text or not narration_text.strip():
+                    raise TTSError("Narration text cannot be empty or whitespace-only")
+
+                # Generate TTS audio
+                print(f"  Generating TTS with {tts_provider}...")
+                narration_mp3 = generate_narration(
+                    narration_text,
+                    provider_name=tts_provider,
+                    voice=voice,
+                    output_dir=project_root / "public",
+                )
+                narration_filename = narration_mp3.name
+                audio_files["narration"] = narration_filename
+                audio_filenames.append(narration_filename)
+                print(f"  Narration generated: {narration_filename}")
+            except (AudioValidationError, TTSError) as e:
+                print(f"✗ Narration processing failed: {e}", file=sys.stderr)
+                raise
+
+        # Handle background music
+        if background_music:
+            print(f"→ Processing background music: {background_music}")
+            try:
+                music_filename = copy_audio_to_public(
+                    background_music, project_root, audio_policy, prefix="music"
+                )
+                audio_files["music"] = music_filename
+                audio_filenames.append(music_filename)
+                print(f"  Music copied as: {music_filename}")
+            except AudioValidationError as e:
+                print(f"✗ Music validation failed: {e}", file=sys.stderr)
+                raise
+
+        # Handle sound effects
+        if sound_effects:
+            print(f"→ Processing {len(sound_effects)} sound effect(s)...")
+            try:
+                for i, sfx_path in enumerate(sound_effects):
+                    sfx_filename = copy_audio_to_public(
+                        sfx_path, project_root, audio_policy, prefix=f"sfx_{i}"
+                    )
+                    audio_files[f"sfx_{i}"] = sfx_filename
+                    audio_filenames.append(sfx_filename)
+                    print(f"  SFX {i} copied as: {sfx_filename}")
+            except AudioValidationError as e:
+                print(f"✗ SFX validation failed: {e}", file=sys.stderr)
+                raise
+
+        # Generate audio context for LLM
+        if audio_files:
+            audio_context = generate_audio_context(
+                audio_files, music_volume, narration_volume
+            )
+
         # Step 1: Generate component with LLM
         print(f"→ Calling {provider} LLM to generate component...")
         try:
@@ -103,6 +204,7 @@ def generate_video(
                 provider=provider,
                 model=model,
                 image_context=image_context,
+                audio_context=audio_context,
             )
         except LLMError as e:
             print(f"✗ LLM generation failed: {e}", file=sys.stderr)
@@ -111,6 +213,7 @@ def generate_video(
         image_filename_for_write = image_filename
     else:
         image_filename_for_write = None
+        audio_filenames = []
 
     # Step 2: Write component to project
     print("→ Writing component to Remotion project...")
@@ -120,6 +223,7 @@ def generate_video(
             project_root,
             debug,
             image_filename=image_filename_for_write,
+            audio_filenames=audio_filenames if audio_filenames else None,
         )
         if debug:
             debug_path = repo_root / "outputs" / "GeneratedScene.debug.tsx"
@@ -241,7 +345,79 @@ Environment variables:
         help="Image validation policy (default: strict)",
     )
 
+    # Audio flags
+    parser.add_argument(
+        "--narration-text",
+        type=str,
+        help="Inline text for TTS narration",
+    )
+
+    parser.add_argument(
+        "--narration-file",
+        type=str,
+        help="Text file containing narration",
+    )
+
+    parser.add_argument(
+        "--background-music",
+        type=str,
+        help="MP3/WAV file for background music",
+    )
+
+    parser.add_argument(
+        "--sound-effects",
+        type=str,
+        nargs="+",
+        help="One or more SFX audio files",
+    )
+
+    parser.add_argument(
+        "--tts-provider",
+        type=str,
+        choices=["edge-tts", "openai"],
+        default=DEFAULT_TTS_PROVIDER,
+        help=f"TTS engine (default: {DEFAULT_TTS_PROVIDER})",
+    )
+
+    parser.add_argument(
+        "--voice",
+        type=str,
+        help="Voice name (e.g. 'en-US-GuyNeural', 'alloy')",
+    )
+
+    parser.add_argument(
+        "--music-volume",
+        type=float,
+        default=DEFAULT_MUSIC_VOLUME,
+        help=f"Background music volume 0.0-1.0 (default: {DEFAULT_MUSIC_VOLUME})",
+    )
+
+    parser.add_argument(
+        "--narration-volume",
+        type=float,
+        default=DEFAULT_NARRATION_VOLUME,
+        help=f"Narration volume 0.0-1.0 (default: {DEFAULT_NARRATION_VOLUME})",
+    )
+
+    parser.add_argument(
+        "--audio-policy",
+        type=str,
+        choices=["strict", "warn", "ignore"],
+        default="strict",
+        help="Audio file validation policy (default: strict)",
+    )
+
     args = parser.parse_args()
+
+    # Mutual exclusion: narration-text and narration-file
+    if args.narration_text and args.narration_file:
+        parser.error("--narration-text and --narration-file cannot both be set")
+
+    # Volume range validation
+    if not (0.0 <= args.music_volume <= 1.0):
+        parser.error("--music-volume must be between 0.0 and 1.0")
+    if not (0.0 <= args.narration_volume <= 1.0):
+        parser.error("--narration-volume must be between 0.0 and 1.0")
 
     # Validate duration
     if args.duration < MIN_DURATION_SECONDS or args.duration > MAX_DURATION_SECONDS:
@@ -292,6 +468,15 @@ Environment variables:
             image_path=args.image,
             image_description=args.image_description,
             image_policy=args.image_policy,
+            narration_text=args.narration_text,
+            narration_file=args.narration_file,
+            background_music=args.background_music,
+            sound_effects=args.sound_effects,
+            tts_provider=args.tts_provider,
+            voice=args.voice,
+            music_volume=args.music_volume,
+            narration_volume=args.narration_volume,
+            audio_policy=args.audio_policy,
         )
         return 0
     except RemotionGenError as e:
