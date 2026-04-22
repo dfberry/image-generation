@@ -784,3 +784,11 @@ Implemented comprehensive audio support for remotion-animation following plan-fu
 - **Second issue: LLM omitted "Dina Berry" entirely.** The generated component only showed date/time text, missing the name that was the primary visual request.
 - **Fix:** Replaced the LLM-generated component with a demo-template-style component using `background` (not `backgroundColor`) for the gradient, explicit white text color, spring-animated "Dina Berry" title, date/time subtitle, and the existing `<Audio>` tag referencing `narration.mp3`.
 - **Lesson: LLM-generated CSS for Remotion is fragile.** `background` vs `backgroundColor` is a common LLM mistake. The component_builder validator should consider checking for `backgroundColor` with gradient values as a known bad pattern.
+
+### 2026-04-22 — Manim Theorem Video with Text Annotations
+
+- **Direct scene rendering bypasses LLM pipeline:** For custom, hand-crafted scenes, render directly with `manim render <scene>.py GeneratedScene --format=mp4 -qm` from the outputs dir. No need to go through the LLM client when the scene code is known.
+- **Text() over MathTex for portability:** Used `Text()` with Unicode superscripts (a², b², c²) instead of `MathTex` to avoid LaTeX dependency issues. Works on any system with manim installed.
+- **Step-by-step annotation pattern:** FadeOut previous step text before FadeIn of next step. Keeps bottom-of-screen annotation area clean. Same pattern as the config's SYSTEM_PROMPT rule about not stacking text.
+- **Scene file:** `manim-animation/outputs/theorem_explained_scene.py` — annotated Pythagorean theorem with title, intro text, 5 step annotations, highlighted squares, final equation with box.
+- **Output:** `manim-animation/outputs/theorem_explained.mp4` — 720p30, ~0.9MB, ~22s duration.
