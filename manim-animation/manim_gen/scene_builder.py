@@ -198,13 +198,6 @@ _FILE_WRITE_CALLS = frozenset({
     "remove", "rmtree", "rename",
 })
 
-# Dangerous built-in calls blocked in image-enabled code (defense in depth —
-# validate_safety() also blocks these, but standalone callers of
-# validate_image_operations() need the same protection).
-_BLOCKED_BUILTINS = frozenset({
-    "exec", "eval", "open", "__import__",
-})
-
 
 def validate_image_operations(code: str, allowed_filenames: Set[str]) -> None:
     """Validate that generated code only uses images safely.
@@ -258,8 +251,10 @@ def validate_image_operations(code: str, allowed_filenames: Set[str]) -> None:
                     f"Allowed: {sorted(allowed_filenames)}"
                 )
 
-        # Block dangerous built-in calls (exec, eval, open, __import__)
-        if call_name in _BLOCKED_BUILTINS:
+        # Block dangerous built-in calls (reuses module-level FORBIDDEN_CALLS so
+        # standalone callers of validate_image_operations get the same protection
+        # as validate_safety).
+        if call_name in FORBIDDEN_CALLS:
             raise ValidationError(
                 f"Forbidden function call in image-enabled code: {call_name}"
             )

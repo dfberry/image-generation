@@ -45,12 +45,13 @@ class Config:
         if self.duration < 5 or self.duration > 30:
             raise ValueError("Duration must be between 5 and 30 seconds")
 
-# Allowed imports in generated code (security whitelist)
+# Allowed imports in generated code (security whitelist).
+# NOTE: AST validation checks module names (e.g. "numpy"), not aliases
+# (e.g. "np"), so only real module names belong here.
 ALLOWED_IMPORTS = {
     "manim",
     "math",
     "numpy",
-    "np",  # common alias for numpy
 }
 
 # System prompt for LLM

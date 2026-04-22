@@ -20,8 +20,8 @@ classifiers = [
     "Programming Language :: Python :: 3.12",
 ]
 dependencies = [
-    "manim>=0.18.0",
-    "openai>=1.0.0",
+    "manim>=0.18.0,<0.20.0",
+    "openai>=1.0.0,<2.0.0",
 ]
 
 [project.optional-dependencies]

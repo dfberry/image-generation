@@ -81,10 +81,11 @@ _FAKE_MP4 = (
 )
 
 @pytest.fixture
-def mock_subprocess_success():
+def mock_subprocess_success(monkeypatch):
     """Mock subprocess.run that simulates successful Manim render.
 
     Creates a fake MP4 file at the expected output path.
+    The mock is applied automatically via monkeypatch.
     """
     original_run = subprocess.run
 
@@ -111,11 +112,15 @@ def mock_subprocess_success():
 
         return original_run(cmd, **kwargs)
 
+    monkeypatch.setattr(subprocess, "run", _fake_run)
     return _fake_run
 
 @pytest.fixture
-def mock_subprocess_failure():
-    """Mock subprocess.run that simulates Manim render failure."""
+def mock_subprocess_failure(monkeypatch):
+    """Mock subprocess.run that simulates Manim render failure.
+
+    The mock is applied automatically via monkeypatch.
+    """
 
     def _fake_run(cmd, **kwargs):
         if isinstance(cmd, list) and len(cmd) >= 3 and cmd[0] == "manim":
@@ -127,15 +132,20 @@ def mock_subprocess_failure():
             )
         return subprocess.run(cmd, **kwargs)
 
+    monkeypatch.setattr(subprocess, "run", _fake_run)
     return _fake_run
 
 @pytest.fixture
-def mock_subprocess_manim_not_found():
-    """Mock subprocess.run that simulates Manim CLI not installed."""
+def mock_subprocess_manim_not_found(monkeypatch):
+    """Mock subprocess.run that simulates Manim CLI not installed.
+
+    The mock is applied automatically via monkeypatch.
+    """
 
     def _fake_run(cmd, **kwargs):
         if isinstance(cmd, list) and cmd[0] == "manim":
             raise FileNotFoundError("manim command not found")
         return subprocess.run(cmd, **kwargs)
 
+    monkeypatch.setattr(subprocess, "run", _fake_run)
     return _fake_run
