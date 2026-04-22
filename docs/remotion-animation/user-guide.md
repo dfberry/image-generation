@@ -50,13 +50,25 @@ remotion-gen --demo --output demo.mp4
 
 ## Audio Features
 
-The `--narration`, `--music`, `--sound-effects`, `--narration-volume`, `--music-volume`, `--tts-text`, and `--tts-provider` flags add audio support:
+The `--narration`, `--music`, `--sound-effects`, `--narration-volume`, `--music-volume`, `--tts-text`, `--tts-provider`, and `--voice` flags add audio support:
 
 ```bash
-# With narration (TTS-generated)
+# With narration (TTS-generated, default female voice)
 remotion-gen --prompt "Bouncing ball" \
   --tts-text "Watch the ball bounce" \
   --narration-volume 0.8 \
+  --output ball.mp4
+
+# With a specific voice
+remotion-gen --prompt "Bouncing ball" \
+  --tts-text "Watch the ball bounce" \
+  --voice en-US-AriaNeural \
+  --output ball.mp4
+
+# With a male voice
+remotion-gen --prompt "Bouncing ball" \
+  --tts-text "Watch the ball bounce" \
+  --voice en-US-GuyNeural \
   --output ball.mp4
 
 # With background music
@@ -81,6 +93,7 @@ remotion-gen --prompt "Bouncing ball" \
 |------|---------|-------------|
 | `--tts-text` | None | Text to generate as narration (uses TTS) |
 | `--tts-provider` | `edge-tts` | TTS provider: `edge-tts` only (Phase 0) |
+| `--voice` | `en-US-JennyNeural` | TTS voice name (e.g., `en-US-AriaNeural`, `en-US-GuyNeural`). Run `edge-tts --list-voices` for all options |
 | `--narration` | None | Path to pre-recorded narration audio |
 | `--narration-volume` | `0.8` | Narration volume (0.0–1.0) |
 | `--music` | None | Path to background music file |
