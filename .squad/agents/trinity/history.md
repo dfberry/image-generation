@@ -498,3 +498,13 @@ Branch pushed to squad/89-remotion-image-support, ready for Neo's re-validation.
 - **Issue #93 (PR #98):** Root.tsx hardcoded `durationInFrames={150}`. Now uses `getInputProps()` from Remotion with nullish coalescing defaults. renderer.py passes all four composition values (durationInFrames, fps, width, height) as structured JSON via `--props` using `json.dumps()`. 2 new tests.
 - **Lesson:** When subprocess runs with a different CWD, always trace where output files land relative to that CWD, not relative to input file paths.
 - **Lesson:** Use `json.dumps()` for CLI JSON args instead of manual string concatenation — avoids quoting issues and makes the structure explicit.
+
+### 2026-07-22 — Manim Code Quality Fixes (S2, S3, S7, S8, S9)
+
+Addressed 5 code quality issues from Morpheus's review. All 149 tests pass, ruff clean.
+
+- **S2 (scene_builder.py):** Removed `_BLOCKED_BUILTINS` — it was a strict subset of `FORBIDDEN_CALLS`. `validate_image_operations()` now references `FORBIDDEN_CALLS` directly. Single source of truth for dangerous built-in names.
+- **S3 (config.py):** Removed dead `"np"` from `ALLOWED_IMPORTS`. AST validation checks `ast.Import.names[].name` which is the module name (`numpy`), never the alias (`np`). The entry did nothing.
+- **S7 (pyproject.toml):** Added upper bounds `manim<0.20.0` and `openai<2.0.0` to prevent silent breakage from major version bumps.
+- **S8 (test_cli.py):** Added `capsys` assertions to all three error-path tests — now verify stderr contains the error class label and the original message text, not just exit codes.
+- **S9 (conftest.py):** Changed subprocess fixtures to accept `monkeypatch` and call `monkeypatch.setattr(subprocess, "run", _fake_run)` inside the fixture. Previously they returned bare functions that no test ever applied.
