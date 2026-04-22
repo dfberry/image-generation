@@ -135,6 +135,18 @@ class TestValidateImagePaths:
         with pytest.raises(ValidationError, match="file://"):
             validate_image_paths(code, "image_abc12345.png")
 
+    def test_blocks_encoded_file_url(self):
+        """URL-encoded file:// (file%3A%2F%2F) must be rejected."""
+        code = 'const src = "file%3A%2F%2F/etc/passwd";'
+        with pytest.raises(ValidationError, match="[Ee]ncoded.*file://|file://"):
+            validate_image_paths(code, "image_abc12345.png")
+
+    def test_blocks_data_uri(self):
+        """data: URIs must be rejected."""
+        code = 'const src = "data:image/png;base64,iVBORw0KGgo=";'
+        with pytest.raises(ValidationError, match="data:.*URI|data:"):
+            validate_image_paths(code, "image_abc12345.png")
+
     def test_blocks_double_dot_in_string(self):
         """Even ../ embedded in a string literal should be caught."""
         code = "const path = '../../../passwords.txt';"
@@ -145,6 +157,12 @@ class TestValidateImagePaths:
         r"""..\ (backslash) path traversal must be rejected."""
         code = r"const path = '..\..\secret.txt';"
         with pytest.raises(ValidationError, match="Path traversal"):
+            validate_image_paths(code, "image_abc12345.png")
+
+    def test_blocks_url_encoded_path_traversal(self):
+        """URL-encoded ../ (%2E%2E%2F) path traversal must be rejected."""
+        code = "const path = '%2E%2E%2Fetc%2Fpasswd';"
+        with pytest.raises(ValidationError, match="[Pp]ath traversal|[Ee]ncoded"):
             validate_image_paths(code, "image_abc12345.png")
 
     def test_blocks_dynamic_static_file_template_literal(self):

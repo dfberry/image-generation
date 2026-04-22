@@ -341,9 +341,17 @@ class TestEnsureRemotionImports:
             "}\n"
         )
         result = inject_image_imports(code, "photo.png")
-        # Count occurrences — should not duplicate
-        assert result.count("Img") <= 3  # in import + possibly usage
-        assert result.count("staticFile") <= 3
+        # Count occurrences — imports should not be duplicated
+        import_lines = [
+            line for line in result.split("\n")
+            if line.strip().startswith("import") and "Img" in line
+        ]
+        assert len(import_lines) == 1, f"Expected 1 Img import line, got {len(import_lines)}"
+        sf_import_lines = [
+            line for line in result.split("\n")
+            if line.strip().startswith("import") and "staticFile" in line
+        ]
+        assert len(sf_import_lines) == 1, f"Expected 1 staticFile import line, got {len(sf_import_lines)}"
 
     def test_inject_adds_image_const(self):
         """inject_image_imports should add imageSrc constant."""
