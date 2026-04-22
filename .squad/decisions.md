@@ -2,6 +2,36 @@
 
 ## Active Decisions
 
+### Documentation: Comprehensive Package Documentation (2026-04-22)
+**By:** Trinity (Backend Dev)  
+**Status:** Implemented
+
+Created 5-file documentation suites for all 4 packages:
+- **image-generation:** architecture, development, testing, installation, user-guide
+- **manim-animation:** architecture, development, testing, installation, user-guide
+- **mermaid-diagrams:** architecture, development, testing, installation, user-guide
+- **remotion-animation:** architecture, development, testing, installation, user-guide
+
+All docs sourced from actual codebase, cross-referenced against existing README/design docs to avoid contradictions. Follows established convention: docs live in central `docs/{package-name}/` with consistent 5-file structure.
+
+**Impact:** All team members can onboard to packages without reading source. New contributors have clear extension guides and mock patterns.
+
+---
+
+### Test Coverage: All Skipped CLI/Integration Tests Activated (2026-04-22)
+**By:** Neo (Tester)  
+**Status:** Implemented
+
+Rewrote and activated 17 previously-skipped tests in `remotion-animation/tests/test_cli.py` (11 tests) and `tests/test_integration.py` (6 tests). Replaced stale `openai.ChatCompletion.create` mock pattern with module-boundary mocking. Removed all `pytest.skip()` calls from both files. Renamed `test_missing_output_uses_default` → `test_missing_output_causes_argparse_error` to match actual CLI behavior.
+
+**Convention:** All remotion-animation tests mock at the import site (`remotion_gen.cli.<fn>`), never at the OpenAI SDK level. Insulates tests from SDK version changes.
+
+**Result:** 208 passed, 1 skipped (Windows symlink privilege — unrelated). Zero skips remain in test_cli.py and test_integration.py.
+
+---
+
+## Archived Decisions
+
 ### Code Review: Animation Projects — Priority Fixes (2026-07-27)
 **By:** Morpheus (Lead)  
 **Status:** Action required

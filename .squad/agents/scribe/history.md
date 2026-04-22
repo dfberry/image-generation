@@ -76,6 +76,26 @@ Scribe's role is not to synthesize findings (agents already did) but to organize
 **No source code modified.** Only `.squad/` state files updated.
 
 
+### 2026-04-21 — Morpheus Review: Remaining 26 Fixes Complete
+
+**Task:** Log completion of all remaining Morpheus code review findings. Previously 12 of 38 were fixed; this session resolved the final 26.
+
+**Execution:**
+1. **now.md updated:** Changed focus from image-support delivery to review-complete status. Branch `fix/morpheus-review-issues` ready for PR.
+2. **Session log created:** `.squad/log/2026-04-21T19-01-38Z-morpheus-review-remaining-fixes.md` — full breakdown of Trinity's 27 fixes (R4, R5, S4, S6, S10–S15, S19, S20, N1–N13) and Neo's 17 test activations.
+3. **history.md updated:** This entry.
+
+**Agents involved:**
+- **Trinity (trinity-remaining-fixes):** 7 commits fixing 2 red items (R4 post-injection validation, R5 React.FC removal), 10 yellow items (S4, S6, S10–S15, S19, S20), and all 13 green items (N1–N13).
+- **Neo (neo-skipped-tests):** Activated 17 previously-skipped remotion tests by rewriting stale OpenAI SDK mocks to mock at module boundary.
+
+**Test results:** Manim 162 passed (1.98s), Remotion 208 passed + 1 skipped (3.19s).
+
+**Key outcome:** All 38 Morpheus review findings are now resolved. Branch `fix/morpheus-review-issues` is ready for PR.
+
+**No source code modified.** Only `.squad/` state files updated.
+
+
 ### 2026-03-24 — Orchestration of Full-Team Memory Audit
 
 **Task:** Merge three independent agent audits (Morpheus architecture, Trinity code-level, Neo test-gap) into team memory, decisions, and orchestration logs. Delete inbox, append agent histories, commit.

@@ -588,3 +588,51 @@ Fixed 7 issues flagged by Morpheus's code review:
 - trinity-llm-exception-tags.md (shared with manim)
 
 **Next:** Team PR review on branch fix/morpheus-review-issues
+
+---
+
+## Learnings
+
+### 2026-04-22 — mermaid-diagrams comprehensive documentation
+
+Created 5 documentation files in `docs/mermaid-diagrams/` by reading all source files:
+
+- **architecture.md** — Full pipeline flow (input → validator → generator → mmdc subprocess → output), module breakdown for all 7 modules, exception hierarchy, subprocess isolation design. Documented that MmcdNotFoundError is raised only from `_run_mmdc` catching FileNotFoundError — not at init time.
+- **development.md** — Repo structure, coding conventions (underscores not hyphens for template names, `str | None` syntax), how to add templates (extend ABC + register in registry), how to add output formats (just add to SUPPORTED_FORMATS), Makefile targets, dependency management.
+- **testing.md** — Test architecture, mock_mmdc fixture internals (intercepts subprocess.run, writes fake PNG/SVG bytes), how tests run without real mmdc, error simulation patterns, how to add new tests.
+- **installation.md** — System requirements (Python 3.10+, Node.js), mmdc install via npm, pip install -e ., Makefile shortcut, verification commands, troubleshooting.
+- **user-guide.md** — CLI usage (all flags and modes), Python API (MermaidGenerator, MermaidValidator, default_registry), all 4 built-in templates with parameter docs and examples, output formats, error handling.
+
+Key facts documented: zero runtime Python dependencies, 19 recognized diagram types in validator, 30s subprocess timeout, comma-separated --param values auto-split into lists.
+
+### 2025-07-24 — Comprehensive manim-animation documentation
+
+Created 5 documentation files in `docs/manim-animation/`:
+- **architecture.md** — Full pipeline diagram (prompt → LLM → scene code → AST validation → Manim render → MP4), all 7 modules documented, security model (import whitelist, forbidden calls, subprocess isolation, workspace isolation), quality presets table.
+- **development.md** — Repo structure, pyproject.toml config, ruff rules (E/F/I/N/W with E501 ignored), how to add LLM providers, extend validation, add quality presets, few-shot prompt system internals, dependency management.
+- **testing.md** — 162+ tests across 9 files, all mock patterns (LLM via MagicMock, subprocess via monkeypatch, CLI args via sys.argv patch, env vars via patch.dict), conftest fixtures, how to add tests, image test patterns.
+- **installation.md** — System reqs (Python 3.10+, FFmpeg, Ollama; NO Node.js), platform-specific FFmpeg/Ollama install, pip install -e ., OpenAI/Azure optional setup, LaTeX optional for MathTex, troubleshooting.
+- **user-guide.md** — Full CLI reference, quality presets, duration 5-30s, example prompts by category, debug mode, image support (formats, policies, size limit), LLM provider switching, exit codes, troubleshooting, Phase 0 limitations.
+
+Key facts documented: 3 LLM providers via OpenAI-compatible SDK, lazy client init pattern, 162 tests all offline, AST-based security with FORBIDDEN_CALLS/FORBIDDEN_NAMES/ALLOWED_IMPORTS frozensets, image pipeline with validation policies (strict/warn/ignore), 100MB image size limit, deterministic workspace naming.
+### 2026-04-22 — remotion-animation documentation (5 docs)
+
+Created comprehensive documentation suite for the remotion-animation package in `docs/remotion-animation/`:
+
+- **architecture.md** — Full hybrid Python+Node.js pipeline diagram, module breakdown for all 8 modules (cli.py, llm_client.py, component_builder.py, renderer.py, config.py, errors.py, image_handler.py, demo_template.py), Remotion project structure (Root.tsx composition registry, GeneratedScene.tsx runtime slot, templates/), image handling pipeline, security model (5-layer TSX validation: dangerous imports, image path security, structural validation, bracket matching, import injection verification).
+- **development.md** — Dual-stack repo structure, ruff lint rules (E/F/I/N/W), how to add LLM providers (5 steps), how to add templates, component injection mechanism (GeneratedScene.tsx overwrite + Root.tsx composition), how to extend TSX validation (dangerous imports, symbol auto-imports, JSX tag checks), branch naming, dependency management (pinned React 18.2.0, TypeScript 5.5.4, Remotion 4.0.450).
+- **testing.md** — Test architecture (209+ tests, 11 files), mock patterns (module-boundary mocks for OpenAI SDK, mock subprocess for renderer, monkeypatch for CLI integration), all test categories documented, conftest.py fixtures, 1 expected Windows skip (symlink privilege), how to add new tests.
+- **installation.md** — System requirements (Python 3.10+ AND Node.js 18+), step-by-step for both stacks, all 3 LLM provider setups (Ollama/OpenAI/Azure), verification commands including `--demo` smoke test, platform notes (Windows PowerShell backtick issue with TSX templates).
+- **user-guide.md** — All CLI flags (12 documented), quality presets table, demo mode, example prompts, debug mode (GeneratedScene.debug.tsx), LLM provider switching, image input, environment variables, troubleshooting guide.
+
+### Documentation — image-generation package comprehensive docs
+
+## Learnings
+
+- Created 5 documentation files in `docs/image-generation/`: architecture.md, development.md, testing.md, installation.md, user-guide.md.
+- **architecture.md** — Full pipeline flow diagram (text-based), module breakdown of generate.py (entry points, core pipeline, internal helpers, model loading, utilities), lazy import system (_ensure_heavy_imports + __getattr__), device detection chain, memory management at 3 levels (pre-flight, mid-refine, post-generation), batch processing flow, torch.compile optimization, scheduler system (10 schedulers), base+refiner 80/20 split.
+- **development.md** — Repo structure, ruff linting (E/F/W/I rules, E501 ignored), how to add CLI flags (4-step process: parse_args → generate → batch → conftest), scheduler/LoRA internals, pipeline modification guide, branch naming (squad/{issue}-{slug}), PR workflow (TDD), dependency management (requirements.txt vs .lock vs -dev.txt), Makefile targets, CI workflow details.
+- **testing.md** — 170+ tests across 15 files, MockPipeline/MockImage patterns, critical spec pattern (MagicMock(spec=MockPipeline()) — instance not class), _patch_heavy context manager for lazy import testing (injects via __dict__ not @patch), batch test patching (must target generate_with_retry not generate), conftest fixtures, CI workflow with working-directory and CPU-only torch.
+- **installation.md** — System reqs (Python 3.10+, ~7GB disk), GPU matrix (CUDA/MPS/CPU with perf numbers), step-by-step venv setup, dependency tables, CUDA-specific torch install, verification steps, environment variables, model download sizes, offline usage, troubleshooting.
+- **user-guide.md** — What the tool does, quick start, all 16 CLI flags with types/defaults, quality presets table, generation time expectations, batch JSON format, shell script batch, prompt writing rules (5 rules: style anchor, ≥3 colors, no text, distant silhouette, light sources), scheduler reference, output format, negative prompt, 8 troubleshooting entries.
+- Key patterns captured: lazy import testing requires __dict__ injection (not @patch), batch tests must patch generate_with_retry (not generate), MagicMock spec requires instance not class, ruff ignores E501 but enforces 120-char via formatter.

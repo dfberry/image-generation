@@ -1,46 +1,35 @@
 # Now — Current Focus
 
-## Active Session: 2026-04-21 — Image/Screenshot Input Support
+## Active Session: 2026-04-21 — Morpheus Code Review Fully Resolved
 
 **Dina Berry**
 
 ### What We're Doing
 
-Implementing image/screenshot input support for both animation packages:
-- **Manim**: `squad/88-manim-image-support` (PR #88) — Trinity ✅ | Neo (67 tests) ✅
-- **Remotion**: `squad/89-remotion-image-support` (PR #89) — Trinity ✅ | Neo (64 tests) ✅
+All 38 findings from Morpheus's code review are resolved. Branch `fix/morpheus-review-issues` is ready for PR.
 
-### Key Decisions Logged
+### This Session
 
-1. **Manim Architecture** — `image_handler.py` module, workspace isolation, AST-based security
-2. **Remotion Architecture** — `image_handler.py` module, UUID-based filenames, `staticFile()` validation
-3. **Consistent Security Model** — Both packages validate, isolate, and enforce literal-only policies
+- **Trinity (trinity-remaining-fixes):** Fixed 27 issues across 7 commits — R4, R5, S4, S6, S10–S15, S19, S20, N1–N13
+- **Neo (neo-skipped-tests):** Activated 17 previously-skipped tests, rewrote stale OpenAI SDK mocks
+- **Tests:** Manim 162 passed (1.98s), Remotion 208 passed + 1 skipped (3.19s)
 
 ### Session Artifacts
 
-- **Session Log:** `.squad/log/2026-04-21-image-support-implementation.md`
-- **Decisions:** Merged into `.squad/decisions.md`:
-  - Trinity — Manim Image/Screenshot Input Support
-  - Trinity — Remotion Image/Screenshot Input Support
-- **Orchestration Logs:**
-  - 2026-04-21T084500-trinity-manim-image-support.md
-  - 2026-04-21T091500-neo-manim-tests.md
-  - 2026-04-21T094500-trinity-remotion-image-support.md
-  - 2026-04-21T101500-neo-remotion-tests.md
+- **Session Log:** `.squad/log/2026-04-21T19-01-38Z-morpheus-review-remaining-fixes.md`
+- **Branch:** `fix/morpheus-review-issues`
 
 ### Next Steps
 
-1. ✅ Merge decisions inbox → decisions.md
-2. ✅ Write session log
-3. ✅ Write orchestration logs
-4. ⏭️ Update now.md (THIS FILE)
-5. ⏭️ Git commit .squad/ changes
+1. ✅ All 38 review findings resolved
+2. ⏭️ Open PR for `fix/morpheus-review-issues`
+3. ⏭️ Morpheus final review of PR
 
 ### Team Status
 
-- **Trinity** — Implemented image support for both Manim and Remotion ✅
-- **Neo** — 67 passing tests (Manim), 63 passing + 1 skip (Remotion) ✅
-- **Morpheus** — Available for PR review
+- **Trinity** — All code fixes delivered ✅
+- **Neo** — All tests activated and passing ✅
+- **Morpheus** — Available for final PR review
 - **Dina Berry** — Session coordinator
 
 ---
