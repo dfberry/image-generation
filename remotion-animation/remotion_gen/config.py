@@ -9,7 +9,7 @@ class QualityPreset:
     width: int
     height: int
     fps: int
-    
+
     @property
     def resolution_name(self) -> str:
         """Human-readable resolution name."""
@@ -32,3 +32,11 @@ MIN_DURATION_SECONDS = 5
 MAX_DURATION_SECONDS = 30
 
 DEFAULT_PROVIDER = "ollama"
+
+# LLM sampling temperatures per provider.
+# Lower temperature for small/local models reduces structural errors.
+PROVIDER_TEMPERATURES = {
+    "ollama": 0.4,
+    "openai": 0.7,
+    "azure": 0.7,
+}
