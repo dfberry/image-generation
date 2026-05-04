@@ -625,13 +625,49 @@ class TestMain:
             "--input", str(img_path), "--find", "secret", "--output", str(output_path)
         ])
         
-        # For now, this may succeed or fail depending on PIL's handling
-        # After Trinity's fix, should always succeed
-        assert result in [0, 1]  # Accept either until RGBA conversion is added
+        # Trinity added RGBA→RGB conversion, so this should always succeed
+        assert result == 0
         
         # Save for visual inspection if successful
         if result == 0 and output_path.exists():
             shutil.copy(output_path, TEST_OUTPUTS / "rgba-input-redacted.png")
+
+    @patch("redact_text.check_tesseract")
+    @patch("redact_text.find_text_regions")
+    def test_jpeg_quality_preserved(self, mock_find, mock_check, tmp_path):
+        """JPEG output should preserve quality parameter (quality=95)."""
+        from PIL import Image
+        
+        # Create test JPEG input
+        img_path = tmp_path / "input.jpg"
+        test_img = Image.new("RGB", (200, 100), color=(255, 255, 255))
+        test_img.save(img_path, format="JPEG", quality=95)
+        
+        output_path = tmp_path / "output.jpg"
+        
+        mock_find.return_value = [
+            {"text": "secret", "left": 10, "top": 10, "width": 50, "height": 15, "conf": 90.0}
+        ]
+        
+        # Patch logger to capture the quality log message
+        with patch("redact_text.logger") as mock_logger:
+            result = redact_text.main([
+                "--input", str(img_path), 
+                "--find", "secret", 
+                "--output", str(output_path)
+            ])
+            
+            assert result == 0
+            assert output_path.exists()
+            
+            # Verify the JPEG quality log message was emitted
+            info_calls = [str(call) for call in mock_logger.info.call_args_list]
+            quality_log_found = any("JPEG quality=95" in call for call in info_calls)
+            assert quality_log_found, f"Expected log message with 'JPEG quality=95', got: {info_calls}"
+            
+            # Verify output is a valid JPEG
+            with Image.open(output_path) as img:
+                assert img.format == "JPEG"
 
 
 # ---------------------------------------------------------------------------
