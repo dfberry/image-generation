@@ -91,10 +91,15 @@ def find_text_region(regions: list[dict], search_text: str) -> dict | None:
 
 def demo_api_keys(
     input_path: Path,
-    output_path: Path,
+    output_dir: Path,
     regions: list[dict]
 ) -> None:
     """Demo: Redact API key from api-keys.png."""
+    # Copy original as "before"
+    import shutil
+    shutil.copy(input_path, output_dir / "before.png")
+    
+    # Create redacted "after"
     img = Image.open(input_path)
     
     # Find and redact the API key
@@ -102,16 +107,22 @@ def demo_api_keys(
     if region:
         redact_region(img, region, fill_color="#FF6B6B", placeholder="[REDACTED_KEY]")
     
+    output_path = output_dir / "after-redacted.png"
     img.save(output_path)
-    print(f"✓ Created: {output_path.name}")
+    print(f"✓ Created: {output_dir.name}/ (before + after)")
 
 
 def demo_personal_info(
     input_path: Path,
-    output_path: Path,
+    output_dir: Path,
     regions: list[dict]
 ) -> None:
     """Demo: Redact SSN from personal-info.png."""
+    # Copy original as "before"
+    import shutil
+    shutil.copy(input_path, output_dir / "before.png")
+    
+    # Create redacted "after"
     img = Image.open(input_path)
     
     # Find and redact the SSN
@@ -119,16 +130,22 @@ def demo_personal_info(
     if region:
         redact_region(img, region, fill_color="#FFD93D", placeholder="[SSN REMOVED]")
     
+    output_path = output_dir / "after-redacted.png"
     img.save(output_path)
-    print(f"✓ Created: {output_path.name}")
+    print(f"✓ Created: {output_dir.name}/ (before + after)")
 
 
 def demo_mixed_content(
     input_path: Path,
-    output_path: Path,
+    output_dir: Path,
     regions: list[dict]
 ) -> None:
     """Demo: Redact auth token from mixed-content.png."""
+    # Copy original as "before"
+    import shutil
+    shutil.copy(input_path, output_dir / "before.png")
+    
+    # Create redacted "after"
     img = Image.open(input_path)
     
     # Find and redact the token
@@ -136,16 +153,22 @@ def demo_mixed_content(
     if region:
         redact_region(img, region, fill_color="#6BCF7F", placeholder="[TOKEN]")
     
+    output_path = output_dir / "after-redacted.png"
     img.save(output_path)
-    print(f"✓ Created: {output_path.name}")
+    print(f"✓ Created: {output_dir.name}/ (before + after)")
 
 
 def demo_watermark(
     input_path: Path,
-    output_path: Path,
+    output_dir: Path,
     regions: list[dict]
 ) -> None:
     """Demo: Remove CONFIDENTIAL watermark from watermark.png."""
+    # Copy original as "before"
+    import shutil
+    shutil.copy(input_path, output_dir / "before.png")
+    
+    # Create redacted "after"
     img = Image.open(input_path)
     
     # Find and redact "CONFIDENTIAL" (fill only, no replacement)
@@ -154,15 +177,16 @@ def demo_watermark(
         # Use lightgray to match background
         redact_region(img, region, fill_color="#D3D3D3", placeholder=None, padding=4)
     
+    output_path = output_dir / "after-redacted.png"
     img.save(output_path)
-    print(f"✓ Created: {output_path.name}")
+    print(f"✓ Created: {output_dir.name}/ (before + after)")
 
 
 def main() -> None:
     """Run all visual redaction demos."""
     script_dir = Path(__file__).parent
     test_images_dir = script_dir / "test-images"
-    test_outputs_dir = script_dir / "test-outputs"
+    demos_dir = script_dir / "test-outputs" / "demos"
     regions_file = test_images_dir / "regions.json"
     
     # Verify test images exist
@@ -181,36 +205,48 @@ def main() -> None:
     with open(regions_file, 'r') as f:
         all_regions = json.load(f)
     
-    # Create output directory
-    test_outputs_dir.mkdir(exist_ok=True)
+    # Create demo output directories
+    demos_dir.mkdir(parents=True, exist_ok=True)
+    
+    api_keys_dir = demos_dir / "api-keys"
+    personal_info_dir = demos_dir / "personal-info"
+    mixed_content_dir = demos_dir / "mixed-content"
+    watermark_dir = demos_dir / "watermark"
+    
+    for dir_path in [api_keys_dir, personal_info_dir, mixed_content_dir, watermark_dir]:
+        dir_path.mkdir(exist_ok=True)
+    
     print(f"Running visual redaction demos...\n")
     
     # Run demos
     demo_api_keys(
         test_images_dir / "api-keys.png",
-        test_outputs_dir / "api-keys-redacted.png",
+        api_keys_dir,
         all_regions.get("api-keys.png", [])
     )
     
     demo_personal_info(
         test_images_dir / "personal-info.png",
-        test_outputs_dir / "personal-info-redacted.png",
+        personal_info_dir,
         all_regions.get("personal-info.png", [])
     )
     
     demo_mixed_content(
         test_images_dir / "mixed-content.png",
-        test_outputs_dir / "mixed-content-redacted.png",
+        mixed_content_dir,
         all_regions.get("mixed-content.png", [])
     )
     
     demo_watermark(
         test_images_dir / "watermark.png",
-        test_outputs_dir / "watermark-redacted.png",
+        watermark_dir,
         all_regions.get("watermark.png", [])
     )
     
-    print(f"\n✅ All demos complete! Check {test_outputs_dir}/")
+    print(f"\n✅ All demos complete! Check {demos_dir}/")
+    print("\nEach demo folder contains:")
+    print("  • before.png — original test image")
+    print("  • after-redacted.png — redacted version")
     print("\nThese outputs show visible redaction with:")
     print("  • Colored fills (not just white)")
     print("  • Placeholder text")

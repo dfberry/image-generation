@@ -18,8 +18,8 @@ import pytest
 import redact_text
 
 # Test outputs directory for visual inspection
-TEST_OUTPUTS = Path(__file__).parent.parent / "test-outputs"
-TEST_OUTPUTS.mkdir(exist_ok=True)
+TEST_OUTPUTS = Path(__file__).parent.parent / "test-outputs" / "unit-tests"
+TEST_OUTPUTS.mkdir(parents=True, exist_ok=True)
 
 
 # ---------------------------------------------------------------------------

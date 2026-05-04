@@ -27,8 +27,7 @@ image-generation/outputs/*.jpg
 image-generation/outputs/*.webp
 
 # Test output images for visual inspection
-image-generation/test-outputs/*.png
-image-generation/test-outputs/*.jpg
+image-generation/test-outputs/
 
 # Jupyter
 .ipynb_checkpoints/
