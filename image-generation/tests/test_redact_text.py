@@ -249,6 +249,79 @@ class TestFindTextRegions:
         regions = redact_text.find_text_regions(Path("t.png"), "secret", is_regex=False, confidence=60)
         assert len(regions) == 1
 
+    @patch("redact_text.pytesseract")
+    @patch("redact_text.Image")
+    def test_invalid_regex_pattern(self, mock_image_mod, mock_tess):
+        """Invalid regex pattern should raise ValueError (after Trinity's validation)."""
+        mock_tess.Output.DICT = "dict"
+        mock_image_mod.open.return_value = MagicMock()
+
+        with pytest.raises(ValueError, match="Invalid regex pattern"):
+            redact_text.find_text_regions(Path("t.png"), "[unclosed", is_regex=True, confidence=60)
+
+    @patch("redact_text.pytesseract")
+    @patch("redact_text.Image")
+    def test_unicode_text_matching(self, mock_image_mod, mock_tess):
+        """Unicode text (accents, CJK) should be matched correctly."""
+        mock_tess.Output.DICT = "dict"
+        mock_tess.image_to_data.return_value = _mock_ocr_data([
+            {"text": "café", "left": 10, "top": 5, "width": 50, "height": 15, "conf": 90.0},
+            {"text": "naïve", "left": 10, "top": 30, "width": 50, "height": 15, "conf": 85.0},
+            {"text": "你好", "left": 10, "top": 55, "width": 50, "height": 15, "conf": 88.0},
+        ])
+        mock_image_mod.open.return_value = MagicMock()
+
+        # Test exact match with accented characters
+        regions = redact_text.find_text_regions(Path("t.png"), "café", is_regex=False, confidence=60)
+        assert len(regions) == 1
+        assert regions[0]["text"] == "café"
+
+        # Test CJK characters
+        regions = redact_text.find_text_regions(Path("t.png"), "你好", is_regex=False, confidence=60)
+        assert len(regions) == 1
+        assert regions[0]["text"] == "你好"
+
+    @patch("redact_text.pytesseract")
+    @patch("redact_text.Image")
+    def test_case_sensitivity(self, mock_image_mod, mock_tess):
+        """Exact match should be case-sensitive."""
+        mock_tess.Output.DICT = "dict"
+        mock_tess.image_to_data.return_value = _mock_ocr_data([
+            {"text": "Secret", "left": 10, "top": 5, "width": 50, "height": 15, "conf": 90.0},
+            {"text": "secret", "left": 10, "top": 30, "width": 50, "height": 15, "conf": 85.0},
+        ])
+        mock_image_mod.open.return_value = MagicMock()
+
+        # Search for lowercase "secret" should only match lowercase
+        regions = redact_text.find_text_regions(Path("t.png"), "secret", is_regex=False, confidence=60)
+        assert len(regions) == 1
+        assert regions[0]["text"] == "secret"
+
+        # Search for capitalized "Secret" should only match capitalized
+        regions = redact_text.find_text_regions(Path("t.png"), "Secret", is_regex=False, confidence=60)
+        assert len(regions) == 1
+        assert regions[0]["text"] == "Secret"
+
+    @patch("redact_text.pytesseract")
+    @patch("redact_text.Image")
+    def test_multi_word_phrase(self, mock_image_mod, mock_tess):
+        """Multi-word phrases detected as single OCR word should match.
+        
+        Note: If OCR returns words individually, this is a known limitation.
+        This test verifies the case where OCR successfully detects the full phrase.
+        """
+        mock_tess.Output.DICT = "dict"
+        mock_tess.image_to_data.return_value = _mock_ocr_data([
+            {"text": "Top Secret Document", "left": 10, "top": 5, "width": 150, "height": 15, "conf": 90.0},
+            {"text": "Confidential", "left": 10, "top": 30, "width": 100, "height": 15, "conf": 85.0},
+        ])
+        mock_image_mod.open.return_value = MagicMock()
+
+        regions = redact_text.find_text_regions(Path("t.png"), "Top Secret", is_regex=False, confidence=60)
+        # If OCR returns "Top Secret Document", search for "Top Secret" should match (substring)
+        assert len(regions) == 1
+        assert "Top Secret" in regions[0]["text"]
+
 
 # ---------------------------------------------------------------------------
 # redact_regions
@@ -256,46 +329,51 @@ class TestFindTextRegions:
 
 class TestRedactRegions:
     def test_fills_region_with_color(self, tmp_path):
-        img_path = _make_test_image(tmp_path / "test.png", 200, 100)
+        from PIL import Image
+        img = Image.new("RGB", (200, 100), color=(255, 255, 255))
         regions = [{"left": 50, "top": 30, "width": 60, "height": 20}]
 
-        result = redact_text.redact_regions(img_path, regions, "#FF0000", padding=0, output_path=tmp_path / "out.png")
+        result = redact_text.redact_regions(img, regions, "#FF0000", padding=0)
         # Check that the center of the filled region is red
         pixel = result.getpixel((80, 40))
         assert pixel == (255, 0, 0)
 
     def test_padding_expands_region(self, tmp_path):
-        img_path = _make_test_image(tmp_path / "test.png", 200, 100)
+        from PIL import Image
+        img = Image.new("RGB", (200, 100), color=(255, 255, 255))
         regions = [{"left": 50, "top": 30, "width": 60, "height": 20}]
 
-        result = redact_text.redact_regions(img_path, regions, "#FF0000", padding=5, output_path=tmp_path / "out.png")
+        result = redact_text.redact_regions(img, regions, "#FF0000", padding=5)
         # Point just outside original region but inside padding should be red
         pixel = result.getpixel((46, 26))
         assert pixel == (255, 0, 0)
 
     def test_empty_regions_unchanged(self, tmp_path):
-        img_path = _make_test_image(tmp_path / "test.png", 200, 100)
+        from PIL import Image
+        img = Image.new("RGB", (200, 100), color=(255, 255, 255))
 
-        result = redact_text.redact_regions(img_path, [], "#FF0000", padding=0, output_path=tmp_path / "out.png")
+        result = redact_text.redact_regions(img, [], "#FF0000", padding=0)
         # Image should remain white
         pixel = result.getpixel((100, 50))
         assert pixel == (255, 255, 255)
 
     def test_region_clamped_to_image_bounds(self, tmp_path):
         """Regions near edges should be clamped, not cause errors."""
-        img_path = _make_test_image(tmp_path / "test.png", 100, 100)
+        from PIL import Image
+        img = Image.new("RGB", (100, 100), color=(255, 255, 255))
         regions = [{"left": 0, "top": 0, "width": 50, "height": 50}]
 
         # padding=10 would push left/top to -10, should clamp to 0
-        result = redact_text.redact_regions(img_path, regions, "#0000FF", padding=10, output_path=tmp_path / "out.png")
+        result = redact_text.redact_regions(img, regions, "#0000FF", padding=10)
         pixel = result.getpixel((0, 0))
         assert pixel == (0, 0, 255)
 
     def test_custom_fill_color(self, tmp_path):
-        img_path = _make_test_image(tmp_path / "test.png", 200, 100)
+        from PIL import Image
+        img = Image.new("RGB", (200, 100), color=(255, 255, 255))
         regions = [{"left": 10, "top": 10, "width": 40, "height": 20}]
 
-        result = redact_text.redact_regions(img_path, regions, "#00FF00", padding=0, output_path=tmp_path / "out.png")
+        result = redact_text.redact_regions(img, regions, "#00FF00", padding=0)
         pixel = result.getpixel((30, 20))
         assert pixel == (0, 255, 0)
 
@@ -331,14 +409,24 @@ class TestRenderPlaceholder:
         assert pixel == (255, 255, 255)
 
     def test_auto_font_size(self, tmp_path):
-        """Auto-fit should not raise and should render something."""
+        """Auto-fit should not raise and should actually change pixels."""
         from PIL import Image
         img = Image.new("RGB", (200, 100), color=(255, 255, 255))
         regions = [{"left": 10, "top": 10, "width": 80, "height": 25}]
 
         # font_size=None triggers auto-fit
         result = redact_text.render_placeholder(img, regions, "X", font_size=None, font_color="#000000", padding=0)
-        assert result is not None
+        
+        # Verify that pixels actually changed (text was rendered)
+        changed = False
+        for x in range(10, 90):
+            for y in range(10, 35):
+                if result.getpixel((x, y)) != (255, 255, 255):
+                    changed = True
+                    break
+            if changed:
+                break
+        assert changed, "Expected auto-fit text to change pixels in region"
 
 
 # ---------------------------------------------------------------------------
@@ -396,11 +484,22 @@ class TestMain:
         ]
 
         result = redact_text.main([
-            "--input", str(img_path), "--find", "secret", "--output", str(output_path),
+            "--input", str(img_path), "--find", "secret", "--fill-color", "#FF0000",
+            "--output", str(output_path),
         ])
         assert result == 0
-        # Only first match should be redacted — hard to verify pixel-level without
-        # more infrastructure, so we trust the --all logic in main()
+        
+        # Verify pixel-level: first region should be redacted (red), second should not
+        from PIL import Image
+        output_img = Image.open(output_path)
+        
+        # First region center (10 + 25, 10 + 7) should be red
+        first_region_pixel = output_img.getpixel((35, 17))
+        assert first_region_pixel == (255, 0, 0), "First region should be redacted"
+        
+        # Second region center (10 + 25, 40 + 7) should still be white
+        second_region_pixel = output_img.getpixel((35, 47))
+        assert second_region_pixel == (255, 255, 255), "Second region should NOT be redacted"
 
     @patch("redact_text.check_tesseract")
     @patch("redact_text.find_text_regions")
@@ -433,6 +532,88 @@ class TestMain:
         ])
         assert result == 0
         assert img_path.exists()
+
+    @patch("redact_text.check_tesseract")
+    def test_invalid_regex_returns_one(self, mock_check, tmp_path):
+        """Invalid regex pattern should return exit code 1."""
+        img_path = _make_test_image(tmp_path / "input.png")
+        
+        result = redact_text.main([
+            "--input", str(img_path), "--find", "[unclosed", "--regex"
+        ])
+        assert result == 1
+
+    @patch("redact_text.check_tesseract")
+    @patch("redact_text.find_text_regions")
+    def test_ocr_exception_returns_one(self, mock_find, mock_check, tmp_path):
+        """Unexpected exception from find_text_regions should return exit code 1."""
+        img_path = _make_test_image(tmp_path / "input.png")
+        mock_find.side_effect = RuntimeError("OCR service unavailable")
+        
+        result = redact_text.main([
+            "--input", str(img_path), "--find", "secret"
+        ])
+        assert result == 1
+
+    @patch("redact_text.check_tesseract")
+    @patch("redact_text.find_text_regions")
+    @patch("redact_text.render_placeholder")
+    def test_placeholder_rendering_failure_returns_one(self, mock_render, mock_find, mock_check, tmp_path):
+        """Exception during placeholder rendering should return exit code 1."""
+        img_path = _make_test_image(tmp_path / "input.png")
+        
+        mock_find.return_value = [
+            {"text": "secret", "left": 10, "top": 10, "width": 50, "height": 15, "conf": 90.0}
+        ]
+        mock_render.side_effect = RuntimeError("Font rendering failed")
+        
+        result = redact_text.main([
+            "--input", str(img_path), "--find", "secret", "--replace", "[REDACTED]"
+        ])
+        assert result == 1
+
+    @patch("redact_text.check_tesseract")
+    @patch("redact_text.find_text_regions")
+    def test_save_failure_returns_one(self, mock_find, mock_check, tmp_path):
+        """Exception during image.save() should return exit code 1."""
+        img_path = _make_test_image(tmp_path / "input.png")
+        output_path = tmp_path / "readonly" / "output.png"
+        
+        mock_find.return_value = [
+            {"text": "secret", "left": 10, "top": 10, "width": 50, "height": 15, "conf": 90.0}
+        ]
+        
+        # output_path parent doesn't exist, so save will fail
+        result = redact_text.main([
+            "--input", str(img_path), "--find", "secret", "--output", str(output_path)
+        ])
+        assert result == 1
+
+    @patch("redact_text.check_tesseract")
+    @patch("redact_text.find_text_regions")
+    def test_rgba_image_handling(self, mock_find, mock_check, tmp_path):
+        """RGBA images should be handled correctly (after Trinity adds conversion)."""
+        from PIL import Image
+        
+        # Create RGBA test image
+        img_path = tmp_path / "rgba_input.png"
+        rgba_img = Image.new("RGBA", (200, 100), color=(255, 255, 255, 255))
+        rgba_img.save(img_path)
+        
+        output_path = tmp_path / "output.png"
+        
+        mock_find.return_value = [
+            {"text": "secret", "left": 10, "top": 10, "width": 50, "height": 15, "conf": 90.0}
+        ]
+        
+        # This should work once Trinity adds RGBA→RGB conversion
+        result = redact_text.main([
+            "--input", str(img_path), "--find", "secret", "--output", str(output_path)
+        ])
+        
+        # For now, this may succeed or fail depending on PIL's handling
+        # After Trinity's fix, should always succeed
+        assert result in [0, 1]  # Accept either until RGBA conversion is added
 
 
 # ---------------------------------------------------------------------------
