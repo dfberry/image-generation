@@ -1,0 +1,40 @@
+# Outputs
+outputs/
+*.mp4
+
+# Python
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+*.egg-info/
+dist/
+build/
+.eggs/
+
+# Virtual environments
+venv/
+env/
+.venv/
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# Temporary files
+*.tmp
+.DS_Store
+
+# Logs
+*.log
+
+# Tool caches
+.pytest_cache/
+.ruff_cache/
+
+# Environment files
+.env
+.env.local
+.env.*
