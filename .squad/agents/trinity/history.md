@@ -889,3 +889,21 @@ egative_prompt from the first item but keeps it in the rest — looks like an ed
 - **`_write_tests.py` scaffold removed:** File header said "run once, then delete" — was still tracked. git rm'd.
 - **Shell script trap pattern:** Added `trap 'rm -f ""' EXIT` after temp file variable declaration. Removed the redundant explicit `rm -f` since EXIT trap fires on both success and failure.
 - **Ruff lint fixes in test_coverage_gaps.py:** Removed unused `pytest` import, removed 3 unused `as mock_torch` and 1 `as mock_makedirs` variable bindings. Fixed import sort order (I001).
+### 2026-01-28 — PR #103: Text Redaction Tool Review Fixes
+
+Addressed all review findings from Morpheus (Security), Niobe (Image Quality), and Switch (CLI UX):
+
+**Security fixes (Morpheus):**
+- **ReDoS protection:** Wrapped e.compile(search_text) in try/except for e.error. Invalid regex patterns now exit early with a clear error message. Avoids catastrophic backtracking from user-supplied patterns.
+
+**Image quality fixes (Niobe):**
+- **RGBA handling:** Added RGBA → RGB conversion at image load time. Creates white background, pastes RGBA with alpha mask. Prevents color channel mismatches during drawing.
+- **JPEG quality preservation:** Detect output format by file extension. If .jpg or .jpeg, save with quality=95 and optimize=True. Prevents default quality degradation.
+- **Single image load:** Refactored ind_text_regions() and edact_regions() to accept PIL Image objects instead of paths. Main now opens the image once, passes it through the pipeline. Eliminates redundant I/O.
+
+**CLI UX fixes (Switch):**
+- **--find help text:** Updated to 'Text to find (exact match by default; use --regex for pattern matching)' so users know regex is opt-in.
+- **--confidence example:** Added to CLI epilog examples section.
+- **Match logging verbosity:** Moved 'Found match' log from INFO to DEBUG level to avoid log spam on images with many matches.
+
+**Result:** All 7 review findings addressed in a single commit. No functionality regressions. OCR timeout/warning considered but deferred (out of scope for this PR).
