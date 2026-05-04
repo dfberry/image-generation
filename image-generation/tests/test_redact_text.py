@@ -7,6 +7,7 @@ All OCR calls are mocked so Tesseract is not required to run tests.
 
 import argparse
 import re
+import shutil
 import sys
 from pathlib import Path
 from unittest.mock import MagicMock, patch, PropertyMock
@@ -15,6 +16,10 @@ import pytest
 
 # Import will work because conftest.py adds parent dir to sys.path
 import redact_text
+
+# Test outputs directory for visual inspection
+TEST_OUTPUTS = Path(__file__).parent.parent / "test-outputs"
+TEST_OUTPUTS.mkdir(exist_ok=True)
 
 
 # ---------------------------------------------------------------------------
@@ -452,6 +457,9 @@ class TestMain:
         ])
         assert result == 0
         assert output_path.exists()
+        
+        # Save for visual inspection
+        shutil.copy(output_path, TEST_OUTPUTS / "end-to-end-redact.png")
 
     @patch("redact_text.check_tesseract")
     @patch("redact_text.find_text_regions")
@@ -516,6 +524,9 @@ class TestMain:
             "--input", str(img_path), "--find", "secret", "--all", "--output", str(output_path),
         ])
         assert result == 0
+        
+        # Save for visual inspection
+        shutil.copy(output_path, TEST_OUTPUTS / "all-matches-redacted.png")
 
     @patch("redact_text.check_tesseract")
     @patch("redact_text.find_text_regions")
@@ -532,6 +543,9 @@ class TestMain:
         ])
         assert result == 0
         assert img_path.exists()
+        
+        # Save for visual inspection
+        shutil.copy(img_path, TEST_OUTPUTS / "inplace-overwrite.png")
 
     @patch("redact_text.check_tesseract")
     def test_invalid_regex_returns_one(self, mock_check, tmp_path):
@@ -614,6 +628,10 @@ class TestMain:
         # For now, this may succeed or fail depending on PIL's handling
         # After Trinity's fix, should always succeed
         assert result in [0, 1]  # Accept either until RGBA conversion is added
+        
+        # Save for visual inspection if successful
+        if result == 0 and output_path.exists():
+            shutil.copy(output_path, TEST_OUTPUTS / "rgba-input-redacted.png")
 
 
 # ---------------------------------------------------------------------------

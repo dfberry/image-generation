@@ -26,6 +26,10 @@ image-generation/outputs/*.png
 image-generation/outputs/*.jpg
 image-generation/outputs/*.webp
 
+# Test output images for visual inspection
+image-generation/test-outputs/*.png
+image-generation/test-outputs/*.jpg
+
 # Jupyter
 .ipynb_checkpoints/
 *.ipynb
