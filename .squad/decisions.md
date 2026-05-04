@@ -1,7 +1,7 @@
 # Team Decisions
 
-**Last Updated:** 2026-04-22  
-**Sessions:** Audio Research Session, Documentation Review & Orchestration, Video CSS Fix, Remotion Theorem Explainer
+**Last Updated:** 2026-05-04  
+**Sessions:** Audio Research Session, Documentation Review & Orchestration, Video CSS Fix, Remotion Theorem Explainer, Text Redaction Feature
 
 ---
 
@@ -1280,4 +1280,109 @@ Both manim_gen/llm_client.py and remotion_gen/llm_client.py now tag LLMError mes
 - **Regression Risk:** LOW (isolated new modules, no existing code refactoring)
 
 ---
+
+
+---
+
+## OCR-Based Text Redaction Tool (2026-05-04)
+
+### Decision: Implement pytesseract-based text redaction CLI
+
+**Owner:** Trinity (Backend Dev)  
+**Status:** Implemented  
+**Impact:** Enables automated redaction of sensitive text from images in documentation and issue reports
+
+**Context:**
+Need a CLI tool to redact sensitive text (API keys, credentials, personal data) from screenshots and images before sharing. Manual redaction in image editors is time-consuming and error-prone. OCR-based approach enables batch processing and regex pattern matching.
+
+**Decision:**
+Implemented \image-generation/redact_text.py\ — a standalone CLI tool using pytesseract (Tesseract OCR) for text detection and Pillow for image manipulation.
+
+**Architecture:**
+1. OCR scan: pytesseract extracts text with bounding boxes and confidence scores
+2. Pattern matching: exact string or regex pattern against detected text
+3. Region redaction: paint solid color over matched text regions (with configurable padding)
+4. Placeholder rendering: optionally render replacement text with auto-fit font sizing
+
+**CLI Design:**
+\\\ash
+python redact_text.py --input image.png --find "secret_key_123" --replace "[REDACTED]"
+python redact_text.py --input image.png --find "api_key_\w+" --regex --replace "[API_KEY]"
+python redact_text.py --input image.png --find "password123" --fill-color "#000000"
+\\\
+
+**Technical Choices:**
+- **pytesseract:** Industry-standard Python wrapper for Tesseract OCR; provides per-word bounding boxes + confidence scores
+- **Font handling:** Auto-fit font sizing with fallback chain (DejaVuSans → Arial → bitmap)
+- **Color validation:** Custom argparse type validates hex format with auto-expansion (#RGB → #RRGGBB)
+- **Error handling:** Clear, actionable error messages for missing Tesseract, invalid inputs
+
+**Dependencies:**
+- Added \pytesseract>=0.3.10\ to \image-generation/requirements.txt\
+- System requirement: Tesseract OCR (separately installed; documented with platform-specific commands)
+
+**Testing Strategy:**
+43 automated tests covering:
+- CLI argument parsing and validation
+- OCR text matching (exact and regex)
+- Region redaction logic
+- Placeholder rendering
+- Integration workflows
+- Error handling
+
+All 43 tests pass ✅
+
+**Alternatives Considered:**
+1. **Cloud OCR APIs** — Rejected: privacy concerns for sensitive data
+2. **EasyOCR** — Rejected: larger footprint, less mature than Tesseract
+3. **Manual PIL-based redaction** — Rejected: requires manual coordinates, not automatable
+
+**Future Enhancements:**
+- Image pre-processing (contrast enhancement, binarization) for improved OCR accuracy
+- Multi-line text region merging
+- Configurable Tesseract page segmentation mode
+- Batch processing mode
+- Dry-run mode
+
+**Consequences:**
+- **Positive:** Enables automated redaction in CI/CD; regex support for variable patterns; confidence threshold reduces false positives
+- **Negative:** Requires system Tesseract installation; OCR accuracy varies by image quality
+- **Neutral:** Adds small, well-maintained pytesseract dependency; no shared code/CI changes needed
+
+**Related Work:**
+- \generate.py\ — established argparse patterns, logging conventions
+- Future integration: batch-redact screenshots before using as input in Manim/Remotion tools
+
+---
+
+## Standardized Test Mocking Pattern for generate.py (2026-04-23)
+
+### Decision: Unified autouse fixture for heavy import mocking
+
+**Owner:** Neo (Tester)  
+**Status:** Implemented  
+**Impact:** All test files now use consistent mocking; 263/264 tests pass on CPU-only machines
+
+**Context:**
+The test suite had two incompatible mocking strategies. Five files used manual \_patch_heavy()\ context manager; eight files had no patching. Two files imported \	orch\ at module level. This caused 57 test failures and 2 collection errors on machines without GPU/torch.
+
+**Decision:**
+Added single **autouse fixture** (\_patch_heavy_imports\) in \conftest.py\ that:
+1. Injects mock \	orch\, \diffusers\, and \DiffusionPipeline\ into \generate.__dict__\ (bypasses PEP 562 \__getattr__\)
+2. Replaces \_ensure_heavy_imports()\ with a no-op
+3. Makes \	orch.cuda.OutOfMemoryError\ a real exception subclass (for \isinstance()\ compatibility)
+4. Restores all originals in teardown
+
+Individual tests can still layer \@patch("generate.torch")\ or \patch("generate.torch.cuda.empty_cache")\ on top.
+
+**Rule for Future Tests:**
+- Never \import torch\ at module level in any test file
+- Never call \generate()\, \atch_generate()\, \load_base()\, etc. without the conftest autouse fixture
+- If needing specific torch constant (e.g., \loat16\), use sentinel value or \gen.torch.float16\ from mock
+- If patching \diffusers.SomeScheduler\, use \patch.object(gen.diffusers, "SomeScheduler", ...)\ not \patch("diffusers.SomeScheduler")\
+
+**Consequences:**
+- **Positive:** Consistent mocking across all test files; eliminates GPU/torch collection errors; improves test reliability on CI
+- **Negative:** Central fixture adds slight complexity to conftest.py
+- **Neutral:** No breaking changes to existing test APIs
 

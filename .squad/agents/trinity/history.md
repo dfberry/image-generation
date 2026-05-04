@@ -229,6 +229,49 @@ Full five-agent simultaneous code review identified key architectural consensus 
 
 6. **CODE SMELL — Inconsistent MPS hasattr guard:** `get_device()` (line 54) uses `hasattr(torch.backends, "mps")` guard. Entry-point flush (line 120) and finally block (line 220) call `torch.backends.mps.is_available()` without the hasattr guard. Safe with `torch>=2.1.0` floor, but inconsistent.
 
+### 2026-04-23 — OCR-Based Text Redaction Tool (redact_text.py)
+
+Built `image-generation/redact_text.py` — CLI tool for OCR-based text redaction with optional placeholder rendering.
+
+**Features:**
+- Uses **pytesseract** for text detection (bounding box extraction)
+- Paints solid color (configurable) over matched text regions
+- Optional placeholder text rendering with auto-fit or manual font sizing
+- Supports exact match or regex pattern matching
+- Confidence threshold filtering (default: 60%)
+- Single-match or all-match modes
+
+**CLI arguments:**
+- `--input` (required): Input image path
+- `--find` (required): Text to search (exact or regex with `--regex`)
+- `--replace`: Placeholder text to render over redacted region (optional)
+- `--output`: Output path (default: overwrites input)
+- `--fill-color`: Hex color for fill (default: #FFFFFF)
+- `--font-size`: Manual font size for placeholder (default: auto-fit to region)
+- `--font-color`: Hex color for placeholder text (default: #000000)
+- `--padding`: Extra pixels around detected text (default: 2)
+- `--all`: Replace all occurrences (default: first match only)
+- `--confidence`: Minimum OCR confidence 0-100 (default: 60)
+
+**Architecture:**
+- Follows generate.py patterns: argparse with custom types (`_color_type`, `_positive_int`, `_confidence_range`), logging, clean error messages
+- Modular functions: `find_text_regions()`, `redact_regions()`, `render_placeholder()`, `check_tesseract()`
+- Graceful fallback for fonts: tries DejaVuSans.ttf → Arial.ttf → default bitmap font
+- Added `pytesseract>=0.3.10` to requirements.txt
+- Module docstring warns that system Tesseract must be installed (`apt install tesseract-ocr`, `brew install tesseract`, Windows download link)
+
+**Error handling:**
+- Clear TesseractNotInstalledError with install instructions for Ubuntu/macOS/Windows
+- Validates input file existence
+- Exits cleanly (status 0) when no text matches found (not an error)
+- Validates hex color format (#RRGGBB or #RGB, with auto-expansion of short form)
+
+**Key learnings:**
+- **pytesseract.image_to_data()** returns dict with per-word bounding boxes, text, and confidence scores — richer than image_to_string()
+- **Auto-fit font sizing** requires two passes: height-based estimate, then width-based scale-down if text doesn't fit region
+- **Pillow font fallback chain** is platform-dependent — DejaVuSans (Linux), Arial (Windows/macOS), then default bitmap — needs try/except cascade
+- **Regex matching on OCR output** works well for patterns like API keys, but OCR accuracy determines success rate — confidence threshold is critical
+
 7. **SHELL — `generate_blog_images.sh` assumes Unix venv activation (line 14):** `source venv/bin/activate` won't work on Windows. Not critical since the script is bash-only, but the hardcoded cd path is the real blocker.
 
 8. **MINOR — No `tests/__init__.py`:** Can cause import ambiguity in some pytest configurations. Quick fix: create empty `__init__.py`.
