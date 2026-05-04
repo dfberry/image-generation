@@ -208,6 +208,24 @@ Generate test images with:
 python create_test_images.py
 ```
 
+This also creates `test-images/regions.json` with bounding box data for each text region.
+
+### Visual Demo
+
+To see redaction working with visible outputs (colored fills + placeholder text), run:
+
+```bash
+python demo_redaction.py
+```
+
+This creates visually clear redacted outputs in `test-outputs/` without requiring Tesseract OCR:
+- `api-keys-redacted.png` — Red fill with "[REDACTED_KEY]" placeholder
+- `personal-info-redacted.png` — Yellow fill with "[SSN REMOVED]" placeholder
+- `mixed-content-redacted.png` — Green fill with "[TOKEN]" placeholder
+- `watermark-redacted.png` — Gray fill (watermark removal)
+
+The demo uses pre-calculated bounding boxes from `regions.json` rather than live OCR, making it ideal for visual verification and CI environments without Tesseract installed.
+
 ## Troubleshooting
 
 ### `TesseractNotFoundError`
