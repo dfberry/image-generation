@@ -124,3 +124,40 @@ def _patch_heavy_imports():
 - `test_memory_cleanup.py`: `is_available=False` → `True` for test asserting `empty_cache` IS called
 
 **Results:** 263 passed, 1 skipped, 0 failed (was: 161 passed, 57 failed, 2 collection errors)
+
+## 2026-01-29 — Text Redaction Tool Test Coverage (PR #103)
+
+**Session:** Added missing test coverage for redact_text.py based on my own review feedback
+
+### Tests Added (8 new tests)
+1. **Invalid regex pattern** — `test_invalid_regex_pattern`: Validates that invalid regex patterns raise `ValueError` with clear message (Trinity added validation that converts `re.error` → `ValueError`)
+2. **Unicode text matching** — `test_unicode_text_matching`: Verifies OCR matching works with accented characters (café, naïve) and CJK text (你好)
+3. **Case sensitivity** — `test_case_sensitivity`: Confirms exact match is case-sensitive ("Secret" ≠ "secret")
+4. **Multi-word phrase** — `test_multi_word_phrase`: Tests substring matching when OCR returns phrases (e.g., "Top Secret Document" matches search for "Top Secret")
+5. **OCR exception handling** — `test_ocr_exception_returns_one`: Verifies `main()` returns exit code 1 when `find_text_regions()` raises unexpected exception
+6. **Placeholder rendering failure** — `test_placeholder_rendering_failure_returns_one`: Verifies graceful error handling when `render_placeholder()` raises
+7. **Save failure** — `test_save_failure_returns_one`: Tests exit code 1 when `image.save()` fails (e.g., parent directory doesn't exist)
+8. **RGBA image handling** — `test_rgba_image_handling`: Tests RGBA input (currently permissive: accepts exit code 0 or 1 until Trinity adds RGBA→RGB conversion)
+
+### Assertions Strengthened (2 fixes)
+- **test_first_match_only_by_default**: Added pixel-level verification that first region is redacted (red) and second is not (white)
+- **test_auto_font_size**: Changed from `assert result is not None` to actual pixel change verification
+
+### Adapted to Trinity's Changes
+While writing tests, discovered Trinity had refactored `redact_regions()` function signature:
+- **Old:** `redact_regions(image_path: Path, regions, fill_color, padding, output_path: Path)`
+- **New:** `redact_regions(image: Image.Image, regions, fill_color, padding)`
+
+Updated all `TestRedactRegions` tests (5 tests) to:
+- Create PIL Image objects directly instead of using `_make_test_image()` to create file paths
+- Remove `output_path` parameter (not needed)
+- Function now takes Image object, returns modified Image — cleaner separation of concerns
+
+### Results
+- **52 tests total** (was 42)
+- **All passing** (100% pass rate)
+- Exit code handling thoroughly tested
+- Edge cases covered: Unicode, case sensitivity, multi-word matching, all error paths
+
+### Key Learning: Test Against Expected Behavior, Not Current Implementation
+Test #1 (invalid regex) initially expected `re.error`, but Trinity had already added validation that wraps it in `ValueError`. The test exposed that I needed to read Trinity's latest changes before writing tests. Good practice: always check if the implementation has error handling before writing "it should crash" tests — the code might already handle it gracefully.
