@@ -1,0 +1,94 @@
+{
+  "api-keys.png": [
+    {
+      "text": "API_KEY=sk-abc123def456",
+      "left": 20,
+      "top": 31,
+      "width": 124,
+      "height": 10
+    },
+    {
+      "text": "SECRET=mysecretvalue",
+      "left": 20,
+      "top": 72,
+      "width": 111,
+      "height": 10
+    },
+    {
+      "text": "DATABASE_URL=postgres://user:pass@host/db",
+      "left": 20,
+      "top": 112,
+      "width": 211,
+      "height": 10
+    }
+  ],
+  "personal-info.png": [
+    {
+      "text": "Name: John Smith",
+      "left": 20,
+      "top": 32,
+      "width": 87,
+      "height": 8
+    },
+    {
+      "text": "Email: john@example.com",
+      "left": 20,
+      "top": 72,
+      "width": 123,
+      "height": 10
+    },
+    {
+      "text": "SSN: 123-45-6789",
+      "left": 20,
+      "top": 112,
+      "width": 84,
+      "height": 8
+    }
+  ],
+  "mixed-content.png": [
+    {
+      "text": "Project Status: Active",
+      "left": 20,
+      "top": 32,
+      "width": 94,
+      "height": 10
+    },
+    {
+      "text": "Budget: $50,000",
+      "left": 20,
+      "top": 76,
+      "width": 77,
+      "height": 11
+    },
+    {
+      "text": "Contact: admin@internal.corp",
+      "left": 20,
+      "top": 122,
+      "width": 139,
+      "height": 10
+    },
+    {
+      "text": "Auth Token: ghp_xxxxxxxxxxxx",
+      "left": 20,
+      "top": 167,
+      "width": 143,
+      "height": 10
+    }
+  ],
+  "watermark.png": [
+    {
+      "text": "CONFIDENTIAL",
+      "left": 163,
+      "top": 78,
+      "width": 73,
+      "height": 8
+    },
+    {
+      "text": "Draft v2.1",
+      "left": 178,
+      "top": 171,
+      "width": 43,
+      "height": 9
+    }
+  ]
+}
