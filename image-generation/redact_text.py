@@ -83,6 +83,9 @@ Examples:
   
   # Redact all occurrences
   python redact_text.py --input image.png --find "secret" --all --output redacted.png
+  
+  # Use custom confidence threshold
+  python redact_text.py --input image.png --find "text" --confidence 80
         """
     )
     
@@ -97,7 +100,7 @@ Examples:
         "--find",
         type=str,
         required=True,
-        help="Text to find (exact match by default)"
+        help="Text to find (exact match by default; use --regex for pattern matching)"
     )
     
     parser.add_argument(
@@ -190,7 +193,7 @@ def check_tesseract() -> None:
 
 
 def find_text_regions(
-    image_path: Path,
+    image: Image.Image,
     search_text: str,
     is_regex: bool,
     confidence: int
@@ -199,7 +202,7 @@ def find_text_regions(
     Find text regions in image using OCR.
     
     Args:
-        image_path: Path to input image
+        image: PIL Image object
         search_text: Text to search for (exact or regex)
         is_regex: Whether search_text is a regex pattern
         confidence: Minimum OCR confidence threshold (0-100)
@@ -207,13 +210,19 @@ def find_text_regions(
     Returns:
         List of bounding box dicts with keys: text, left, top, width, height, conf
     """
-    image = Image.open(image_path)
-    
     # Get OCR data with bounding boxes
     ocr_data = pytesseract.image_to_data(image, output_type=pytesseract.Output.DICT)
     
     regions = []
-    pattern = re.compile(search_text) if is_regex else None
+    
+    # Compile regex pattern with validation
+    if is_regex:
+        try:
+            pattern = re.compile(search_text)
+        except re.error as e:
+            raise ValueError(f"Invalid regex pattern '{search_text}': {e}")
+    else:
+        pattern = None
     
     # Iterate through detected text
     n_boxes = len(ocr_data['text'])
@@ -242,33 +251,30 @@ def find_text_regions(
                 'conf': conf
             }
             regions.append(region)
-            logger.info(f"Found match: '{text}' at ({region['left']}, {region['top']}) "
-                       f"with confidence {conf:.1f}%")
+            logger.debug(f"Found match: '{text}' at ({region['left']}, {region['top']}) "
+                        f"with confidence {conf:.1f}%")
     
     return regions
 
 
 def redact_regions(
-    image_path: Path,
+    image: Image.Image,
     regions: list[dict[str, Any]],
     fill_color: str,
-    padding: int,
-    output_path: Path
+    padding: int
 ) -> Image.Image:
     """
     Paint over text regions with solid color.
     
     Args:
-        image_path: Path to input image
+        image: PIL Image object
         regions: List of bounding box dicts
         fill_color: Hex color to fill with
         padding: Extra pixels around detected text
-        output_path: Where to save the result
     
     Returns:
         Modified PIL Image
     """
-    image = Image.open(image_path)
     draw = ImageDraw.Draw(image)
     
     for region in regions:
@@ -388,14 +394,35 @@ def main(argv: list[str] | None = None) -> int:
     logger.info(f"Processing: {args.input}")
     logger.info(f"Searching for: {args.find} {'(regex)' if args.regex else '(exact)'}")
     
+    # Load and prepare image (convert RGBA to RGB if needed)
+    try:
+        image = Image.open(args.input)
+        if image.mode == 'RGBA':
+            logger.info("Converting RGBA image to RGB")
+            # Create white background and paste RGBA image
+            rgb_image = Image.new('RGB', image.size, (255, 255, 255))
+            rgb_image.paste(image, mask=image.split()[3])  # Use alpha channel as mask
+            image = rgb_image
+        elif image.mode not in ('RGB', 'L'):
+            # Convert other modes to RGB
+            logger.info(f"Converting {image.mode} image to RGB")
+            image = image.convert('RGB')
+    except Exception as e:
+        logger.error(f"Failed to load image: {e}")
+        return 1
+    
     # Find text regions
     try:
         regions = find_text_regions(
-            args.input,
+            image,
             args.find,
             args.regex,
             args.confidence
         )
+    except ValueError as e:
+        # Regex validation error
+        logger.error(str(e))
+        return 1
     except Exception as e:
         logger.error(f"OCR failed: {e}")
         return 1
@@ -414,11 +441,10 @@ def main(argv: list[str] | None = None) -> int:
     # Redact regions
     try:
         image = redact_regions(
-            args.input,
+            image,
             regions,
             args.fill_color,
-            args.padding,
-            output_path
+            args.padding
         )
     except Exception as e:
         logger.error(f"Redaction failed: {e}")
@@ -439,10 +465,16 @@ def main(argv: list[str] | None = None) -> int:
             logger.error(f"Placeholder rendering failed: {e}")
             return 1
     
-    # Save result
+    # Save result with quality preservation for JPEG
     try:
-        image.save(output_path)
-        logger.info(f"Saved redacted image to: {output_path}")
+        # Detect output format and preserve JPEG quality
+        output_format = output_path.suffix.lower()
+        if output_format in ['.jpg', '.jpeg']:
+            image.save(output_path, quality=95, optimize=True)
+            logger.info(f"Saved redacted image to: {output_path} (JPEG quality=95)")
+        else:
+            image.save(output_path)
+            logger.info(f"Saved redacted image to: {output_path}")
     except Exception as e:
         logger.error(f"Failed to save image: {e}")
         return 1
