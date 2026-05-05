@@ -59,12 +59,14 @@ class Config:
     Attributes:
         quality: Video quality preset (LOW, MEDIUM, HIGH).
         output_dir: Default directory for output files.
+        clips_dir: Default drop folder for input MP4 clips.
         transition: Default transition between clips.
         transition_duration: Default transition duration in seconds.
     """
 
     quality: QualityPreset = QualityPreset.MEDIUM
     output_dir: Path = field(default_factory=lambda: Path("outputs"))
+    clips_dir: Path = field(default_factory=lambda: Path("clips"))
     transition: TransitionType = TransitionType.NONE
     transition_duration: float = 1.0
 
@@ -73,5 +75,7 @@ class Config:
             self.quality = QualityPreset[self.quality.upper()]
         if isinstance(self.output_dir, str):
             self.output_dir = Path(self.output_dir)
+        if isinstance(self.clips_dir, str):
+            self.clips_dir = Path(self.clips_dir)
         if isinstance(self.transition, str):
             self.transition = TransitionType(self.transition)

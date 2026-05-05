@@ -33,17 +33,23 @@ def parse_args() -> argparse.Namespace:
         formatter_class=argparse.RawDescriptionHelpFormatter,
         epilog="""
 Examples:
+  stitch-video                             (reads all MP4s from clips/ folder)
   stitch-video clip1.mp4 clip2.mp4 clip3.mp4
   stitch-video --playlist playlist.yaml --quality high
   stitch-video clip1.mp4 clip2.mp4 --transition fade_to_black --output final.mp4
-  stitch-video --playlist playlist.json --output outputs/combined.mp4
+  stitch-video --clips-dir ./my-clips --quality high
+
+Drop folder workflow:
+  1. Render animations with manim-gen or remotion-gen
+  2. Copy/move MP4 outputs into the clips/ folder
+  3. Run: stitch-video
 
 Playlist format (YAML):
   clips:
-    - path: ../manim-animation/outputs/scene1.mp4
+    - path: intro.mp4
       title_card: "Chapter 1: Introduction"
       transition: fade_to_black
-    - path: ../remotion-animation/outputs/scene2.mp4
+    - path: demo.mp4
       transition: none
         """,
     )
@@ -59,6 +65,13 @@ Playlist format (YAML):
         "--playlist",
         type=Path,
         help="Path to a JSON or YAML playlist file (alternative to positional inputs)",
+    )
+
+    parser.add_argument(
+        "--clips-dir",
+        type=Path,
+        default=None,
+        help="Drop folder containing MP4 clips (default: clips/)",
     )
 
     parser.add_argument(
@@ -119,6 +132,21 @@ def build_clips_from_args(
     return clips
 
 
+def _load_from_drop_folder(
+    clips_dir: Path,
+    transition: TransitionType,
+    transition_duration: float,
+) -> List[ClipConfig]:
+    """Load all MP4 files from the drop folder, sorted alphabetically."""
+    if not clips_dir.exists():
+        return []
+    mp4s = sorted(clips_dir.glob("*.mp4"))
+    if not mp4s:
+        return []
+    logger.info(f"Found {len(mp4s)} MP4 file(s) in drop folder: {clips_dir}")
+    return build_clips_from_args(mp4s, transition, transition_duration)
+
+
 def main() -> int:
     """CLI entry point.
 
@@ -133,7 +161,7 @@ def main() -> int:
     setup_logging(args.debug)
 
     try:
-        # Determine clip list from playlist or positional args
+        # Determine clip list from playlist, positional args, or drop folder
         if args.playlist:
             if args.inputs:
                 print(
@@ -148,11 +176,23 @@ def main() -> int:
                 args.inputs, transition, args.transition_duration
             )
         else:
-            print(
-                "✗ Error: Provide input MP4 files or use --playlist",
-                file=sys.stderr,
+            # Default: read all MP4s from the drop folder
+            clips_dir = args.clips_dir or Config().clips_dir
+            clips = _load_from_drop_folder(
+                clips_dir,
+                TransitionType(args.transition),
+                args.transition_duration,
             )
-            return 1
+            if not clips:
+                print(
+                    f"✗ Error: No MP4 files found in drop folder: {clips_dir}",
+                    file=sys.stderr,
+                )
+                print(
+                    "  Copy rendered animations into the clips/ folder, or provide explicit paths.",
+                    file=sys.stderr,
+                )
+                return 1
 
         if len(clips) < 1:
             print("✗ Error: At least one clip is required", file=sys.stderr)

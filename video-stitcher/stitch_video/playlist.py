@@ -19,7 +19,9 @@ def load_playlist(playlist_path: Path, base_dir: Path = None) -> List[ClipConfig
     Args:
         playlist_path: Path to the playlist file.
         base_dir: Base directory for resolving relative clip paths.
-                  Defaults to the playlist file's parent directory.
+                  Defaults to the playlist file's parent directory (so clips
+                  can be referenced relative to where the playlist lives,
+                  e.g., inside the clips/ drop folder).
 
     Returns:
         List of ClipConfig objects in order.
