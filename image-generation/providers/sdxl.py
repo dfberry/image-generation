@@ -3,6 +3,8 @@
 Friendly name: 'precise'
 Model: stabilityai/stable-diffusion-xl-base-1.0
 License: CreativeML Open RAIL++-M
+
+Supports both text-to-image and img2img (when config.input_image is set).
 """
 
 from __future__ import annotations
@@ -21,10 +23,11 @@ logger = logging.getLogger(__name__)
 torch = None
 diffusers = None
 DiffusionPipeline = None
+StableDiffusionXLImg2ImgPipeline = None
 
 
 def _ensure_imports() -> None:
-    global torch, diffusers, DiffusionPipeline
+    global torch, diffusers, DiffusionPipeline, StableDiffusionXLImg2ImgPipeline
     if torch is None:
         import torch as _torch
         torch = _torch
@@ -34,6 +37,9 @@ def _ensure_imports() -> None:
     if DiffusionPipeline is None:
         from diffusers import DiffusionPipeline as _DP
         DiffusionPipeline = _DP
+    if StableDiffusionXLImg2ImgPipeline is None:
+        from diffusers import StableDiffusionXLImg2ImgPipeline as _Img2Img
+        StableDiffusionXLImg2ImgPipeline = _Img2Img
 
 
 class SDXLProvider(BaseProvider):
@@ -43,6 +49,7 @@ class SDXLProvider(BaseProvider):
 
     def __init__(self) -> None:
         self._pipeline: Optional[object] = None
+        self._img2img_pipeline: Optional[object] = None
         self._device: Optional[str] = None
 
     @property
@@ -119,6 +126,11 @@ class SDXLProvider(BaseProvider):
             gen_device = "cpu" if self._device in ("cpu", "mps") else self._device
             generator = torch.Generator(device=gen_device).manual_seed(config.seed)
 
+        # img2img path
+        if config.input_image is not None:
+            return self._generate_img2img(config, generator)
+
+        # text-to-image path (unchanged)
         result = self._pipeline(
             prompt=config.prompt,
             negative_prompt=config.negative_prompt,
@@ -130,8 +142,68 @@ class SDXLProvider(BaseProvider):
         )
         return result.images[0]
 
+    def _generate_img2img(self, config: GenerationConfig, generator) -> Image.Image:
+        """Generate using img2img pipeline with input image + strength."""
+        img2img_pipe = self._get_img2img_pipeline()
+
+        # Resize input image to target dimensions if they don't match
+        input_image = config.input_image.convert("RGB")
+        if input_image.size != (config.width, config.height):
+            logger.warning(
+                "Input image size %s differs from target %dx%d — resizing.",
+                input_image.size, config.width, config.height,
+            )
+            input_image = input_image.resize(
+                (config.width, config.height), Image.LANCZOS
+            )
+
+        result = img2img_pipe(
+            prompt=config.prompt,
+            negative_prompt=config.negative_prompt,
+            image=input_image,
+            strength=config.strength,
+            num_inference_steps=config.steps,
+            guidance_scale=config.guidance_scale,
+            generator=generator,
+        )
+        return result.images[0]
+
+    def _get_img2img_pipeline(self):
+        """Lazily create img2img pipeline sharing components with txt2img."""
+        if self._img2img_pipeline is not None:
+            return self._img2img_pipeline
+
+        # Share VAE, text encoders, tokenizers, and UNet from existing pipeline
+        pipe = self._pipeline
+        img2img_pipe = StableDiffusionXLImg2ImgPipeline(
+            vae=pipe.vae,
+            text_encoder=pipe.text_encoder,
+            text_encoder_2=pipe.text_encoder_2,
+            tokenizer=pipe.tokenizer,
+            tokenizer_2=pipe.tokenizer_2,
+            unet=pipe.unet,
+            scheduler=pipe.scheduler,
+        )
+        img2img_pipe.safety_checker = None
+
+        # Apply same attention optimization
+        xformers_fn = getattr(img2img_pipe, "enable_xformers_memory_efficient_attention", None)
+        if xformers_fn is not None:
+            try:
+                xformers_fn()
+            except Exception:
+                img2img_pipe.enable_attention_slicing()
+        else:
+            img2img_pipe.enable_attention_slicing()
+
+        self._img2img_pipeline = img2img_pipe
+        return img2img_pipe
+
     def cleanup(self) -> None:
         _ensure_imports()
+        if self._img2img_pipeline is not None:
+            del self._img2img_pipeline
+            self._img2img_pipeline = None
         if self._pipeline is not None:
             del self._pipeline
             self._pipeline = None
