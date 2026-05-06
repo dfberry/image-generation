@@ -6,3 +6,6 @@ invisible-watermark>=0.2.0
 torch>=2.1.0
 Pillow>=10.0.0
 pytesseract>=0.3.10
+realesrgan>=0.3.0
+basicsr>=1.4.2
+numpy>=1.24.0
