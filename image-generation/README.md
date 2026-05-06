@@ -25,7 +25,7 @@ pip install -r requirements.lock
 
 **Dependency versions:** Pinned to known-good releases:
 - `torch>=2.1.0`
-- `diffusers>=0.21.0`
+- `diffusers>=0.30.0`
 - `accelerate>=0.24.0`
 
 ## Usage
@@ -50,6 +50,7 @@ python generate.py --prompt "Your prompt here" --seed 42 --refine
 |------|---------|-------------|
 | `--prompt TEXT` | required | Text prompt (mutually exclusive with `--batch-file`) |
 | `--batch-file PATH` | — | JSON file with list of prompt dicts for batch generation |
+| `--model NAME` | — | Model to use: `creative`, `precise` (default), `balanced` |
 | `--output PATH` | `outputs/image_{timestamp}.png` | Output file |
 | `--steps INT` | 22 | Number of base inference steps |
 | `--refiner-steps INT` | 10 | Number of refiner inference steps |
@@ -64,6 +65,32 @@ python generate.py --prompt "Your prompt here" --seed 42 --refine
 | `--cpu` | off | Force CPU mode (no GPU) |
 | `--lora TEXT` | — | LoRA model ID or path to load |
 | `--lora-weight FLOAT` | 0.8 | LoRA adapter weight (0.0–1.0) |
+
+## Multi-Model Support
+
+Use `--model` to select a generation model:
+
+| Name | Model | Best for |
+|------|-------|----------|
+| `creative` | FLUX.1-schnell | Artistic compositions, best prompt adherence |
+| `precise` | SDXL Base 1.0 | Photorealistic, high detail (default) |
+| `balanced` | SD3 Medium | Good balance of speed and quality |
+
+```bash
+# Artistic/creative generation
+python generate.py --prompt "A magical forest" --model creative
+
+# High-detail (default behavior)
+python generate.py --prompt "A photo of a mountain" --model precise
+
+# Balanced speed and quality
+python generate.py --prompt "A sunset over the ocean" --model balanced
+```
+
+> **Note:** SD3 Medium (`balanced`) is a gated model. You must accept the license at
+> https://huggingface.co/stabilityai/stable-diffusion-3-medium-diffusers and set
+> `HF_TOKEN` environment variable before use. It uses the Stability AI Community License
+> (non-commercial).
 
 ## Generation Time
 

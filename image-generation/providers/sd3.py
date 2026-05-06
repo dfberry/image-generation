@@ -1,14 +1,19 @@
-"""Stable Diffusion 3 Medium provider - fast, good quality generation.
+"""Stable Diffusion 3 Medium provider - balanced speed and quality.
 
-Friendly name: 'fast'
+Friendly name: 'balanced'
 Model: stabilityai/stable-diffusion-3-medium-diffusers
-License: Stability AI Community License
+License: Stability AI Community License (non-commercial use only)
+
+Note: This is a gated model. You must accept the license terms at
+https://huggingface.co/stabilityai/stable-diffusion-3-medium-diffusers
+and set the HF_TOKEN environment variable before use.
 """
 
 from __future__ import annotations
 
 import gc
 import logging
+import os
 from typing import Optional
 
 from PIL import Image
@@ -33,7 +38,7 @@ def _ensure_imports() -> None:
 
 
 class SD3Provider(BaseProvider):
-    """Stable Diffusion 3 Medium - fast generation with good quality."""
+    """Stable Diffusion 3 Medium - good balance of speed and quality."""
 
     _MODEL_ID = "stabilityai/stable-diffusion-3-medium-diffusers"
 
@@ -43,7 +48,7 @@ class SD3Provider(BaseProvider):
 
     @property
     def friendly_name(self) -> str:
-        return "fast"
+        return "balanced"
 
     @property
     def model_id(self) -> str:
@@ -51,7 +56,7 @@ class SD3Provider(BaseProvider):
 
     @property
     def description(self) -> str:
-        return "Quick generation with good quality - balanced speed and detail"
+        return "Good balance of speed and quality - detailed results without long waits"
 
     @property
     def is_loaded(self) -> bool:
@@ -59,12 +64,34 @@ class SD3Provider(BaseProvider):
 
     def load(self, device: str) -> None:
         _ensure_imports()
+
+        # SD3 Medium is a gated model requiring authentication
+        token = os.environ.get("HF_TOKEN") or os.environ.get("HUGGING_FACE_HUB_TOKEN")
+        if not token:
+            raise RuntimeError(
+                "SD3 Medium requires accepting terms at "
+                "https://huggingface.co/stabilityai/stable-diffusion-3-medium-diffusers "
+                "and setting HF_TOKEN environment variable."
+            )
+
         logger.info("Loading SD3 Medium (first run downloads ~5 GB)...")
         dtype = torch.float16 if device in ("cuda", "mps") else torch.float32
-        pipe = StableDiffusion3Pipeline.from_pretrained(
-            self._MODEL_ID,
-            torch_dtype=dtype,
-        )
+        try:
+            pipe = StableDiffusion3Pipeline.from_pretrained(
+                self._MODEL_ID,
+                torch_dtype=dtype,
+                token=token,
+            )
+        except (OSError, ConnectionError) as exc:
+            raise RuntimeError(
+                f"Could not download {self._MODEL_ID}. Check your internet connection and try again."
+            ) from exc
+        except Exception as exc:
+            if "requests" in type(exc).__module__:
+                raise RuntimeError(
+                    f"Could not download {self._MODEL_ID}. Check your internet connection and try again."
+                ) from exc
+            raise
 
         if device == "mps":
             pipe.enable_model_cpu_offload()

@@ -13,14 +13,14 @@ from providers.sdxl import SDXLProvider
 _REGISTRY: Dict[str, Type[BaseProvider]] = {
     "creative": FluxProvider,
     "precise": SDXLProvider,
-    "fast": SD3Provider,
+    "balanced": SD3Provider,
 }
 
 # Human-readable descriptions for --help output
 FRIENDLY_NAMES: Dict[str, str] = {
     "creative": "FLUX.1 - best prompt adherence, artistic",
     "precise": "SDXL Base 1.0 - high detail (default)",
-    "fast": "SD3 Medium - quicker generation, good quality",
+    "balanced": "SD3 Medium - good balance of speed and quality",
 }
 
 # Default model when --model is not specified
@@ -31,7 +31,7 @@ def get_provider(name: str) -> BaseProvider:
     """Instantiate a provider by its friendly name.
 
     Args:
-        name: One of 'creative', 'precise', 'fast'.
+        name: One of 'creative', 'precise', 'balanced'.
 
     Returns:
         An unloaded provider instance.

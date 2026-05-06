@@ -61,10 +61,21 @@ class FluxProvider(BaseProvider):
         _ensure_imports()
         logger.info("Loading FLUX.1-schnell (first run downloads ~12 GB)...")
         dtype = torch.bfloat16 if device in ("cuda", "mps") else torch.float32
-        pipe = FluxPipeline.from_pretrained(
-            self._MODEL_ID,
-            torch_dtype=dtype,
-        )
+        try:
+            pipe = FluxPipeline.from_pretrained(
+                self._MODEL_ID,
+                torch_dtype=dtype,
+            )
+        except (OSError, ConnectionError) as exc:
+            raise RuntimeError(
+                f"Could not download {self._MODEL_ID}. Check your internet connection and try again."
+            ) from exc
+        except Exception as exc:
+            if "requests" in type(exc).__module__:
+                raise RuntimeError(
+                    f"Could not download {self._MODEL_ID}. Check your internet connection and try again."
+                ) from exc
+            raise
 
         if device == "mps":
             pipe.enable_model_cpu_offload()
@@ -89,7 +100,10 @@ class FluxProvider(BaseProvider):
             generator = torch.Generator(device=gen_device).manual_seed(config.seed)
 
         # FLUX.1-schnell uses fewer steps (4) and no CFG
-        steps = min(config.steps, 4) if config.steps > 4 else config.steps
+        steps = config.steps
+        if config.steps > 4:
+            print(f"Note: FLUX.1 is optimized for 1-4 steps. Clamping --steps {config.steps} to 4.")
+            steps = 4
         result = self._pipeline(
             prompt=config.prompt,
             num_inference_steps=steps,

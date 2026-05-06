@@ -118,8 +118,8 @@ def parse_args():
     parser.add_argument("--output", default=None, help="Output file path")
     parser.add_argument(
         "--model", type=str, default=None,
-        choices=["creative", "precise", "fast"],
-        help="Model to use: creative (FLUX.1, artistic), precise (SDXL, default), fast (SD3 Medium)",
+        choices=["creative", "precise", "balanced"],
+        help="Model to use: creative (FLUX.1, artistic), precise (SDXL, default), balanced (SD3 Medium)",
     )
     parser.add_argument("--steps", type=_positive_int, default=22, help="Number of base inference steps (> 0)")
     parser.add_argument("--refiner-steps", type=_positive_int, default=10, dest="refiner_steps",
@@ -601,6 +601,16 @@ def generate_with_provider(args) -> str:
     registry to load the appropriate model and generate the image.
     """
     from providers import get_provider, GenerationConfig
+
+    # Warn about unsupported flags in provider path
+    unsupported = []
+    if getattr(args, 'lora', None):
+        unsupported.append("--lora")
+    if getattr(args, 'refine', False):
+        unsupported.append("--refine")
+    if unsupported:
+        model_name = getattr(args, 'model', 'precise') or 'precise'
+        print(f"Warning: {' and '.join(unsupported)} are not yet supported with --model {model_name}. These flags will be ignored.")
 
     _ensure_heavy_imports()
     validate_dimensions(args.width, args.height)

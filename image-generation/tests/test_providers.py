@@ -37,10 +37,10 @@ class TestRegistry:
         p = get_provider("precise")
         assert isinstance(p, SDXLProvider)
 
-    def test_get_provider_fast(self):
+    def test_get_provider_balanced(self):
         from providers.registry import get_provider
         from providers.sd3 import SD3Provider
-        p = get_provider("fast")
+        p = get_provider("balanced")
         assert isinstance(p, SD3Provider)
 
     def test_get_provider_case_insensitive(self):
@@ -59,7 +59,7 @@ class TestRegistry:
         providers = list_providers()
         assert "creative" in providers
         assert "precise" in providers
-        assert "fast" in providers
+        assert "balanced" in providers
         assert len(providers) == 3
 
     def test_default_model_is_precise(self):
@@ -251,7 +251,7 @@ class TestSD3Provider:
     def test_friendly_name(self):
         from providers.sd3 import SD3Provider
         p = SD3Provider()
-        assert p.friendly_name == "fast"
+        assert p.friendly_name == "balanced"
 
     def test_model_id(self):
         from providers.sd3 import SD3Provider
@@ -267,6 +267,7 @@ class TestSD3Provider:
 
     @patch("providers.sd3.StableDiffusion3Pipeline")
     @patch("providers.sd3.torch")
+    @patch.dict(os.environ, {"HF_TOKEN": "test-token"})
     def test_load_and_generate(self, mock_torch, mock_sd3):
         from providers.sd3 import SD3Provider
         from providers.base import GenerationConfig

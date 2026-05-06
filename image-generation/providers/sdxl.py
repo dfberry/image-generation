@@ -65,12 +65,23 @@ class SDXLProvider(BaseProvider):
         _ensure_imports()
         logger.info("Loading SDXL base model (first run downloads ~7 GB)...")
         dtype = torch.float16 if device in ("cuda", "mps") else torch.float32
-        pipe = DiffusionPipeline.from_pretrained(
-            self._MODEL_ID,
-            torch_dtype=dtype,
-            use_safetensors=True,
-            variant="fp16" if device in ("cuda", "mps") else None,
-        )
+        try:
+            pipe = DiffusionPipeline.from_pretrained(
+                self._MODEL_ID,
+                torch_dtype=dtype,
+                use_safetensors=True,
+                variant="fp16" if device in ("cuda", "mps") else None,
+            )
+        except (OSError, ConnectionError) as exc:
+            raise RuntimeError(
+                f"Could not download {self._MODEL_ID}. Check your internet connection and try again."
+            ) from exc
+        except Exception as exc:
+            if "requests" in type(exc).__module__:
+                raise RuntimeError(
+                    f"Could not download {self._MODEL_ID}. Check your internet connection and try again."
+                ) from exc
+            raise
         pipe.safety_checker = None
 
         if device == "mps":
