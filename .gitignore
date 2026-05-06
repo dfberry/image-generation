@@ -53,3 +53,5 @@ remotion-animation/outputs/*.tsx
 # Tool caches
 .pytest_cache/
 .ruff_cache/
+
+media/
