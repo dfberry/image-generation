@@ -192,6 +192,8 @@ def parse_args():
                        help="JSON file with list of prompt dicts for batch generation")
     group.add_argument("--enhance", metavar="IMAGE_PATH",
                        help="Upscale an image using Real-ESRGAN (no prompt needed)")
+    group.add_argument("--list-styles", action="store_true", dest="list_styles",
+                       help="List available style transfer presets and exit")
     parser.add_argument("--output", default=None, help="Output file path")
     parser.add_argument(
         "--model", type=str, default=None,
@@ -226,6 +228,8 @@ def parse_args():
                         help="Denoising strength for img2img (0.0=no change, 1.0=full regeneration)")
     parser.add_argument("--scale", type=int, choices=[2, 4], default=4,
                         help="Upscaling factor for --enhance mode (2x or 4x)")
+    parser.add_argument("--style", type=str, default=None,
+                        help="Style transfer preset (e.g. watercolor, oil-painting, sketch, anime, pixel-art). Requires --input.")
     return parser.parse_args()
 
 
@@ -795,11 +799,36 @@ def generate_with_provider(args) -> str:
 def main():
     args = parse_args()
 
+    # --list-styles: print available styles and exit (no generation)
+    if getattr(args, 'list_styles', False) is True:
+        from providers.styles import format_styles_table
+        print(format_styles_table())
+        return
+
     # Enhancement mode: separate code path, no prompt needed
     enhance_path = getattr(args, 'enhance', None)
     if isinstance(enhance_path, str) and enhance_path:
         enhance_image(args)
         return
+
+    # --style validation: requires --input (style implies img2img)
+    style_name = getattr(args, 'style', None)
+    if isinstance(style_name, str) and style_name:
+        from providers.styles import get_style
+        input_path = getattr(args, 'input', None)
+        if not input_path:
+            print("Error: --style requires --input. Style transfer works on an existing image.", file=sys.stderr)
+            sys.exit(1)
+        # Apply style preset defaults
+        preset = get_style(style_name)
+        args.lora = preset.lora_id
+        args.lora_weight = preset.lora_weight
+        args.strength = preset.strength
+        args.guidance = preset.guidance_scale
+        # Merge negative prompt additions
+        existing_neg = getattr(args, 'negative_prompt', '') or ''
+        if preset.negative_prompt_additions:
+            args.negative_prompt = f"{existing_neg}, {preset.negative_prompt_additions}" if existing_neg else preset.negative_prompt_additions
 
     # img2img validation: --input requires --prompt
     input_path = getattr(args, 'input', None)
