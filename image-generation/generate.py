@@ -19,6 +19,8 @@ from datetime import datetime
 from pathlib import Path
 from types import SimpleNamespace
 
+from PIL import Image
+
 logger = logging.getLogger(__name__)
 
 # ---------------------------------------------------------------------------
@@ -73,6 +75,16 @@ def _non_negative_float(value):
     return fvalue
 
 
+def _strength_float(value):
+    """Argparse type: strength float in range [0.0, 1.0]."""
+    fvalue = float(value)
+    if fvalue < 0.0 or fvalue > 1.0:
+        raise argparse.ArgumentTypeError(
+            f"strength must be between 0.0 and 1.0, got {value}"
+        )
+    return fvalue
+
+
 def _dimension(value):
     """Argparse type: image dimension in pixels (>= 64, divisible by 8)."""
     ivalue = int(value)
@@ -104,6 +116,69 @@ def validate_dimensions(width: int, height: int):
             raise ValueError(
                 f"{name} must be divisible by 8, got {val} (nearest valid: {nearest})"
             )
+
+
+# Supported image formats for img2img input
+_VALID_IMAGE_EXTENSIONS = {".png", ".jpg", ".jpeg", ".webp"}
+
+# Maximum input image dimensions (prevent OOM from absurdly large files)
+_MAX_INPUT_DIMENSION = 8192
+
+
+def validate_input_image(path: str) -> Image.Image:
+    """Validate an input image path and return the opened PIL Image.
+
+    Checks: file exists, is a file (not dir), has a supported extension,
+    can be opened by Pillow, and has reasonable dimensions.
+
+    Raises SystemExit with a friendly error on failure.
+    """
+    p = Path(path)
+
+    if not p.exists():
+        print(f"Error: Input image not found: '{path}'", file=sys.stderr)
+        sys.exit(1)
+
+    if not p.is_file():
+        print(f"Error: Input path is not a file: '{path}'", file=sys.stderr)
+        sys.exit(1)
+
+    if p.stat().st_size == 0:
+        print(f"Error: Input image is empty (0 bytes): '{path}'", file=sys.stderr)
+        sys.exit(1)
+
+    ext = p.suffix.lower()
+    if ext not in _VALID_IMAGE_EXTENSIONS:
+        valid = ", ".join(sorted(_VALID_IMAGE_EXTENSIONS))
+        print(
+            f"Error: Unsupported image format '{ext}'. Valid formats: {valid}",
+            file=sys.stderr,
+        )
+        sys.exit(1)
+
+    try:
+        img = Image.open(path)
+        img.verify()
+        # Re-open after verify (verify closes the file)
+        img = Image.open(path)
+        img.load()
+    except Exception as exc:
+        print(
+            f"Error: Cannot read image '{path}': {exc}",
+            file=sys.stderr,
+        )
+        sys.exit(1)
+
+    w, h = img.size
+    if w > _MAX_INPUT_DIMENSION or h > _MAX_INPUT_DIMENSION:
+        print(
+            f"Error: Input image too large ({w}x{h}). "
+            f"Maximum dimension is {_MAX_INPUT_DIMENSION}px.",
+            file=sys.stderr,
+        )
+        sys.exit(1)
+
+    return img
 
 
 def parse_args():
@@ -143,6 +218,10 @@ def parse_args():
                         help="LoRA model ID or path to load (e.g. joachim_s/aether-watercolor-and-ink-sdxl)")
     parser.add_argument("--lora-weight", type=_non_negative_float, default=0.8, dest="lora_weight",
                         help="LoRA adapter weight (0.0–1.0)")
+    parser.add_argument("--input", type=str, default=None,
+                        help="Path to input image for img2img generation (PNG, JPEG, or WebP)")
+    parser.add_argument("--strength", type=_strength_float, default=0.75,
+                        help="Denoising strength for img2img (0.0=no change, 1.0=full regeneration)")
     return parser.parse_args()
 
 
@@ -630,6 +709,8 @@ def generate_with_provider(args) -> str:
         logger.info("Using model: %s (%s)", provider.friendly_name, provider.description)
         provider.load(device)
 
+        # Build generation config
+        input_img = getattr(args, '_input_image', None)
         config = GenerationConfig(
             prompt=args.prompt,
             negative_prompt=getattr(args, 'negative_prompt', None),
@@ -639,7 +720,13 @@ def generate_with_provider(args) -> str:
             guidance_scale=args.guidance,
             seed=getattr(args, 'seed', None),
             scheduler=getattr(args, 'scheduler', None),
+            input_image=input_img,
+            strength=getattr(args, 'strength', 0.75),
         )
+
+        # Notify user about img2img mode
+        if input_img is not None:
+            print(f"img2img mode enabled. Provider '{model_name}' will process your input image.")
 
         image = provider.generate(config)
         image.save(output_path)
@@ -662,6 +749,17 @@ def generate_with_provider(args) -> str:
 
 def main():
     args = parse_args()
+
+    # img2img validation: --input requires --prompt
+    input_path = getattr(args, 'input', None)
+    if isinstance(input_path, str) and input_path:
+        if not getattr(args, 'prompt', None):
+            print("Error: --input requires --prompt. Provide a text prompt describing the desired transformation.", file=sys.stderr)
+            sys.exit(1)
+        args._input_image = validate_input_image(input_path)
+    else:
+        args._input_image = None
+
     if getattr(args, 'batch_file', None):
         try:
             with open(args.batch_file) as f:
