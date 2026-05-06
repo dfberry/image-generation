@@ -18,6 +18,7 @@ from manim_gen.errors import (
     ValidationError,
 )
 from manim_gen.audio_handler import copy_audio_to_workspace, generate_audio_context
+from manim_gen.demo_template import get_demo_scene
 from manim_gen.image_handler import copy_images_to_workspace, generate_image_context
 from manim_gen.llm_client import LLMClient
 from manim_gen.renderer import render_scene
@@ -251,6 +252,40 @@ def generate_video(
     logger.info(f"Video generation complete: {video_path}")
     return video_path
 
+def render_demo_scene(
+    output_path: Path,
+    quality: QualityPreset = QualityPreset.MEDIUM,
+    datetime_str: str = None,
+    debug: bool = False,
+) -> Path:
+    """Render the hardcoded demo scene, bypassing LLM entirely.
+
+    Args:
+        output_path: Where to write the output video.
+        quality: Quality preset for Manim rendering.
+        datetime_str: Timestamp to embed. If None, uses current time.
+        debug: If True, save intermediate scene file alongside output.
+
+    Returns:
+        Path to rendered video.
+
+    Raises:
+        RenderError: If Manim render fails.
+    """
+    scene_code = get_demo_scene(datetime_str)
+
+    if debug:
+        debug_path = output_path.parent / f"{output_path.stem}_scene.py"
+        debug_path.write_text(scene_code, encoding="utf-8")
+        logger.info(f"Debug: Demo scene code saved to {debug_path}")
+
+    with tempfile.TemporaryDirectory() as tmpdir:
+        workspace = Path(tmpdir)
+        scene_file = workspace / "scene.py"
+        scene_file.write_text(scene_code, encoding="utf-8")
+        return render_scene(scene_file, output_path, quality)
+
+
 def main() -> int:
     """CLI entry point.
 
@@ -266,17 +301,42 @@ def main() -> int:
     args = parse_args()
     setup_logging(args.debug)
 
-    # Handle --demo mode: auto-generate a personalized prompt
+    # Handle --demo mode: bypass LLM with hardcoded scene
     if args.demo:
         now = datetime.now().strftime("%B %d, %Y at %I:%M %p")
-        args.prompt = (
-            f"A professional title card animation for 'Dina Berry'. "
-            f"Start with a dark background, fade in the name 'Dina Berry' in elegant large white text centered on screen. "
-            f"Below the name, fade in the current date and time: '{now}'. "
-            f"After 3 seconds, FadeOut the name and date, then fade in 'Generated with Manim' in smaller text. "
-            f"Use smooth FadeIn and FadeOut transitions — never stack text on top of existing text. Always remove previous text before showing new text."
+        print("🎬 Demo mode: generating personalized title card (LLM bypassed)")
+
+        config = Config(
+            quality=QualityPreset[args.quality.upper()],
+            duration=10,
+            debug=args.debug,
+            provider=args.provider,
         )
-        print("🎬 Demo mode: generating personalized title card")
+
+        if args.output:
+            output_path = args.output
+        else:
+            ts = datetime.now().strftime("%Y%m%d_%H%M%S")
+            output_path = config.output_dir / f"demo_{ts}.mp4"
+
+        output_path.parent.mkdir(parents=True, exist_ok=True)
+
+        try:
+            result = render_demo_scene(
+                output_path, config.quality, datetime_str=now, debug=args.debug
+            )
+            print(f"\n✓ Demo video generated: {result}")
+            print(f"  Quality: {config.quality.name} ({config.quality.height}p @ {config.quality.fps}fps)")
+            print(f"  Content: 'Dina Berry' — {now}")
+            return 0
+        except RenderError as e:
+            logger.error(f"Render error: {e}")
+            print(f"\n✗ Render Error: {e}", file=sys.stderr)
+            return 3
+        except Exception as e:
+            logger.exception("Unexpected error in demo mode")
+            print(f"\n✗ Unexpected Error: {e}", file=sys.stderr)
+            return 4
     elif not args.prompt:
         print("✗ Error: --prompt is required (or use --demo)", file=sys.stderr)
         return 1
