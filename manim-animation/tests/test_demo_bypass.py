@@ -11,6 +11,7 @@ Tests cover:
 
 import re
 import sys
+from pathlib import Path
 from unittest.mock import MagicMock, patch
 
 import pytest
@@ -161,22 +162,20 @@ class TestDemoNoTextStacking:
 class TestDemoEndToEnd:
     """Integration-style tests for the full --demo flow."""
 
-    @patch("subprocess.run")
-    def test_demo_cli_invocation_returns_zero(self, mock_run):
+    @patch("manim_gen.cli.render_demo_scene")
+    def test_demo_cli_invocation_returns_zero(self, mock_render):
         """Running `python -m manim_gen.cli --demo` should exit 0."""
-        mock_run.return_value = MagicMock(returncode=0, stdout="", stderr="")
+        mock_render.return_value = Path("/tmp/demo_output.mp4")
         with patch.object(sys, "argv", ["manim-gen", "--demo"]):
-            # This tests the full CLI path with subprocess mocked
-            # (Manim rendering is the subprocess call)
             result = main()
             assert result == 0
+            mock_render.assert_called_once()
 
-    @patch("subprocess.run")
-    def test_demo_does_not_require_api_key(self, mock_run):
+    @patch("manim_gen.cli.render_demo_scene")
+    def test_demo_does_not_require_api_key(self, mock_render):
         """--demo should work without any LLM API key configured."""
-        mock_run.return_value = MagicMock(returncode=0, stdout="", stderr="")
+        mock_render.return_value = Path("/tmp/demo_output.mp4")
         with patch.dict("os.environ", {}, clear=True):
             with patch.object(sys, "argv", ["manim-gen", "--demo"]):
-                # Should not raise KeyError or similar for missing API keys
                 result = main()
                 assert result == 0
