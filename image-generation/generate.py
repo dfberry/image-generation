@@ -116,6 +116,11 @@ def parse_args():
     group.add_argument("--batch-file", dest="batch_file", metavar="PATH",
                        help="JSON file with list of prompt dicts for batch generation")
     parser.add_argument("--output", default=None, help="Output file path")
+    parser.add_argument(
+        "--model", type=str, default=None,
+        choices=["creative", "precise", "balanced"],
+        help="Model to use: creative (FLUX.1, artistic), precise (SDXL, default), balanced (SD3 Medium)",
+    )
     parser.add_argument("--steps", type=_positive_int, default=22, help="Number of base inference steps (> 0)")
     parser.add_argument("--refiner-steps", type=_positive_int, default=10, dest="refiner_steps",
                         help="Number of refiner inference steps (> 0)")
@@ -588,6 +593,73 @@ def generate_with_retry(args, max_retries: int = 2) -> str:
             logger.warning("OOM: retrying with %d steps", current_steps)
 
 
+
+def generate_with_provider(args) -> str:
+    """Generate an image using the provider abstraction layer.
+
+    This is the new path when --model is specified. It uses the provider
+    registry to load the appropriate model and generate the image.
+    """
+    from providers import get_provider, GenerationConfig
+
+    # Warn about unsupported flags in provider path
+    unsupported = []
+    if getattr(args, 'lora', None):
+        unsupported.append("--lora")
+    if getattr(args, 'refine', False):
+        unsupported.append("--refine")
+    if unsupported:
+        model_name = getattr(args, 'model', 'precise') or 'precise'
+        print(f"Warning: {' and '.join(unsupported)} are not yet supported with --model {model_name}. These flags will be ignored.")
+
+    _ensure_heavy_imports()
+    validate_dimensions(args.width, args.height)
+    device = get_device(args.cpu)
+
+    # Resolve output path
+    output_path = args.output
+    if output_path is None:
+        os.makedirs("outputs", exist_ok=True)
+        timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+        output_path = f"outputs/image_{timestamp}.png"
+
+    model_name = getattr(args, 'model', 'precise') or 'precise'
+    provider = get_provider(model_name)
+
+    try:
+        logger.info("Using model: %s (%s)", provider.friendly_name, provider.description)
+        provider.load(device)
+
+        config = GenerationConfig(
+            prompt=args.prompt,
+            negative_prompt=getattr(args, 'negative_prompt', None),
+            width=args.width,
+            height=args.height,
+            steps=args.steps,
+            guidance_scale=args.guidance,
+            seed=getattr(args, 'seed', None),
+            scheduler=getattr(args, 'scheduler', None),
+        )
+
+        image = provider.generate(config)
+        image.save(output_path)
+        logger.info("Saved: %s", output_path)
+    except Exception as exc:
+        _cuda_oom_cls = getattr(torch.cuda, "OutOfMemoryError", None)
+        _is_cuda_oom = _cuda_oom_cls is not None and isinstance(exc, _cuda_oom_cls)
+        _is_mps_oom = isinstance(exc, RuntimeError) and "out of memory" in str(exc).lower()
+        if _is_cuda_oom or _is_mps_oom:
+            raise OOMError(
+                "Out of GPU memory. Try --model fast or use --cpu."
+            ) from exc
+        raise
+    finally:
+        provider.cleanup()
+
+    return output_path
+
+
+
 def main():
     args = parse_args()
     if getattr(args, 'batch_file', None):
@@ -605,6 +677,9 @@ def main():
         for r in results:
             status = r['status']
             logger.info("[%s] %s → %s", status, r['prompt'][:50], r.get('output', r.get('error', '')))
+    elif isinstance(getattr(args, 'model', None), str):
+        # Use the new provider system when --model is specified
+        generate_with_provider(args)
     else:
         generate_with_retry(args)
 
