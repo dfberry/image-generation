@@ -21,6 +21,8 @@ class GenerationConfig:
     guidance_scale: float = 7.5
     seed: Optional[int] = None
     scheduler: Optional[str] = None
+    input_image: Optional[Image.Image] = None
+    strength: float = 0.75
     extras: dict = field(default_factory=dict)
 
 
