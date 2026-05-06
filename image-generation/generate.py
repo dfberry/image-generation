@@ -190,6 +190,8 @@ def parse_args():
     group.add_argument("--prompt", help="Text prompt for image generation")
     group.add_argument("--batch-file", dest="batch_file", metavar="PATH",
                        help="JSON file with list of prompt dicts for batch generation")
+    group.add_argument("--enhance", metavar="IMAGE_PATH",
+                       help="Upscale an image using Real-ESRGAN (no prompt needed)")
     parser.add_argument("--output", default=None, help="Output file path")
     parser.add_argument(
         "--model", type=str, default=None,
@@ -222,6 +224,8 @@ def parse_args():
                         help="Path to input image for img2img generation (PNG, JPEG, or WebP)")
     parser.add_argument("--strength", type=_strength_float, default=0.75,
                         help="Denoising strength for img2img (0.0=no change, 1.0=full regeneration)")
+    parser.add_argument("--scale", type=int, choices=[2, 4], default=4,
+                        help="Upscaling factor for --enhance mode (2x or 4x)")
     return parser.parse_args()
 
 
@@ -673,6 +677,47 @@ def generate_with_retry(args, max_retries: int = 2) -> str:
 
 
 
+def enhance_image(args) -> str:
+    """Upscale an image using Real-ESRGAN super-resolution.
+
+    This is a separate code path from diffusion generation — it does not
+    require a text prompt. The model is loaded, processes the image, and
+    then cleaned up to free memory.
+    """
+    from providers.enhancer import EnhanceConfig
+    from providers.realesrgan import RealESRGANProvider
+
+    # Validate and load input image
+    input_image = validate_input_image(args.enhance)
+
+    # Resolve output path
+    output_path = args.output
+    if output_path is None:
+        os.makedirs("outputs", exist_ok=True)
+        stem = Path(args.enhance).stem
+        output_path = f"outputs/{stem}_enhanced.png"
+
+    scale = getattr(args, 'scale', 4)
+    device = get_device(getattr(args, 'cpu', False))
+
+    provider = RealESRGANProvider()
+    try:
+        provider.load(device, scale=scale)
+        config = EnhanceConfig(
+            input_image=input_image,
+            scale=scale,
+            output_path=output_path,
+        )
+        result = provider.enhance(config)
+        result.save(output_path)
+        w, h = result.size
+        print(f"Enhanced image saved: {output_path} ({w}x{h})")
+    finally:
+        provider.cleanup()
+
+    return output_path
+
+
 def generate_with_provider(args) -> str:
     """Generate an image using the provider abstraction layer.
 
@@ -749,6 +794,12 @@ def generate_with_provider(args) -> str:
 
 def main():
     args = parse_args()
+
+    # Enhancement mode: separate code path, no prompt needed
+    enhance_path = getattr(args, 'enhance', None)
+    if isinstance(enhance_path, str) and enhance_path:
+        enhance_image(args)
+        return
 
     # img2img validation: --input requires --prompt
     input_path = getattr(args, 'input', None)
