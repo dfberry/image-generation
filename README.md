@@ -7,6 +7,9 @@ This repository contains multiple media generation tools powered by AI models.
 | Tool | Description | Status |
 |------|-------------|--------|
 | [image-generation/](image-generation/) | Stable Diffusion XL image generation with batch processing | ✅ Active |
+| [manim-animation/](manim-animation/) | AI-powered Manim animation generation → MP4 | ✅ Active |
+| [remotion-animation/](remotion-animation/) | AI-powered Remotion animation generation → MP4 | ✅ Active |
+| [video-stitcher/](video-stitcher/) | Stitch multiple MP4 animations into a single video | ✅ Active |
 | [mermaid-diagrams/](mermaid-diagrams/) | Diagram generation from text | 🔜 Planned |
 
 ## Getting Started
