@@ -64,6 +64,7 @@ class TestMainFunction:
         mock_args.return_value = MagicMock(
             prompt="test", output=None, quality="medium",
             duration=10, provider="ollama", model=None, debug=False,
+            demo=False,
         )
         mock_gen.side_effect = LLMError("API failed")
         assert main() == 1
@@ -77,6 +78,7 @@ class TestMainFunction:
         mock_args.return_value = MagicMock(
             prompt="test", output=None, quality="medium",
             duration=10, provider="ollama", model=None, debug=False,
+            demo=False,
         )
         mock_gen.side_effect = ValidationError("bad code")
         assert main() == 2
@@ -90,6 +92,7 @@ class TestMainFunction:
         mock_args.return_value = MagicMock(
             prompt="test", output=None, quality="medium",
             duration=10, provider="ollama", model=None, debug=False,
+            demo=False,
         )
         mock_gen.side_effect = RenderError("render failed")
         assert main() == 3

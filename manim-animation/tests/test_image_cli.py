@@ -236,7 +236,7 @@ class TestMainWithImageErrors:
         mock_args.return_value = MagicMock(
             prompt="test", output=None, quality="medium",
             duration=10, provider="ollama", model=None, debug=False,
-            image=None, image_descriptions=None, image_policy="strict",
+            demo=False, image=None, image_descriptions=None, image_policy="strict",
         )
         mock_gen.side_effect = ImageValidationError("bad image format")
         assert main() == 5
