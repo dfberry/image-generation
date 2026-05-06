@@ -36,11 +36,12 @@ class SceneRendererOrchestrator:
         elif scene.visual_style == "manim":
             return self.manim_renderer.render(scene)
         else:
+            # For invalid styles, return a failed result with a valid renderer value
             return RenderResult(
                 scene_number=scene.scene_number,
                 clip_path=Path(""),
                 duration=0.0,
-                renderer=scene.visual_style,
+                renderer="image",  # Use a valid literal value for Pydantic
                 success=False,
                 error=f"Unknown visual style: {scene.visual_style}",
             )
