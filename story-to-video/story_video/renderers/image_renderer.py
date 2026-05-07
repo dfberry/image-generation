@@ -1,5 +1,6 @@
 """Image renderer with Ken Burns effect and text overlay."""
 
+import logging
 import shutil
 import subprocess
 import sys
@@ -11,6 +12,8 @@ from ..models import RenderResult, Scene
 from ..tool_locator import find_tool_file
 from .base import BaseRenderer
 
+logger = logging.getLogger(__name__)
+
 
 class ImageRenderer(BaseRenderer):
     """Renders static images with Ken Burns motion and text overlay."""
@@ -21,6 +24,17 @@ class ImageRenderer(BaseRenderer):
     )
 
     def __init__(self, output_dir: Path, quality: str = "medium", image_gen_path: Optional[Path] = None, style_anchor: Optional[str] = None):
+        """Initialize ImageRenderer.
+
+        Args:
+            output_dir: Directory for rendered video output files.
+            quality: Render quality preset (low/medium/high).
+            image_gen_path: Explicit path to the image-generation generate.py script.
+                If None, auto-discovers via IMAGE_GEN_PATH env var or sibling directory.
+            style_anchor: SDXL style prompt suffix appended to every scene prompt
+                for visual consistency across scenes. Defaults to Latin American
+                folk art / magical realism aesthetic.
+        """
         super().__init__(output_dir, quality)
         self.image_gen_path = image_gen_path or self._find_image_gen()
         self.style_anchor = style_anchor or self.DEFAULT_STYLE_ANCHOR
@@ -101,6 +115,7 @@ class ImageRenderer(BaseRenderer):
             "--output", str(output_file),
         ]
         
+        logger.debug(f"Running image generation: {' '.join(cmd[:4])}... → {output_file}")
         result = subprocess.run(
             cmd,
             capture_output=True,
@@ -109,6 +124,7 @@ class ImageRenderer(BaseRenderer):
             errors="replace",
             timeout=RENDER_TIMEOUT_IMAGE,
         )
+        logger.debug(f"Image generation exited with code {result.returncode}")
         
         if result.returncode != 0:
             raise RuntimeError(f"Image generation failed: {result.stderr}")
@@ -155,6 +171,7 @@ class ImageRenderer(BaseRenderer):
             str(output_path),
         ]
         
+        logger.debug(f"Running ffmpeg Ken Burns: scene {scene.scene_number}, duration={duration}s")
         result = subprocess.run(
             cmd,
             capture_output=True,
@@ -163,6 +180,7 @@ class ImageRenderer(BaseRenderer):
             errors="replace",
             timeout=60,
         )
+        logger.debug(f"ffmpeg exited with code {result.returncode}")
         
         if result.returncode != 0:
             raise RuntimeError(f"Video creation failed: {result.stderr}")

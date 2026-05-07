@@ -88,13 +88,15 @@ class SceneRendererOrchestrator:
         else:
             effective_style = self._intelligent_routing(scene)
 
-        if effective_style == "image":
-            return self.image_renderer.render(scene)
-        elif effective_style == "remotion":
-            return self.remotion_renderer.render(scene)
-        elif effective_style == "manim":
-            return self.manim_renderer.render(scene)
-        else:
+        # Resolve renderer instance
+        renderer_map = {
+            "image": self.image_renderer,
+            "remotion": self.remotion_renderer,
+            "manim": self.manim_renderer,
+        }
+
+        renderer = renderer_map.get(effective_style)
+        if renderer is None:
             return RenderResult(
                 scene_number=scene.scene_number,
                 clip_path=Path(""),
@@ -103,6 +105,23 @@ class SceneRendererOrchestrator:
                 success=False,
                 error=f"Unknown visual style: {effective_style}",
             )
+
+        # Check availability before rendering
+        available, reason = renderer.is_available()
+        if not available:
+            logger.warning(
+                f"Renderer '{effective_style}' is not available: {reason}"
+            )
+            return RenderResult(
+                scene_number=scene.scene_number,
+                clip_path=Path(""),
+                duration=0.0,
+                renderer=effective_style,
+                success=False,
+                error=f"Renderer '{effective_style}' is not available: {reason}",
+            )
+
+        return renderer.render(scene)
 
     def check_availability(self) -> dict[str, tuple[bool, str]]:
         """Check which renderers are available."""

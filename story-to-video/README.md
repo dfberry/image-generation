@@ -92,6 +92,8 @@ story-video render [OPTIONS]
 | `--dry-run` | Show what would happen | - |
 | `--continue-on-error` | Continue if a scene fails | - |
 | `--resume` | Resume a failed run | - |
+| `--force-renderer` | Force all scenes to use a specific renderer (image/remotion/manim) | - |
+| `--renderer-strategy` | Routing strategy: auto/prefer-image/prefer-remotion | `auto` |
 
 ### Examples
 

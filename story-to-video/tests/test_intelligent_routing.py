@@ -146,6 +146,7 @@ class TestForceRendererOverride:
             scene_number=1, clip_path=Path("out.mp4"),
             duration=10.0, renderer="image", success=True,
         )
+        orch.image_renderer.is_available = MagicMock(return_value=(True, None))
         orch.image_renderer.render = MagicMock(return_value=mock_result)
         orch.remotion_renderer.render = MagicMock()
         orch.manim_renderer.render = MagicMock()
@@ -168,6 +169,7 @@ class TestForceRendererOverride:
             scene_number=1, clip_path=Path("out.mp4"),
             duration=10.0, renderer="remotion", success=True,
         )
+        orch.remotion_renderer.is_available = MagicMock(return_value=(True, None))
         orch.remotion_renderer.render = MagicMock(return_value=mock_result)
         orch.image_renderer.render = MagicMock()
         orch.manim_renderer.render = MagicMock()
@@ -190,6 +192,7 @@ class TestForceRendererOverride:
             scene_number=1, clip_path=Path("out.mp4"),
             duration=10.0, renderer="manim", success=True,
         )
+        orch.manim_renderer.is_available = MagicMock(return_value=(True, None))
         orch.manim_renderer.render = MagicMock(return_value=mock_result)
         orch.image_renderer.render = MagicMock()
         orch.remotion_renderer.render = MagicMock()
