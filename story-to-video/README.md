@@ -62,7 +62,7 @@ story-video render --input story.txt --plan-only
 This creates a `scenes.json` file you can edit, then render with:
 
 ```bash
-story-video render --scenes outputs/runs/<your-run-id>/scenes.json
+story-video render --scenes story-video-outputs/runs/<your-run-id>/scenes.json
 ```
 
 ## Usage
@@ -115,7 +115,7 @@ story-video render \
 
 **Resume a failed run:**
 ```bash
-story-video render --resume outputs/runs/2026-05-06_143012/
+story-video render --resume story-video-outputs/runs/2026-05-06_143012/
 ```
 
 **Cinematic style hint:**
@@ -158,7 +158,7 @@ story-to-video/
 │   └── models.py           # Pydantic data models
 ├── prompts/
 │   └── scene_planning.md   # LLM system prompt
-├── outputs/
+├── story-video-outputs/    # Default output (override with --output-dir or STORY_VIDEO_OUTPUT_DIR)
 │   └── runs/               # Run directories
 │       └── 2026-05-06_143012/
 │           ├── story.txt
@@ -173,7 +173,7 @@ story-to-video/
 
 ## Output Directory Structure
 
-Each run creates a timestamped directory in `outputs/runs/`:
+Each run creates a timestamped directory in `story-video-outputs/runs/` (override with `--output-dir` or `STORY_VIDEO_OUTPUT_DIR` env var):
 
 - `story.txt` - Copy of input story
 - `scenes.json` - Structured scene plan

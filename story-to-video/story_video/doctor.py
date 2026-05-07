@@ -103,7 +103,8 @@ class SystemDoctor:
     @staticmethod
     def _check_output_dir() -> Tuple[bool, str]:
         """Check if output directory is writable."""
-        output_dir = Path(__file__).parent.parent / "outputs"
+        import os
+        output_dir = Path(os.environ.get("STORY_VIDEO_OUTPUT_DIR", "./story-video-outputs"))
         try:
             output_dir.mkdir(exist_ok=True)
             test_file = output_dir / ".write_test"

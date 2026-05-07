@@ -169,9 +169,10 @@ def render(
                 if existing is not None:
                     results.append(existing)
                     click.echo(f"\n⏭️  Skipping scene {scene.scene_number}/{plan.total_scenes} (already rendered)")
+                    continue  # Only skip when we found the existing result
                 else:
                     click.echo(f"\n⚠️  Scene {scene.scene_number} marked complete but not found in manifest results, re-rendering")
-                continue
+                # Fall through to render below
 
             click.echo(f"\n▶️  Scene {scene.scene_number}/{plan.total_scenes}: {scene.visual_style}")
             click.echo(f"    {scene.description}")

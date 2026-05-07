@@ -95,6 +95,7 @@ class TestResume:
         assert "Skipping scene 1" in result.output
         # Scene 2 should have been rendered (not skipped)
         assert "Scene 2" in result.output
+        assert mock_render.call_count == 1  # Renderer only called for scene 2
 
     def test_resume_missing_manifest_exits(self, tmp_path):
         """Resume with no manifest.json should sys.exit(1)."""
@@ -132,6 +133,8 @@ class TestResume:
 
         # Should not crash with StopIteration
         assert result.exit_code == 0
+        # Scene should have been re-rendered since it wasn't in manifest results
+        assert mock_render.called, "Renderer should have been called for the re-rendered scene"
 
 
 # ===================================================================
@@ -171,6 +174,11 @@ class TestRetryAndJsonExtraction:
 
         assert result_plan.title == "Test"
         assert client.chat.completions.create.call_count == 3
+        # Verify temperature decreases across retries (progressively stricter)
+        calls = client.chat.completions.create.call_args_list
+        temps = [c.kwargs.get("temperature") for c in calls if c.kwargs and "temperature" in c.kwargs]
+        if len(temps) >= 2:
+            assert temps[-1] <= temps[0], f"Temperature should decrease across retries: {temps}"
 
     def test_retry_all_invalid_raises(self):
         """LLM returns invalid JSON all 3 times — should raise RuntimeError."""
@@ -205,14 +213,26 @@ class TestToolLocator:
         assert result == str(tool_path)
 
     def test_find_tool_sibling_directory(self, tmp_path):
-        """Tool found in sibling directory as fallback."""
+        """Tool found in sibling directory — returns None for bare directory (no executable inside)."""
         sibling = tmp_path / "sibling-tool"
         sibling.mkdir()
 
         with patch("story_video.tool_locator._REPO_ROOT", tmp_path), \
              patch.dict(os.environ, {}, clear=False):
             result = find_tool("nonexistent-cli", sibling_path="sibling-tool")
-        assert result == str(sibling)
+        assert result is None
+
+    def test_find_tool_sibling_directory_with_executable(self, tmp_path):
+        """Tool found as executable file inside sibling directory."""
+        sibling = tmp_path / "sibling-tool"
+        sibling.mkdir()
+        exe = sibling / "my-cli"
+        exe.write_text("#!/bin/sh\necho hi")
+
+        with patch("story_video.tool_locator._REPO_ROOT", tmp_path), \
+             patch.dict(os.environ, {}, clear=False):
+            result = find_tool("my-cli", sibling_path="sibling-tool")
+        assert result == str(exe)
 
     def test_find_tool_not_found_returns_none(self):
         """Tool not found anywhere returns None."""

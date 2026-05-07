@@ -27,10 +27,22 @@ def find_tool(name: str, env_var: Optional[str] = None, sibling_path: Optional[s
         return name
 
     # 3. Check sibling directory
+    # Note: if the sibling_path is a directory, we look for the executable inside it.
+    # If the tool is a script (e.g. generate.py), use find_tool_file() instead.
     if sibling_path:
         full_path = _REPO_ROOT / sibling_path
         if full_path.exists():
-            return str(full_path)
+            if full_path.is_file():
+                return str(full_path)
+            # Directory: look for the named executable inside it or on PATH
+            candidate = full_path / name
+            if candidate.exists():
+                return str(candidate)
+            found = shutil.which(name, path=str(full_path))
+            if found:
+                return found
+            # Don't return a bare directory — caller expects an executable
+            return None
 
     return None
 
