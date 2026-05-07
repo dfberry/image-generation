@@ -1,0 +1,29 @@
+{
+  "title": "The Cat's Garden",
+  "scenes": [
+    {
+      "scene_number": 1,
+      "title": "The Gate",
+      "style": "remotion",
+      "prompt": "Use only CSS shapes and gradients, no external images. A green rectangle as a gate slowly opens (splits into two halves moving apart). A golden glow appears behind it using a radial gradient. A small dark circle as a cat silhouette walks toward the gate from left.",
+      "narration": "Whiskers discovered a hidden gate.",
+      "duration": 8
+    },
+    {
+      "scene_number": 2,
+      "title": "The Garden",
+      "style": "remotion",
+      "prompt": "Use only CSS shapes and gradients, no external images. Colorful circles grow from small to large to represent flowers blooming. Use red, pink, purple, yellow circles appearing one by one. A small triangle shape moves from left to right as a butterfly.",
+      "narration": "The most magical garden appeared.",
+      "duration": 8
+    },
+    {
+      "scene_number": 3,
+      "title": "The Wish",
+      "style": "remotion",
+      "prompt": "Use only CSS shapes and gradients, no external images. A tall brown rectangle as a tree trunk with a green circle on top as leaves. A golden star shape pulses at the top. Small yellow dots fall downward like sparkles using opacity animation.",
+      "narration": "The ancient tree granted her a wish.",
+      "duration": 8
+    }
+  ]
+}
