@@ -48,6 +48,13 @@ class RenderResult(BaseModel):
     error: Optional[str] = None
 
 
+class RendererStrategy(BaseModel):
+    """Configuration for intelligent scene routing."""
+
+    strategy: Literal["auto", "prefer-image", "prefer-remotion"] = "auto"
+    force_renderer: Optional[Literal["image", "remotion", "manim"]] = None
+
+
 class RunManifest(BaseModel):
     """Complete manifest of a story-to-video run."""
 
