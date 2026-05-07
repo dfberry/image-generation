@@ -14,8 +14,8 @@
 #   .\scripts\create-azure-openai-dalle.ps1
 #
 # After running, use with story-video:
-#   $env:AZURE_OPENAI_ENDPOINT = "<endpoint from output>"
-#   $env:AZURE_OPENAI_API_KEY = "<key from output>"
+#   $env:STORY_VIDEO_AZURE_OPENAI_ENDPOINT = "<endpoint from output>"
+#   $env:STORY_VIDEO_AZURE_OPENAI_API_KEY = "<key from output>"
 #   story-video render --input story.txt --provider azure
 # =============================================================================
 
@@ -118,9 +118,9 @@ $Key = az cognitiveservices account keys list `
 # ---------------------------------------------------------------------------
 # Step 5: Set environment variables in current session
 # ---------------------------------------------------------------------------
-$env:AZURE_OPENAI_ENDPOINT = $Endpoint
-$env:AZURE_OPENAI_API_KEY = $Key
-$env:AZURE_OPENAI_DEPLOYMENT = $DeploymentName
+$env:STORY_VIDEO_AZURE_OPENAI_ENDPOINT = $Endpoint
+$env:STORY_VIDEO_AZURE_OPENAI_API_KEY = $Key
+$env:STORY_VIDEO_AZURE_OPENAI_DEPLOYMENT = $DeploymentName
 
 # ---------------------------------------------------------------------------
 # Output
@@ -136,9 +136,9 @@ Write-Host " Deployment:  $DeploymentName"
 Write-Host ""
 Write-Host " ✓ Environment variables SET in current session:"
 Write-Host ""
-Write-Host "   AZURE_OPENAI_ENDPOINT=$Endpoint"
-Write-Host "   AZURE_OPENAI_API_KEY=$Key"
-Write-Host "   AZURE_OPENAI_DEPLOYMENT=$DeploymentName"
+Write-Host "   STORY_VIDEO_AZURE_OPENAI_ENDPOINT=$Endpoint"
+Write-Host "   STORY_VIDEO_AZURE_OPENAI_API_KEY=$Key"
+Write-Host "   STORY_VIDEO_AZURE_OPENAI_DEPLOYMENT=$DeploymentName"
 Write-Host ""
 Write-Host " Ready to use with story-video:"
 Write-Host "   story-video render --input story.txt --provider azure"

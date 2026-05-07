@@ -16,8 +16,8 @@
 #   ./scripts/create-azure-openai-dalle.sh
 #
 # After running, use with story-video:
-#   export AZURE_OPENAI_ENDPOINT=<endpoint from output>
-#   export AZURE_OPENAI_API_KEY=<key from output>
+#   export STORY_VIDEO_AZURE_OPENAI_ENDPOINT=<endpoint from output>
+#   export STORY_VIDEO_AZURE_OPENAI_API_KEY=<key from output>
 #   story-video render --input story.txt --provider azure
 # =============================================================================
 
@@ -117,9 +117,9 @@ KEY=$(az cognitiveservices account keys list \
 # ---------------------------------------------------------------------------
 # Step 5: Set environment variables in current session
 # ---------------------------------------------------------------------------
-export AZURE_OPENAI_ENDPOINT="$ENDPOINT"
-export AZURE_OPENAI_API_KEY="$KEY"
-export AZURE_OPENAI_DEPLOYMENT="$DEPLOYMENT_NAME"
+export STORY_VIDEO_AZURE_OPENAI_ENDPOINT="$ENDPOINT"
+export STORY_VIDEO_AZURE_OPENAI_API_KEY="$KEY"
+export STORY_VIDEO_AZURE_OPENAI_DEPLOYMENT="$DEPLOYMENT_NAME"
 
 # ---------------------------------------------------------------------------
 # Output
@@ -135,9 +135,9 @@ echo " Deployment:  ${DEPLOYMENT_NAME}"
 echo ""
 echo " ✓ Environment variables SET in current session:"
 echo ""
-echo "   AZURE_OPENAI_ENDPOINT=${ENDPOINT}"
-echo "   AZURE_OPENAI_API_KEY=${KEY}"
-echo "   AZURE_OPENAI_DEPLOYMENT=${DEPLOYMENT_NAME}"
+echo "   STORY_VIDEO_AZURE_OPENAI_ENDPOINT=${ENDPOINT}"
+echo "   STORY_VIDEO_AZURE_OPENAI_API_KEY=${KEY}"
+echo "   STORY_VIDEO_AZURE_OPENAI_DEPLOYMENT=${DEPLOYMENT_NAME}"
 echo ""
 echo " Ready to use with story-video:"
 echo "   story-video render --input story.txt --provider azure"
