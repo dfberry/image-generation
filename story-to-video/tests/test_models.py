@@ -100,3 +100,36 @@ def test_render_result():
     
     assert failed_result.success is False
     assert failed_result.error == "Rendering failed"
+
+
+def test_story_plan_scene_count_mismatch():
+    """Test that total_scenes must match len(scenes)."""
+    scene = Scene(
+        scene_number=1,
+        visual_style="image",
+        description="Test",
+        prompt="Test",
+        narration="Test",
+    )
+    with pytest.raises(ValueError, match="total_scenes"):
+        StoryPlan(title="Test", total_scenes=3, scenes=[scene])
+
+
+def test_story_plan_non_sequential_scenes():
+    """Test that scene numbers must be sequential 1..N."""
+    scenes = [
+        Scene(scene_number=1, visual_style="image", description="S1", prompt="P1", narration="N1"),
+        Scene(scene_number=3, visual_style="image", description="S2", prompt="P2", narration="N2"),
+    ]
+    with pytest.raises(ValueError, match="sequential"):
+        StoryPlan(title="Test", total_scenes=2, scenes=scenes)
+
+
+def test_story_plan_duplicate_scene_numbers():
+    """Test that duplicate scene numbers are rejected."""
+    scenes = [
+        Scene(scene_number=1, visual_style="image", description="S1", prompt="P1", narration="N1"),
+        Scene(scene_number=1, visual_style="image", description="S2", prompt="P2", narration="N2"),
+    ]
+    with pytest.raises(ValueError, match="sequential"):
+        StoryPlan(title="Test", total_scenes=2, scenes=scenes)

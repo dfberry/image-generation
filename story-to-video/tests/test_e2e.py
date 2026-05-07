@@ -494,3 +494,12 @@ class TestErrorHandling:
         assert "Unknown visual style" in result.error
         # Renderer field should have a valid literal value (to satisfy Pydantic)
         assert result.renderer in ["image", "remotion", "manim"]
+
+    def test_empty_playlist_raises_error(self, tmp_path):
+        """Test that building a playlist with zero successful results raises ValueError."""
+        failed_results = [
+            RenderResult(scene_number=1, clip_path=Path(""), duration=0.0, renderer="image", success=False, error="failed"),
+            RenderResult(scene_number=2, clip_path=Path(""), duration=0.0, renderer="remotion", success=False, error="failed"),
+        ]
+        with pytest.raises(ValueError, match="No scenes rendered"):
+            PlaylistBuilder.build_playlist(failed_results, tmp_path / "playlist.yaml")

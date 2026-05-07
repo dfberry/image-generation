@@ -15,6 +15,7 @@ from .models import RunManifest, StoryPlan
 from .playlist_builder import PlaylistBuilder
 from .scene_planner import ScenePlanner
 from .scene_renderer import SceneRendererOrchestrator
+from .tool_locator import find_tool
 
 
 @click.group(invoke_without_command=True)
@@ -88,7 +89,9 @@ def render(
             with open(manifest_path) as f:
                 manifest = RunManifest(**json.load(f))
             plan = manifest.plan
-            click.echo(f"📖 Loaded plan: {plan.total_scenes} scenes")
+            # Track previously successful scenes
+            completed_scenes = {r.scene_number for r in manifest.results if r.success}
+            click.echo(f"📖 Loaded plan: {plan.total_scenes} scenes ({len(completed_scenes)} already complete)")
         else:
             # Get story text
             if input:
@@ -156,6 +159,13 @@ def render(
         
         results = []
         for scene in plan.scenes:
+            # Skip already-rendered scenes on resume
+            if resume and scene.scene_number in completed_scenes:
+                existing = next(r for r in manifest.results if r.scene_number == scene.scene_number)
+                results.append(existing)
+                click.echo(f"\n⏭️  Skipping scene {scene.scene_number}/{plan.total_scenes} (already rendered)")
+                continue
+
             click.echo(f"\n▶️  Scene {scene.scene_number}/{plan.total_scenes}: {scene.visual_style}")
             click.echo(f"    {scene.description}")
             
@@ -170,20 +180,24 @@ def render(
                     click.echo("\n❌ Aborting due to render failure (use --continue-on-error to skip)")
                     sys.exit(1)
         
-        # Update manifest
-        manifest = RunManifest(
-            run_id=run_dir.name,
-            created_at=datetime.now().isoformat(),
-            story_source=input or "inline",
-            plan=plan,
-            results=results,
-            status="rendering",
-        )
+        # Update manifest (preserve original metadata on resume)
+        if not resume:
+            manifest = RunManifest(
+                run_id=run_dir.name,
+                created_at=datetime.now().isoformat(),
+                story_source=input or scenes or "inline",
+                plan=plan,
+                results=results,
+                status="rendering",
+            )
+        else:
+            manifest.results = results
+            manifest.status = "rendering"
         
         # Build playlist
         click.echo("\n📝 Building playlist...")
         playlist_path = run_dir / "playlist.yaml"
-        PlaylistBuilder.build_playlist(results, playlist_path, transition)
+        PlaylistBuilder.build_playlist(results, playlist_path, transition, scenes=plan.scenes)
         click.echo(f"✅ Playlist → {playlist_path}")
         
         # Stitch video
@@ -215,21 +229,12 @@ def render(
 
 def _stitch_video(playlist_path: Path, output_path: Path, quality: str, transition: str) -> bool:
     """Call video-stitcher to create final video."""
-    import shutil
     import subprocess
     
-    # Find stitch-video CLI
-    if shutil.which("stitch-video"):
-        cmd = "stitch-video"
-    else:
-        # Check sibling directory
-        repo_root = Path(__file__).parent.parent.parent
-        sibling_path = repo_root / "video-stitcher"
-        if sibling_path.exists():
-            cmd = str(sibling_path / "stitch-video")
-        else:
-            click.echo("❌ stitch-video not found", err=True)
-            return False
+    cmd = find_tool("stitch-video", env_var="STITCH_VIDEO_PATH", sibling_path="video-stitcher")
+    if not cmd:
+        click.echo("❌ stitch-video not found", err=True)
+        return False
     
     try:
         result = subprocess.run(

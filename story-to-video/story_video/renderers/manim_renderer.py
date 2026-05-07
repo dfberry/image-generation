@@ -1,12 +1,12 @@
 """Manim animation renderer adapter."""
 
-import shutil
 import subprocess
 from pathlib import Path
 from typing import Optional
 
 from ..config import RENDER_TIMEOUT_MANIM
 from ..models import RenderResult, Scene
+from ..tool_locator import find_tool
 from .base import BaseRenderer
 
 
@@ -18,18 +18,9 @@ class ManimRenderer(BaseRenderer):
         self.manim_path = self._find_manim()
 
     def _find_manim(self) -> Optional[Path]:
-        """Find manim tool (check sibling directory)."""
-        # Check if manim is in PATH
-        if shutil.which("manim"):
-            return Path("manim")
-        
-        # Check sibling directory
-        repo_root = Path(__file__).parent.parent.parent.parent
-        sibling_path = repo_root / "manim-animation"
-        if sibling_path.exists():
-            return sibling_path
-        
-        return None
+        """Find manim tool (check env var, PATH, then sibling directory)."""
+        result = find_tool("manim", env_var="MANIM_PATH", sibling_path="manim-animation")
+        return Path(result) if result else None
 
     def is_available(self) -> tuple[bool, Optional[str]]:
         """Check if manim is available."""

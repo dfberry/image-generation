@@ -1,12 +1,12 @@
 """Remotion animation renderer adapter."""
 
-import shutil
 import subprocess
 from pathlib import Path
 from typing import Optional
 
 from ..config import RENDER_TIMEOUT_REMOTION
 from ..models import RenderResult, Scene
+from ..tool_locator import find_tool
 from .base import BaseRenderer
 
 
@@ -26,19 +26,8 @@ class RemotionRenderer(BaseRenderer):
         self.remotion_cli = self._find_remotion_cli()
 
     def _find_remotion_cli(self) -> Optional[str]:
-        """Find remotion-gen CLI (check PATH, then sibling directory)."""
-        # Check PATH
-        if shutil.which("remotion-gen"):
-            return "remotion-gen"
-        
-        # Check sibling directory
-        repo_root = Path(__file__).parent.parent.parent.parent
-        sibling_path = repo_root / "remotion-animation"
-        if sibling_path.exists():
-            # Assume it's in the sibling's node_modules or has a CLI wrapper
-            return str(sibling_path / "remotion-gen")
-        
-        return None
+        """Find remotion-gen CLI (check env var, PATH, then sibling directory)."""
+        return find_tool("remotion-gen", env_var="REMOTION_GEN_PATH", sibling_path="remotion-animation")
 
     def is_available(self) -> tuple[bool, Optional[str]]:
         """Check if remotion-gen CLI is available."""

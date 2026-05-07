@@ -71,7 +71,7 @@ class ScenePlanner:
                 last_error = e
                 continue
 
-        raise last_error
+        raise RuntimeError(f"Scene planning failed after 3 attempts") from last_error
 
     def _load_system_prompt(self) -> str:
         """Load the scene planning system prompt."""

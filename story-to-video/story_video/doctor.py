@@ -6,6 +6,7 @@ from pathlib import Path
 from typing import List, Tuple
 
 from .config import DEFAULT_PROVIDER, OLLAMA_BASE_URL
+from .tool_locator import find_tool, find_tool_file
 
 
 class SystemDoctor:
@@ -51,38 +52,25 @@ class SystemDoctor:
     @staticmethod
     def _check_remotion() -> Tuple[bool, str]:
         """Check if remotion-gen is available."""
-        if shutil.which("remotion-gen"):
-            return True, "Found in PATH"
-        
-        # Check sibling directory
-        repo_root = Path(__file__).parent.parent.parent
-        sibling_path = repo_root / "remotion-animation"
-        if sibling_path.exists():
-            return True, f"Found at {sibling_path}"
-        
+        result = find_tool("remotion-gen", sibling_path="remotion-animation")
+        if result:
+            return True, f"Found: {result}"
         return False, "Not found in PATH or sibling directory"
 
     @staticmethod
     def _check_stitcher() -> Tuple[bool, str]:
         """Check if stitch-video is available."""
-        if shutil.which("stitch-video"):
-            return True, "Found in PATH"
-        
-        # Check sibling directory
-        repo_root = Path(__file__).parent.parent.parent
-        sibling_path = repo_root / "video-stitcher"
-        if sibling_path.exists():
-            return True, f"Found at {sibling_path}"
-        
+        result = find_tool("stitch-video", sibling_path="video-stitcher")
+        if result:
+            return True, f"Found: {result}"
         return False, "Not found in PATH or sibling directory"
 
     @staticmethod
     def _check_image_gen() -> Tuple[bool, str]:
         """Check if image-generation is available."""
-        repo_root = Path(__file__).parent.parent.parent
-        sibling_path = repo_root / "image-generation" / "generate.py"
-        if sibling_path.exists():
-            return True, f"Found at {sibling_path}"
+        result = find_tool_file("image-generation/generate.py")
+        if result:
+            return True, f"Found: {result}"
         return False, "Not found in sibling directory"
 
     @staticmethod

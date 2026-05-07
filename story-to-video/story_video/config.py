@@ -2,25 +2,6 @@
 
 from typing import Literal
 
-# Quality presets for video rendering
-QUALITY_PRESETS = {
-    "low": {
-        "resolution": "720p",
-        "bitrate": "1M",
-        "fps": 24,
-    },
-    "medium": {
-        "resolution": "1080p",
-        "bitrate": "2M",
-        "fps": 30,
-    },
-    "high": {
-        "resolution": "1080p",
-        "bitrate": "5M",
-        "fps": 30,
-    },
-}
-
 # Default values
 DEFAULT_QUALITY: Literal["low", "medium", "high"] = "medium"
 DEFAULT_SCENE_DURATION = 30

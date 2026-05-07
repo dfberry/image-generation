@@ -1,7 +1,7 @@
 """Builds video-stitcher playlist YAML from render results."""
 
 from pathlib import Path
-from typing import List
+from typing import List, Optional
 
 import yaml
 
@@ -16,8 +16,14 @@ class PlaylistBuilder:
         results: List[RenderResult],
         output_path: Path,
         transition: str = "fade_to_black",
+        scenes: Optional[List] = None,
     ) -> Path:
         """Build playlist YAML file from render results."""
+        # Build scene transition lookup
+        scene_transitions = {}
+        if scenes:
+            scene_transitions = {s.scene_number: s.transition for s in scenes}
+
         clips = []
         
         for result in results:
@@ -29,10 +35,10 @@ class PlaylistBuilder:
                 "duration": result.duration,
             }
             
-            # Add transition from scene metadata if available
-            # For now, use the global transition setting
-            if transition != "none":
-                clip_entry["transition"] = transition
+            # Use per-scene transition if available, else global
+            scene_transition = scene_transitions.get(result.scene_number, transition)
+            if scene_transition != "none":
+                clip_entry["transition"] = scene_transition
             
             clips.append(clip_entry)
         

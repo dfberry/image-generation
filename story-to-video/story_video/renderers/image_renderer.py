@@ -7,6 +7,7 @@ from typing import Optional
 
 from ..config import RENDER_TIMEOUT_IMAGE
 from ..models import RenderResult, Scene
+from ..tool_locator import find_tool_file
 from .base import BaseRenderer
 
 
@@ -20,13 +21,8 @@ class ImageRenderer(BaseRenderer):
         self.temp_dir.mkdir(exist_ok=True)
 
     def _find_image_gen(self) -> Optional[Path]:
-        """Find image-generation tool (check sibling directory)."""
-        # Check sibling directory
-        repo_root = Path(__file__).parent.parent.parent.parent
-        sibling_path = repo_root / "image-generation" / "generate.py"
-        if sibling_path.exists():
-            return sibling_path
-        return None
+        """Find image-generation tool (check env var, then sibling directory)."""
+        return find_tool_file("image-generation/generate.py", env_var="IMAGE_GEN_PATH")
 
     def is_available(self) -> tuple[bool, Optional[str]]:
         """Check if ffmpeg and image-generation are available."""
@@ -89,16 +85,10 @@ class ImageRenderer(BaseRenderer):
         if result.returncode != 0:
             raise RuntimeError(f"Image generation failed: {result.stderr}")
         
-        # Check the expected output file
         if output_file.exists():
             return output_file
-        
-        # Fallback: find any generated image in output_dir
-        images = list(output_dir.glob("*.png")) + list(output_dir.glob("*.jpg"))
-        if not images:
-            raise RuntimeError("No image generated")
-        
-        return images[0]
+
+        raise RuntimeError(f"Expected output {output_file} not found after image generation")
 
     def _create_video_from_image(self, scene: Scene, image_path: Path) -> Path:
         """Apply Ken Burns effect and text overlay using ffmpeg."""
@@ -109,8 +99,15 @@ class ImageRenderer(BaseRenderer):
         # Scale from 1.0 to 1.2 over the duration
         scale_expr = f"'scale=iw*min(1+0.2*t/{duration}\\,1.2):ih*min(1+0.2*t/{duration}\\,1.2)'"
         
-        # Text overlay (escape special chars)
-        narration = scene.narration.replace("'", "'\\''").replace(":", "\\:")
+        # Text overlay (escape special chars for ffmpeg drawtext)
+        narration = (scene.narration
+            .replace("\\", "\\\\")
+            .replace("'", "'\\''")
+            .replace(":", "\\:")
+            .replace(",", "\\,")
+            .replace("[", "\\[")
+            .replace("]", "\\]")
+            .replace("\n", " "))
         
         cmd = [
             "ffmpeg",
