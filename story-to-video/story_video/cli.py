@@ -1,6 +1,7 @@
 """CLI entry point for story-to-video."""
 
 import json
+import os
 import sys
 from datetime import datetime
 from pathlib import Path
@@ -32,6 +33,7 @@ def cli(ctx):
 @click.option("--prompt", "-p", help="Inline story prompt")
 @click.option("--scenes", type=click.Path(exists=True), help="Pre-structured scenes JSON (skip LLM planning)")
 @click.option("--output", "-o", help="Output video filename")
+@click.option("--output-dir", type=click.Path(), default=None, help="Base output directory for runs")
 @click.option("--quality", type=click.Choice(["low", "medium", "high"]), default=DEFAULT_QUALITY)
 @click.option("--scene-duration", type=int, default=DEFAULT_SCENE_DURATION)
 @click.option("--transition", type=click.Choice(["none", "fade_to_black", "crossfade"]), default=DEFAULT_TRANSITION)
@@ -47,6 +49,7 @@ def render(
     prompt: Optional[str],
     scenes: Optional[str],
     output: Optional[str],
+    output_dir: Optional[str],
     quality: str,
     scene_duration: int,
     transition: str,
@@ -71,7 +74,8 @@ def render(
         click.echo(f"📂 Resuming run: {run_dir}")
     else:
         run_id = datetime.now().strftime("%Y-%m-%d_%H%M%S")
-        run_dir = Path(__file__).parent.parent / "outputs" / "runs" / run_id
+        base_dir = Path(output_dir) if output_dir else Path(os.environ.get("STORY_VIDEO_OUTPUT_DIR", "./story-video-outputs"))
+        run_dir = base_dir / "runs" / run_id
         run_dir.mkdir(parents=True, exist_ok=True)
         click.echo(f"📂 Created run directory: {run_dir}")
     
@@ -161,9 +165,12 @@ def render(
         for scene in plan.scenes:
             # Skip already-rendered scenes on resume
             if resume and scene.scene_number in completed_scenes:
-                existing = next(r for r in manifest.results if r.scene_number == scene.scene_number)
-                results.append(existing)
-                click.echo(f"\n⏭️  Skipping scene {scene.scene_number}/{plan.total_scenes} (already rendered)")
+                existing = next((r for r in manifest.results if r.scene_number == scene.scene_number), None)
+                if existing is not None:
+                    results.append(existing)
+                    click.echo(f"\n⏭️  Skipping scene {scene.scene_number}/{plan.total_scenes} (already rendered)")
+                else:
+                    click.echo(f"\n⚠️  Scene {scene.scene_number} marked complete but not found in manifest results, re-rendering")
                 continue
 
             click.echo(f"\n▶️  Scene {scene.scene_number}/{plan.total_scenes}: {scene.visual_style}")

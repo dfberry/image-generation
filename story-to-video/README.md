@@ -81,6 +81,7 @@ story-video render [OPTIONS]
 | `--prompt`, `-p` | Inline story prompt | - |
 | `--scenes` | Pre-structured scenes JSON (skip LLM) | - |
 | `--output`, `-o` | Output video filename | `final.mp4` |
+| `--output-dir` | Base output directory for runs | `./story-video-outputs` |
 | `--quality` | Video quality: low/medium/high | `medium` |
 | `--scene-duration` | Target duration per scene (5-30s) | `30` |
 | `--transition` | Transition style: none/fade_to_black/crossfade | `fade_to_black` |
@@ -281,9 +282,9 @@ Install ffmpeg:
 - **Windows**: Download from https://ffmpeg.org/
 
 ### Rendering timeouts
-Increase timeouts in `story_video/config.py`:
+Increase timeouts in `story_video/config.py` (default is 300 seconds):
 ```python
-RENDER_TIMEOUT_IMAGE = 600  # 10 minutes
+RENDER_TIMEOUT_IMAGE = 600  # Increase from 300 to 600 (10 minutes)
 ```
 
 ## Roadmap

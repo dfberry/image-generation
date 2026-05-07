@@ -2,6 +2,7 @@
 
 import shutil
 import subprocess
+import sys
 from pathlib import Path
 from typing import Optional
 
@@ -67,7 +68,7 @@ class ImageRenderer(BaseRenderer):
         output_file = output_dir / f"scene_{scene.scene_number:03d}.png"
         
         cmd = [
-            "python",
+            sys.executable,
             str(self.image_gen_path),
             "--prompt", scene.prompt,
             "--output", str(output_file),
@@ -86,6 +87,8 @@ class ImageRenderer(BaseRenderer):
             raise RuntimeError(f"Image generation failed: {result.stderr}")
         
         if output_file.exists():
+            if output_file.stat().st_size == 0:
+                raise RuntimeError(f"Image generation produced 0-byte file: {output_file}")
             return output_file
 
         raise RuntimeError(f"Expected output {output_file} not found after image generation")
@@ -107,6 +110,9 @@ class ImageRenderer(BaseRenderer):
             .replace(",", "\\,")
             .replace("[", "\\[")
             .replace("]", "\\]")
+            .replace("%", "%%")
+            .replace("{", "\\{")
+            .replace("}", "\\}")
             .replace("\n", " "))
         
         cmd = [

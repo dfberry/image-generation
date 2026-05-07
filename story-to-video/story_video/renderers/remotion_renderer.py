@@ -41,8 +41,7 @@ class RemotionRenderer(BaseRenderer):
             output_path = self._get_output_path(scene)
             
             # Delete stale output from prior runs to avoid false success
-            if output_path.exists():
-                output_path.unlink()
+            output_path.unlink(missing_ok=True)
             
             cmd = [
                 self.remotion_cli,
@@ -57,13 +56,19 @@ class RemotionRenderer(BaseRenderer):
             result = subprocess.run(
                 cmd,
                 capture_output=True,
+                text=True,
+                encoding="utf-8",
+                errors="replace",
                 timeout=RENDER_TIMEOUT_REMOTION,
                 cwd=Path(self.remotion_cli).parent if "/" in self.remotion_cli or "\\" in self.remotion_cli else None,
                 env={**__import__('os').environ, "PYTHONIOENCODING": "utf-8"},
             )
             
-            # Check success by output file existence (remotion-gen may have non-fatal
-            # encoding errors in stderr on Windows that don't prevent video creation)
+            # Check returncode FIRST, then verify output file
+            if result.returncode != 0:
+                stderr_text = result.stderr or ""
+                raise RuntimeError(f"Remotion rendering failed: {stderr_text}")
+            
             if output_path.exists() and output_path.stat().st_size > 0:
                 return RenderResult(
                     scene_number=scene.scene_number,
@@ -72,10 +77,6 @@ class RemotionRenderer(BaseRenderer):
                     renderer="remotion",
                     success=True,
                 )
-            
-            if result.returncode != 0:
-                stderr_text = result.stderr.decode("utf-8", errors="replace") if isinstance(result.stderr, bytes) else str(result.stderr or "")
-                raise RuntimeError(f"Remotion rendering failed: {stderr_text}")
             
             raise RuntimeError("Output video is empty or missing")
         except Exception as e:
