@@ -94,9 +94,16 @@ class SystemDoctor:
             return False, "OPENAI_API_KEY not set"
         
         elif DEFAULT_PROVIDER == "azure":
-            if os.getenv("AZURE_OPENAI_API_KEY"):
-                return True, "Azure OpenAI API key set"
-            return False, "AZURE_OPENAI_API_KEY not set"
+            key_set = bool(os.getenv("AZURE_OPENAI_API_KEY"))
+            endpoint_set = bool(os.getenv("AZURE_OPENAI_ENDPOINT"))
+            if key_set and endpoint_set:
+                return True, "Azure OpenAI API key and endpoint set"
+            missing = []
+            if not key_set:
+                missing.append("AZURE_OPENAI_API_KEY")
+            if not endpoint_set:
+                missing.append("AZURE_OPENAI_ENDPOINT")
+            return False, f"{', '.join(missing)} not set"
         
         return True, "No check needed"
 

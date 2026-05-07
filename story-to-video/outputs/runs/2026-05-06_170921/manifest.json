@@ -1,0 +1,66 @@
+{
+  "run_id": "2026-05-06_170921",
+  "created_at": "2026-05-06T17:15:22.739496",
+  "story_source": "inline",
+  "plan": {
+    "title": "Whiskers' Magical Journey",
+    "total_scenes": 3,
+    "scenes": [
+      {
+        "scene_number": 1,
+        "duration": 10,
+        "visual_style": "remotion",
+        "description": "Whiskers discovers the hidden gate",
+        "prompt": "Animated scene: a curious cat silhouette approaches a glowing gate covered in ivy. The ivy parts with particle effects as the cat gets closer. Light beams break through the opening gate.",
+        "narration": "Whiskers discovered a hidden gate covered in ivy.",
+        "transition": "fade_to_black"
+      },
+      {
+        "scene_number": 2,
+        "duration": 10,
+        "visual_style": "remotion",
+        "description": "The magical garden reveals itself",
+        "prompt": "Animated scene: colors explode outward from center of screen in concentric rings. Flower shapes bloom and grow. Butterflies made of geometric shapes flutter across. Streams of blue light flow upward.",
+        "narration": "On the other side was the most magical garden she had ever seen.",
+        "transition": "crossfade"
+      },
+      {
+        "scene_number": 3,
+        "duration": 10,
+        "visual_style": "remotion",
+        "description": "The ancient tree grants Whiskers a wish",
+        "prompt": "Animated scene: a large tree silhouette with silver outline grows from bottom center. Text 'The Garden of Dreams' fades in above it letter by letter. A small glowing orb descends from the tree branches to the bottom of the frame.",
+        "narration": "The tree gave Whiskers a glowing seed to share the magic.",
+        "transition": "fade_to_black"
+      }
+    ]
+  },
+  "results": [
+    {
+      "scene_number": 1,
+      "clip_path": ".",
+      "duration": 0.0,
+      "renderer": "remotion",
+      "success": false,
+      "error": "Command '['remotion-gen', '--prompt', 'Animated scene: a curious cat silhouette approaches a glowing gate covered in ivy. The ivy parts with particle effects as the cat gets closer. Light beams break through the opening gate.\\n\\nNarration: Whiskers discovered a hidden gate covered in ivy.', '--output', 'C:\\\\Users\\\\diberry\\\\project-dina\\\\repos\\\\public-dfberry-image-generation\\\\story-to-video\\\\outputs\\\\runs\\\\2026-05-06_170921\\\\clips\\\\scene_001.mp4', '--duration', '10', '--quality', 'low', '--provider', 'ollama', '--model', 'qwen2.5-coder:32b']' timed out after 120 seconds"
+    },
+    {
+      "scene_number": 2,
+      "clip_path": ".",
+      "duration": 0.0,
+      "renderer": "remotion",
+      "success": false,
+      "error": "Command '['remotion-gen', '--prompt', 'Animated scene: colors explode outward from center of screen in concentric rings. Flower shapes bloom and grow. Butterflies made of geometric shapes flutter across. Streams of blue light flow upward.\\n\\nNarration: On the other side was the most magical garden she had ever seen.', '--output', 'C:\\\\Users\\\\diberry\\\\project-dina\\\\repos\\\\public-dfberry-image-generation\\\\story-to-video\\\\outputs\\\\runs\\\\2026-05-06_170921\\\\clips\\\\scene_002.mp4', '--duration', '10', '--quality', 'low', '--provider', 'ollama', '--model', 'qwen2.5-coder:32b']' timed out after 120 seconds"
+    },
+    {
+      "scene_number": 3,
+      "clip_path": ".",
+      "duration": 0.0,
+      "renderer": "remotion",
+      "success": false,
+      "error": "Command '['remotion-gen', '--prompt', \"Animated scene: a large tree silhouette with silver outline grows from bottom center. Text 'The Garden of Dreams' fades in above it letter by letter. A small glowing orb descends from the tree branches to the bottom of the frame.\\n\\nNarration: The tree gave Whiskers a glowing seed to share the magic.\", '--output', 'C:\\\\Users\\\\diberry\\\\project-dina\\\\repos\\\\public-dfberry-image-generation\\\\story-to-video\\\\outputs\\\\runs\\\\2026-05-06_170921\\\\clips\\\\scene_003.mp4', '--duration', '10', '--quality', 'low', '--provider', 'ollama', '--model', 'qwen2.5-coder:32b']' timed out after 120 seconds"
+    }
+  ],
+  "final_output": null,
+  "status": "failed"
+}

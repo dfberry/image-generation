@@ -1,0 +1,42 @@
+{
+  "title": "Spark's Journey",
+  "total_scenes": 4,
+  "scenes": [
+    {
+      "scene_number": 1,
+      "duration": 20,
+      "visual_style": "image",
+      "description": "Opening shot of robot in industrial setting",
+      "prompt": "Cinematic wide shot of a sleek robot standing in a vast industrial complex, metallic surfaces, dramatic lighting, photorealistic, 4k",
+      "narration": "In a world of steel and circuits, Spark awakens.",
+      "transition": "fade_to_black"
+    },
+    {
+      "scene_number": 2,
+      "duration": 25,
+      "visual_style": "remotion",
+      "description": "Dynamic discovery sequence with text animation",
+      "prompt": "Dynamic animation of a glowing garden gate opening, particle effects, vibrant colors flowing, magical atmosphere, modern motion graphics",
+      "narration": "A hidden gateway reveals itself, pulsing with mysterious energy.",
+      "transition": "crossfade"
+    },
+    {
+      "scene_number": 3,
+      "duration": 30,
+      "visual_style": "remotion",
+      "description": "Emotional transformation sequence",
+      "prompt": "Abstract visualization of emotions flowing through circuits, data transforming into colorful patterns, fluid motion, emotional journey",
+      "narration": "Emotions flow through Spark's systems like rivers of light.",
+      "transition": "fade_to_black"
+    },
+    {
+      "scene_number": 4,
+      "duration": 15,
+      "visual_style": "manim",
+      "description": "Explanatory diagram showing transformation",
+      "prompt": "Educational diagram showing the transformation from machine logic to emotional intelligence, clear visualization, technical yet warm",
+      "narration": "The equation of existence: Logic + Love = Life.",
+      "transition": "none"
+    }
+  ]
+}

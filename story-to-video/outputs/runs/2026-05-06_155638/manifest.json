@@ -1,0 +1,117 @@
+{
+  "run_id": "2026-05-06_155638",
+  "created_at": "2026-05-06T16:01:44.114265",
+  "story_source": "inline",
+  "plan": {
+    "title": "The Magical Garden of Dreams",
+    "total_scenes": 6,
+    "scenes": [
+      {
+        "scene_number": 1,
+        "duration": 25,
+        "visual_style": "remotion",
+        "description": "Introduction to the village and Whiskers' home",
+        "prompt": "Animated scene: camera pans over rolling hills, showing a small village in the distance; Whiskers is seen pacing around her garden, looking out at the gate with a hint of longing",
+        "narration": "In a small village nestled between rolling hills, a curious cat named Whiskers lived.",
+        "transition": "fade_to_black"
+      },
+      {
+        "scene_number": 2,
+        "duration": 30,
+        "visual_style": "remotion",
+        "description": "Whiskers discovers the hidden gate and enters the magical garden",
+        "prompt": "Animated scene: Whiskers pushes through ivy vines that part with particle effects, butterflies scatter, light beams break through as the gate opens; camera pans across the magical garden, showing flowers of every color, crystal-clear streams, and a gentle breeze",
+        "narration": "One morning, Whiskers discovered a hidden gate covered in ivy. Her whiskers twitched with excitement.",
+        "transition": "crossfade"
+      },
+      {
+        "scene_number": 3,
+        "duration": 25,
+        "visual_style": "remotion",
+        "description": "The ancient tree speaks to Whiskers and explains the garden's magic",
+        "prompt": "Animated scene: camera zooms in on the ancient tree with silver bark as it speaks; particles swirl around, highlighting the magical energy of the garden",
+        "narration": "In the center of the garden stood an ancient tree with silver bark. As Whiskers approached, the tree spoke in a warm, gentle voice.",
+        "transition": "crossfade"
+      },
+      {
+        "scene_number": 4,
+        "duration": 20,
+        "visual_style": "remotion",
+        "description": "Whiskers considers her one wish and decides on selflessness",
+        "prompt": "Animated scene: camera shows a split-screen of Whiskers' thoughts, with options for endless fish, flying, or never having to take a bath again; she chooses the option 'to share this magic with my friends back home'",
+        "narration": "Whiskers thought carefully. She could wish for endless fish, or the ability to fly, or to never have to take a bath again.",
+        "transition": "crossfade"
+      },
+      {
+        "scene_number": 5,
+        "duration": 25,
+        "visual_style": "remotion",
+        "description": "The tree gives Whiskers a glowing seed and explains its purpose",
+        "prompt": "Animated scene: camera shows the ancient tree giving Whiskers a glowing seed; particles swirl around, highlighting the magical energy of the seed",
+        "narration": "The tree gave Whiskers a glowing seed. 'Plant this in your garden,' it said.",
+        "transition": "crossfade"
+      },
+      {
+        "scene_number": 6,
+        "duration": 30,
+        "visual_style": "image",
+        "description": "Whiskers returns home and plants the seed, which grows into a gateway for others to find",
+        "prompt": "Cinematic wide shot of Whiskers' garden with a small sapling growing from the glowing seed; camera zooms in on the sapling as it grows into a gateway with silver bark",
+        "narration": "Whiskers returned home and planted the seed. Soon, a small sapling grew with the same silver bark.",
+        "transition": "fade_to_black"
+      }
+    ]
+  },
+  "results": [
+    {
+      "scene_number": 1,
+      "clip_path": ".",
+      "duration": 0.0,
+      "renderer": "remotion",
+      "success": false,
+      "error": "Remotion rendering failed: \nUnexpected error: 'charmap' codec can't encode character '\\u2192' in position 0: character maps to <undefined>\n"
+    },
+    {
+      "scene_number": 2,
+      "clip_path": ".",
+      "duration": 0.0,
+      "renderer": "remotion",
+      "success": false,
+      "error": "Remotion rendering failed: \nUnexpected error: 'charmap' codec can't encode character '\\u2192' in position 0: character maps to <undefined>\n"
+    },
+    {
+      "scene_number": 3,
+      "clip_path": ".",
+      "duration": 0.0,
+      "renderer": "remotion",
+      "success": false,
+      "error": "Remotion rendering failed: \nUnexpected error: 'charmap' codec can't encode character '\\u2192' in position 0: character maps to <undefined>\n"
+    },
+    {
+      "scene_number": 4,
+      "clip_path": ".",
+      "duration": 0.0,
+      "renderer": "remotion",
+      "success": false,
+      "error": "Remotion rendering failed: \nUnexpected error: 'charmap' codec can't encode character '\\u2192' in position 0: character maps to <undefined>\n"
+    },
+    {
+      "scene_number": 5,
+      "clip_path": ".",
+      "duration": 0.0,
+      "renderer": "remotion",
+      "success": false,
+      "error": "Remotion rendering failed: \nUnexpected error: 'charmap' codec can't encode character '\\u2192' in position 0: character maps to <undefined>\n"
+    },
+    {
+      "scene_number": 6,
+      "clip_path": ".",
+      "duration": 0.0,
+      "renderer": "image",
+      "success": false,
+      "error": "Command '['python', 'C:\\\\Users\\\\diberry\\\\project-dina\\\\repos\\\\public-dfberry-image-generation\\\\image-generation\\\\generate.py', '--prompt', \"Cinematic wide shot of Whiskers' garden with a small sapling growing from the glowing seed; camera zooms in on the sapling as it grows into a gateway with silver bark\", '--output', 'C:\\\\Users\\\\diberry\\\\project-dina\\\\repos\\\\public-dfberry-image-generation\\\\story-to-video\\\\outputs\\\\runs\\\\2026-05-06_155638\\\\clips\\\\temp_images\\\\scene_006\\\\scene_006.png']' timed out after 300 seconds"
+    }
+  ],
+  "final_output": null,
+  "status": "failed"
+}

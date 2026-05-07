@@ -259,11 +259,15 @@ class TestTimeoutHandling:
 
         scene = _make_scene(1, style="remotion")
 
-        with patch("subprocess.run", side_effect=subprocess.TimeoutExpired("cmd", 600)):
+        with patch("subprocess.run", side_effect=subprocess.TimeoutExpired("cmd", 600)) as mock_run:
             result = renderer.render(scene)
 
         assert result.success is False
         assert "timed out" in result.error.lower() or "timeout" in result.error.lower()
+        # Verify subprocess was called with the correct timeout from config
+        from story_video.config import RENDER_TIMEOUT_REMOTION
+        mock_run.assert_called_once()
+        assert mock_run.call_args.kwargs.get("timeout") == RENDER_TIMEOUT_REMOTION
 
     def test_image_renderer_timeout_returns_failure(self, tmp_path):
         """TimeoutExpired in image renderer produces RenderResult with success=False."""
@@ -273,11 +277,34 @@ class TestTimeoutHandling:
 
         scene = _make_scene(1, style="image")
 
-        with patch("subprocess.run", side_effect=subprocess.TimeoutExpired("cmd", 300)):
+        with patch("subprocess.run", side_effect=subprocess.TimeoutExpired("cmd", 300)) as mock_run:
             result = renderer.render(scene)
 
         assert result.success is False
         assert "timed out" in result.error.lower() or "timeout" in result.error.lower()
+        # Verify subprocess was called with the correct timeout from config
+        from story_video.config import RENDER_TIMEOUT_IMAGE
+        mock_run.assert_called_once()
+        assert mock_run.call_args.kwargs.get("timeout") == RENDER_TIMEOUT_IMAGE
+
+    def test_remotion_returncode_zero_but_missing_output(self, tmp_path):
+        """Remotion returncode=0 but output file missing should return failure."""
+        from story_video.renderers.remotion_renderer import RemotionRenderer
+
+        renderer = RemotionRenderer(output_dir=tmp_path, quality="low")
+        renderer.remotion_cli = "fake-remotion"
+
+        scene = _make_scene(1, style="remotion")
+
+        mock_result = Mock()
+        mock_result.returncode = 0
+        mock_result.stderr = ""
+
+        with patch("subprocess.run", return_value=mock_result):
+            result = renderer.render(scene)
+
+        assert result.success is False
+        assert "missing" in result.error.lower() or "empty" in result.error.lower()
 
 
 # ===================================================================
@@ -351,7 +378,9 @@ class TestSpecialCharEscaping:
         assert "%%" in vf_arg           # percent escaped
         assert "\\{" in vf_arg          # brace escaped
         assert "\\}" in vf_arg          # brace escaped
-        assert "\\n" not in vf_arg or " " in vf_arg  # newline replaced with space
+        # Newline must be replaced with space (not remain as literal \n)
+        assert "\n" not in vf_arg, "Raw newline should be replaced with space"
+        assert "line2" in vf_arg, "Text after newline should still be present"
 
 
 # ===================================================================

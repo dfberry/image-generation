@@ -1,0 +1,60 @@
+{
+  "title": "Whiskers' Magical Journey",
+  "total_scenes": 6,
+  "scenes": [
+    {
+      "scene_number": 1,
+      "duration": 30,
+      "visual_style": "image",
+      "description": "Establishing shot of the village and rolling hills",
+      "prompt": "Atmospheric landscape establishing shot of a small village surrounded by rolling hills, warm sunlight, gentle clouds, photorealistic, 4k quality",
+      "narration": "In a small village nestled between rolling hills, a curious cat named Whiskers lived.",
+      "transition": "fade_to_black"
+    },
+    {
+      "scene_number": 2,
+      "duration": 30,
+      "visual_style": "image",
+      "description": "Whiskers discovers the hidden gate",
+      "prompt": "Close-up shot of Whiskers pushing through ivy, curious expression, warm lighting, cinematic style",
+      "narration": "One morning, Whiskers discovered a hidden gate covered in ivy.",
+      "transition": "fade_to_black"
+    },
+    {
+      "scene_number": 3,
+      "duration": 30,
+      "visual_style": "image",
+      "description": "The magical garden",
+      "prompt": "Wide shot of the magical garden, flowers glowing, butterflies fluttering, crystal-clear streams flowing upward, photorealistic, 4k quality",
+      "narration": "On the other side was the most magical garden she had ever seen.",
+      "transition": "crossfade"
+    },
+    {
+      "scene_number": 4,
+      "duration": 30,
+      "visual_style": "remotion",
+      "description": "The ancient tree speaks to Whiskers",
+      "prompt": "Dynamic text animation revealing the ancient tree's message, warm lighting, modern typography, abstract background",
+      "narration": "The tree explained that every creature who finds this garden receives one wish.",
+      "transition": "crossfade"
+    },
+    {
+      "scene_number": 5,
+      "duration": 30,
+      "visual_style": "image",
+      "description": "Whiskers makes her wish and the tree's response",
+      "prompt": "Cinematic shot of Whiskers making her wish, close-up of her face, warm lighting, cinematic style",
+      "narration": "But as she looked around at the beautiful garden, she realized what she truly wanted.",
+      "transition": "fade_to_black"
+    },
+    {
+      "scene_number": 6,
+      "duration": 30,
+      "visual_style": "image",
+      "description": "Whiskers returns home and plants the seed",
+      "prompt": "Atmospheric landscape establishing shot of Whiskers returning to her village, warm sunlight, gentle clouds, photorealistic, 4k quality",
+      "narration": "Whiskers returned home and planted the seed.",
+      "transition": "fade_to_black"
+    }
+  ]
+}

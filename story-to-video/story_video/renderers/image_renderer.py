@@ -99,8 +99,6 @@ class ImageRenderer(BaseRenderer):
         duration = scene.duration
         
         # Ken Burns effect: slow zoom and pan
-        # Scale from 1.0 to 1.2 over the duration
-        scale_expr = f"'scale=iw*min(1+0.2*t/{duration}\\,1.2):ih*min(1+0.2*t/{duration}\\,1.2)'"
         
         # Text overlay (escape special chars for ffmpeg drawtext)
         narration = (scene.narration
@@ -134,6 +132,8 @@ class ImageRenderer(BaseRenderer):
             cmd,
             capture_output=True,
             text=True,
+            encoding="utf-8",
+            errors="replace",
             timeout=60,
         )
         

@@ -10,7 +10,7 @@ from typing import Optional
 import click
 
 from . import __version__
-from .config import DEFAULT_MODEL, DEFAULT_PROVIDER, DEFAULT_QUALITY, DEFAULT_SCENE_DURATION, DEFAULT_TRANSITION
+from .config import DEFAULT_MODEL, DEFAULT_PROVIDER, DEFAULT_QUALITY, DEFAULT_SCENE_DURATION, DEFAULT_TRANSITION, RENDER_TIMEOUT_STITCH
 from .doctor import SystemDoctor
 from .models import RunManifest, StoryPlan
 from .playlist_builder import PlaylistBuilder
@@ -110,7 +110,7 @@ def render(
                 sys.exit(1)
             
             # Save story to run directory
-            (run_dir / "story.txt").write_text(story)
+            (run_dir / "story.txt").write_text(story, encoding="utf-8")
             
             # Plan scenes
             click.echo("🎬 Planning scenes...")
@@ -182,6 +182,13 @@ def render(
             
             if result.success:
                 click.echo(f"    ✅ Rendered → {result.clip_path}")
+                # Persist manifest incrementally for crash recovery
+                manifest.results = results
+                manifest_path = run_dir / "manifest.json"
+                manifest_path.write_text(
+                    json.dumps(manifest.model_dump(mode="json"), indent=2),
+                    encoding="utf-8",
+                )
             else:
                 click.echo(f"    ❌ Failed: {result.error}")
                 if not continue_on_error:
@@ -210,7 +217,8 @@ def render(
         
         # Stitch video
         click.echo("\n🎬 Stitching final video...")
-        final_output = run_dir / (output or "final.mp4")
+        output_name = Path(output).name if output else "final.mp4"
+        final_output = run_dir / output_name
         stitch_result = _stitch_video(playlist_path, final_output, quality, transition)
         
         if stitch_result:
@@ -255,7 +263,9 @@ def _stitch_video(playlist_path: Path, output_path: Path, quality: str, transiti
             ],
             capture_output=True,
             text=True,
-            timeout=600,
+            encoding="utf-8",
+            errors="replace",
+            timeout=RENDER_TIMEOUT_STITCH,
         )
         
         return result.returncode == 0 and output_path.exists()
