@@ -51,6 +51,10 @@ class RemotionRenderer(BaseRenderer):
         try:
             output_path = self._get_output_path(scene)
             
+            # Delete stale output from prior runs to avoid false success
+            if output_path.exists():
+                output_path.unlink()
+            
             cmd = [
                 self.remotion_cli,
                 "--prompt", f"{scene.prompt}\n\nNarration: {scene.narration}",

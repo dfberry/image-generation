@@ -47,7 +47,7 @@ class ScenePlanner:
         system_prompt = self._load_system_prompt()
         user_prompt = self._build_user_prompt(story, style_hint)
 
-        last_error = None
+        last_error: Exception = RuntimeError("Scene planning failed after 3 attempts")
         for attempt in range(3):
             response = self.client.chat.completions.create(
                 model=self.model,
@@ -58,10 +58,11 @@ class ScenePlanner:
                 temperature=max(0.3, 0.7 - (attempt * 0.2)),
             )
 
-            response_text = response.choices[0].message.content or ""
-            if not response_text.strip():
+            if not response.choices or not response.choices[0].message.content:
                 last_error = ValueError("LLM returned empty response")
                 continue
+
+            response_text = response.choices[0].message.content
 
             try:
                 plan_data = self._extract_json(response_text)

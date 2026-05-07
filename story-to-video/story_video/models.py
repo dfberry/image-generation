@@ -4,7 +4,7 @@ from datetime import datetime
 from pathlib import Path
 from typing import Literal, Optional
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, model_validator
 
 
 class Scene(BaseModel):
@@ -25,6 +25,16 @@ class StoryPlan(BaseModel):
     title: str
     total_scenes: int
     scenes: list[Scene]
+
+    @model_validator(mode="after")
+    def validate_scenes(self) -> "StoryPlan":
+        if len(self.scenes) != self.total_scenes:
+            raise ValueError(f"total_scenes ({self.total_scenes}) != len(scenes) ({len(self.scenes)})")
+        numbers = [s.scene_number for s in self.scenes]
+        expected = list(range(1, self.total_scenes + 1))
+        if sorted(numbers) != expected:
+            raise ValueError(f"Scene numbers must be sequential 1..{self.total_scenes}, got {numbers}")
+        return self
 
 
 class RenderResult(BaseModel):
