@@ -36,6 +36,9 @@ class PlaylistBuilder:
             
             clips.append(clip_entry)
         
+        if not clips:
+            raise ValueError("No scenes rendered successfully — cannot build playlist")
+        
         playlist_data = {
             "version": "1.0",
             "clips": clips,

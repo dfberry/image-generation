@@ -92,11 +92,15 @@ def render(
         else:
             # Get story text
             if input:
-                story = Path(input).read_text()
+                story = Path(input).read_text(encoding="utf-8")
                 story_source = input
             else:
                 story = prompt
                 story_source = "inline"
+            
+            if not story or not story.strip():
+                click.echo("Error: Story text is empty", err=True)
+                sys.exit(1)
             
             # Save story to run directory
             (run_dir / "story.txt").write_text(story)

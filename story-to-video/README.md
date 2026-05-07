@@ -62,7 +62,7 @@ story-video render --input story.txt --plan-only
 This creates a `scenes.json` file you can edit, then render with:
 
 ```bash
-story-video render --scenes outputs/runs/2026-05-06_143012/scenes.json
+story-video render --scenes outputs/runs/<your-run-id>/scenes.json
 ```
 
 ## Usage
