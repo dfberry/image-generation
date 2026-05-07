@@ -115,6 +115,13 @@ KEY=$(az cognitiveservices account keys list \
     --output tsv)
 
 # ---------------------------------------------------------------------------
+# Step 5: Set environment variables in current session
+# ---------------------------------------------------------------------------
+export AZURE_OPENAI_ENDPOINT="$ENDPOINT"
+export AZURE_OPENAI_API_KEY="$KEY"
+export AZURE_OPENAI_DEPLOYMENT="$DEPLOYMENT_NAME"
+
+# ---------------------------------------------------------------------------
 # Output
 # ---------------------------------------------------------------------------
 echo ""
@@ -126,13 +133,17 @@ echo " Endpoint:    ${ENDPOINT}"
 echo " API Key:     ${KEY}"
 echo " Deployment:  ${DEPLOYMENT_NAME}"
 echo ""
-echo " Set these environment variables to use with story-video:"
+echo " ✓ Environment variables SET in current session:"
 echo ""
-echo "   export AZURE_OPENAI_ENDPOINT=\"${ENDPOINT}\""
-echo "   export AZURE_OPENAI_API_KEY=\"${KEY}\""
-echo "   export AZURE_OPENAI_DEPLOYMENT=\"${DEPLOYMENT_NAME}\""
+echo "   AZURE_OPENAI_ENDPOINT=${ENDPOINT}"
+echo "   AZURE_OPENAI_API_KEY=${KEY}"
+echo "   AZURE_OPENAI_DEPLOYMENT=${DEPLOYMENT_NAME}"
 echo ""
-echo " Then run:"
+echo " Ready to use with story-video:"
 echo "   story-video render --input story.txt --provider azure"
+echo ""
+echo " NOTE: These environment variables are session-scoped. If you"
+echo " open a new terminal, re-run this script or manually set them."
+echo " For persistent use, add these to a .env file and load it."
 echo ""
 echo "============================================================"

@@ -116,6 +116,13 @@ $Key = az cognitiveservices account keys list `
     --output tsv
 
 # ---------------------------------------------------------------------------
+# Step 5: Set environment variables in current session
+# ---------------------------------------------------------------------------
+$env:AZURE_OPENAI_ENDPOINT = $Endpoint
+$env:AZURE_OPENAI_API_KEY = $Key
+$env:AZURE_OPENAI_DEPLOYMENT = $DeploymentName
+
+# ---------------------------------------------------------------------------
 # Output
 # ---------------------------------------------------------------------------
 Write-Host ""
@@ -127,13 +134,17 @@ Write-Host " Endpoint:    $Endpoint"
 Write-Host " API Key:     $Key"
 Write-Host " Deployment:  $DeploymentName"
 Write-Host ""
-Write-Host " Set these environment variables to use with story-video:"
+Write-Host " ✓ Environment variables SET in current session:"
 Write-Host ""
-Write-Host "   `$env:AZURE_OPENAI_ENDPOINT = `"$Endpoint`""
-Write-Host "   `$env:AZURE_OPENAI_API_KEY = `"$Key`""
-Write-Host "   `$env:AZURE_OPENAI_DEPLOYMENT = `"$DeploymentName`""
+Write-Host "   AZURE_OPENAI_ENDPOINT=$Endpoint"
+Write-Host "   AZURE_OPENAI_API_KEY=$Key"
+Write-Host "   AZURE_OPENAI_DEPLOYMENT=$DeploymentName"
 Write-Host ""
-Write-Host " Then run:"
+Write-Host " Ready to use with story-video:"
 Write-Host "   story-video render --input story.txt --provider azure"
+Write-Host ""
+Write-Host " NOTE: These environment variables are session-scoped. If you"
+Write-Host " open a new terminal, re-run this script or manually set them."
+Write-Host " For persistent use, add these to a .env file and load it."
 Write-Host ""
 Write-Host "============================================================"
