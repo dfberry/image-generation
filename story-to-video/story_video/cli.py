@@ -12,7 +12,7 @@ import click
 from . import __version__
 from .config import DEFAULT_MODEL, DEFAULT_PROVIDER, DEFAULT_QUALITY, DEFAULT_SCENE_DURATION, DEFAULT_TRANSITION, RENDER_TIMEOUT_STITCH
 from .doctor import SystemDoctor
-from .models import RunManifest, StoryPlan
+from .models import RendererStrategy, RunManifest, StoryPlan
 from .playlist_builder import PlaylistBuilder
 from .scene_planner import ScenePlanner
 from .scene_renderer import SceneRendererOrchestrator
@@ -44,6 +44,8 @@ def cli(ctx):
 @click.option("--dry-run", is_flag=True, help="Show what would happen without rendering")
 @click.option("--continue-on-error", is_flag=True, help="Continue if a scene fails to render")
 @click.option("--resume", type=click.Path(exists=True), help="Resume a failed run")
+@click.option("--force-renderer", type=click.Choice(["image", "remotion", "manim"]), default=None, help="Force all scenes to use a specific renderer")
+@click.option("--renderer-strategy", "renderer_strategy_opt", type=click.Choice(["auto", "prefer-image", "prefer-remotion"]), default="auto", help="Bias intelligent routing")
 def render(
     input: Optional[str],
     prompt: Optional[str],
@@ -60,6 +62,8 @@ def render(
     dry_run: bool,
     continue_on_error: bool,
     resume: Optional[str],
+    force_renderer: Optional[str],
+    renderer_strategy_opt: str,
 ):
     """Render a story into a video."""
     
@@ -149,11 +153,16 @@ def render(
         clips_dir = run_dir / "clips"
         clips_dir.mkdir(exist_ok=True)
         
+        renderer_strat = RendererStrategy(
+            strategy=renderer_strategy_opt,
+            force_renderer=force_renderer,
+        )
         renderer = SceneRendererOrchestrator(
             output_dir=clips_dir,
             quality=quality,
             provider=provider,
             model=model,
+            renderer_strategy=renderer_strat,
         )
         
         # Check renderer availability

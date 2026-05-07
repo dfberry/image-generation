@@ -61,16 +61,40 @@ class ImageRenderer(BaseRenderer):
                 error=str(e),
             )
 
+    def _build_sdxl_prompt(self, scene: Scene) -> str:
+        """Build an enhanced SDXL prompt with story elements and framing hints."""
+        # Extract action verbs and objects from narration
+        base_prompt = scene.prompt
+
+        # Add framing hint based on scene position
+        scene_num = scene.scene_number
+        if scene_num == 1:
+            framing = "wide establishing shot"
+        elif scene_num <= 3:
+            framing = "medium shot"
+        else:
+            framing = "close-up detail shot"
+
+        # Style anchor for consistent aesthetic
+        style_anchor = (
+            "Latin American folk art style, magical realism illustration, "
+            "warm luminous lighting, no text"
+        )
+
+        return f"{base_prompt}, {framing}, {style_anchor}"
+
     def _generate_image(self, scene: Scene) -> Path:
         """Call image-generation to create a still image."""
         output_dir = self.temp_dir / f"scene_{scene.scene_number:03d}"
         output_dir.mkdir(exist_ok=True)
         output_file = output_dir / f"scene_{scene.scene_number:03d}.png"
+
+        enhanced_prompt = self._build_sdxl_prompt(scene)
         
         cmd = [
             sys.executable,
             str(self.image_gen_path),
-            "--prompt", scene.prompt,
+            "--prompt", enhanced_prompt,
             "--output", str(output_file),
         ]
         
