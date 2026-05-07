@@ -79,6 +79,8 @@ def render(
         run_dir.mkdir(parents=True, exist_ok=True)
         click.echo(f"📂 Created run directory: {run_dir}")
     
+    completed_scenes: set = set()
+
     try:
         # Load or create story plan
         if scenes:
@@ -182,13 +184,15 @@ def render(
             
             if result.success:
                 click.echo(f"    ✅ Rendered → {result.clip_path}")
-                # Persist manifest incrementally for crash recovery
+                # Persist manifest incrementally for crash recovery (atomic write)
                 manifest.results = results
                 manifest_path = run_dir / "manifest.json"
-                manifest_path.write_text(
+                temp_path = run_dir / "manifest.json.tmp"
+                temp_path.write_text(
                     json.dumps(manifest.model_dump(mode="json"), indent=2),
                     encoding="utf-8",
                 )
+                temp_path.replace(manifest_path)
             else:
                 click.echo(f"    ❌ Failed: {result.error}")
                 if not continue_on_error:
