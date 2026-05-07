@@ -858,6 +858,13 @@ Implemented comprehensive audio support for remotion-animation following plan-fu
 - **Scene file:** `manim-animation/outputs/theorem_explained_scene.py` — annotated Pythagorean theorem with title, intro text, 5 step annotations, highlighted squares, final equation with box.
 - **Output:** `manim-animation/outputs/theorem_explained.mp4` — 720p30, ~0.9MB, ~22s duration.
 
+### 2026-05-07 — PR #125: Pluggable image generation with Azure DALL-E 3
+
+- **ABC + factory pattern for image backends:** Created `ImageGeneratorBase` ABC in `story_video/image_generators/base.py` with `generate(prompt, output_path) → Path`. Two implementations: `LocalSdxlGenerator` (wraps existing subprocess call) and `AzureDalleGenerator` (Azure OpenAI SDK). Factory in `factory.py` with lazy registry to avoid circular imports.
+- **Separate flag for image vs LLM provider:** `--image-provider` controls image generation backend (local, azure-dalle). `--provider` still controls the LLM for scene planning. Keeps concerns cleanly separated.
+- **Azure DALL-E uses `openai` SDK (already a dependency):** `AzureOpenAI` client with `images.generate()`. Downloads the returned URL to a local PNG. Env vars: `STORY_VIDEO_AZURE_OPENAI_ENDPOINT`, `STORY_VIDEO_AZURE_OPENAI_API_KEY`, `STORY_VIDEO_AZURE_OPENAI_DEPLOYMENT`.
+- **No silent fallback — fail fast on missing credentials:** If Azure env vars aren't set, `is_available()` returns `(False, reason)` and the pipeline reports the specific missing variable. This matches the existing renderer fail-fast philosophy.
+
 ### 2026-07-24 — Implementation Review of image-generation/ subfolder
 
 Performed detailed code review of all files in the image-generation/ directory. Findings below.

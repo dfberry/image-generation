@@ -12,6 +12,8 @@ import click
 from . import __version__
 from .config import DEFAULT_MODEL, DEFAULT_PROVIDER, DEFAULT_QUALITY, DEFAULT_SCENE_DURATION, DEFAULT_TRANSITION, RENDER_TIMEOUT_STITCH
 from .doctor import SystemDoctor
+from .image_generators import get_image_generator
+from .image_generators.factory import DEFAULT_IMAGE_PROVIDER, list_image_providers
 from .models import RendererStrategy, RunManifest, StoryPlan
 from .playlist_builder import PlaylistBuilder
 from .scene_planner import ScenePlanner
@@ -46,6 +48,7 @@ def cli(ctx):
 @click.option("--resume", type=click.Path(exists=True), help="Resume a failed run")
 @click.option("--force-renderer", type=click.Choice(["image", "remotion", "manim"]), default=None, help="Force all scenes to use a specific renderer")
 @click.option("--renderer-strategy", "renderer_strategy_opt", type=click.Choice(["auto", "prefer-image", "prefer-remotion"]), default="auto", help="Bias intelligent routing")
+@click.option("--image-provider", type=click.Choice(list_image_providers()), default=DEFAULT_IMAGE_PROVIDER, help="Image generation backend (default: local SDXL)")
 def render(
     input: Optional[str],
     prompt: Optional[str],
@@ -64,6 +67,7 @@ def render(
     resume: Optional[str],
     force_renderer: Optional[str],
     renderer_strategy_opt: str,
+    image_provider: str,
 ):
     """Render a story into a video."""
     
@@ -157,12 +161,15 @@ def render(
             strategy=renderer_strategy_opt,
             force_renderer=force_renderer,
         )
+        image_gen = get_image_generator(image_provider)
+        click.echo(f"\n🖼️  Image provider: {image_gen.name}")
         renderer = SceneRendererOrchestrator(
             output_dir=clips_dir,
             quality=quality,
             provider=provider,
             model=model,
             renderer_strategy=renderer_strat,
+            image_generator=image_gen,
         )
         
         # Check renderer availability
