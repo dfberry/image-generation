@@ -15,9 +15,15 @@ from .base import BaseRenderer
 class ImageRenderer(BaseRenderer):
     """Renders static images with Ken Burns motion and text overlay."""
 
-    def __init__(self, output_dir: Path, quality: str = "medium", image_gen_path: Optional[Path] = None):
+    DEFAULT_STYLE_ANCHOR = (
+        "Latin American folk art style, magical realism illustration, "
+        "warm luminous lighting, no text"
+    )
+
+    def __init__(self, output_dir: Path, quality: str = "medium", image_gen_path: Optional[Path] = None, style_anchor: Optional[str] = None):
         super().__init__(output_dir, quality)
         self.image_gen_path = image_gen_path or self._find_image_gen()
+        self.style_anchor = style_anchor or self.DEFAULT_STYLE_ANCHOR
         self.temp_dir = output_dir / "temp_images"
         self.temp_dir.mkdir(exist_ok=True)
 
@@ -75,11 +81,8 @@ class ImageRenderer(BaseRenderer):
         else:
             framing = "close-up detail shot"
 
-        # Style anchor for consistent aesthetic
-        style_anchor = (
-            "Latin American folk art style, magical realism illustration, "
-            "warm luminous lighting, no text"
-        )
+        # Style anchor for consistent aesthetic (configurable)
+        style_anchor = self.style_anchor
 
         return f"{base_prompt}, {framing}, {style_anchor}"
 

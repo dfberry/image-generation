@@ -1,10 +1,14 @@
 """Scene renderer orchestrator - routes scenes to appropriate renderers."""
 
+import logging
+import re
 from pathlib import Path
 from typing import Literal, Optional
 
 from .models import RenderResult, RendererStrategy, Scene
 from .renderers import ImageRenderer, ManimRenderer, RemotionRenderer
+
+logger = logging.getLogger(__name__)
 
 # Keywords that signal narrative/visual content → image renderer
 NARRATIVE_KEYWORDS = frozenset([
@@ -55,8 +59,8 @@ class SceneRendererOrchestrator:
         """
         text = f"{scene.prompt} {scene.narration}".lower()
 
-        narrative_score = sum(1 for kw in NARRATIVE_KEYWORDS if kw in text)
-        abstract_score = sum(1 for kw in ABSTRACT_KEYWORDS if kw in text)
+        narrative_score = sum(1 for kw in NARRATIVE_KEYWORDS if re.search(r'\b' + kw + r'\b', text))
+        abstract_score = sum(1 for kw in ABSTRACT_KEYWORDS if re.search(r'\b' + kw + r'\b', text))
 
         # Apply strategy bias
         strategy = self.renderer_strategy.strategy
@@ -67,17 +71,20 @@ class SceneRendererOrchestrator:
 
         # Default to image when tied or no signals
         if abstract_score > narrative_score:
-            return "remotion"
-        return "image"
+            result = "remotion"
+        else:
+            result = "image"
+
+        logger.debug(
+            f"Scene {scene.scene_number}: narrative={narrative_score}, "
+            f"abstract={abstract_score} → {result}"
+        )
+        return result
 
     def render_scene(self, scene: Scene) -> RenderResult:
         """Route scene to the appropriate renderer and render it."""
-        # Force override takes precedence
         if self.renderer_strategy.force_renderer:
             effective_style = self.renderer_strategy.force_renderer
-        elif scene.visual_style in ("image", "remotion", "manim"):
-            # Use intelligent routing to potentially override plan's style
-            effective_style = self._intelligent_routing(scene)
         else:
             effective_style = self._intelligent_routing(scene)
 

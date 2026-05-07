@@ -1,10 +1,11 @@
 """Tests for intelligent scene routing (issue #121)."""
 
 from pathlib import Path
+from unittest.mock import MagicMock, patch
 
 import pytest
 
-from story_video.models import RendererStrategy, Scene
+from story_video.models import RenderResult, RendererStrategy, Scene
 from story_video.scene_renderer import SceneRendererOrchestrator
 
 
@@ -79,6 +80,26 @@ class TestIntelligentRouting:
         )
         assert orchestrator._intelligent_routing(scene) == "image"
 
+    def test_tie_score_defaults_to_image(self, orchestrator):
+        """When narrative and abstract scores are equal, defaults to image."""
+        # One narrative keyword (tree) and one abstract keyword (diagram)
+        scene = _make_scene(
+            "A tree next to a diagram",
+            "Just a scene",
+        )
+        assert orchestrator._intelligent_routing(scene) == "image"
+
+    def test_keyword_word_boundary_no_false_positives(self, orchestrator):
+        """Keyword matching uses word boundaries — no substring false positives."""
+        # "decode" contains "code" but should NOT match
+        # "decision" contains no exact abstract keyword
+        scene = _make_scene(
+            "A person will decode the mystery",
+            "The decision about the streetcar",
+        )
+        # Only "person" matches narrative; no abstract matches
+        assert orchestrator._intelligent_routing(scene) == "image"
+
     def test_prefer_image_strategy_biases_routing(self, orchestrator_prefer_image):
         """prefer-image strategy adds bias toward image renderer."""
         # One abstract keyword, but prefer-image adds +2 to narrative
@@ -113,6 +134,72 @@ class TestForceRendererOverride:
             renderer_strategy=RendererStrategy(force_renderer="remotion"),
         )
         assert orch.renderer_strategy.force_renderer == "remotion"
+
+    def test_force_image_calls_image_renderer(self, tmp_path):
+        """Force image actually routes render_scene() to image renderer."""
+        orch = SceneRendererOrchestrator(
+            output_dir=tmp_path,
+            renderer_strategy=RendererStrategy(force_renderer="image"),
+        )
+        scene = _make_scene("A complex flowchart diagram with equations")
+        mock_result = RenderResult(
+            scene_number=1, clip_path=Path("out.mp4"),
+            duration=10.0, renderer="image", success=True,
+        )
+        orch.image_renderer.render = MagicMock(return_value=mock_result)
+        orch.remotion_renderer.render = MagicMock()
+        orch.manim_renderer.render = MagicMock()
+
+        result = orch.render_scene(scene)
+
+        orch.image_renderer.render.assert_called_once_with(scene)
+        orch.remotion_renderer.render.assert_not_called()
+        orch.manim_renderer.render.assert_not_called()
+        assert result.renderer == "image"
+
+    def test_force_remotion_calls_remotion_renderer(self, tmp_path):
+        """Force remotion actually routes render_scene() to remotion renderer."""
+        orch = SceneRendererOrchestrator(
+            output_dir=tmp_path,
+            renderer_strategy=RendererStrategy(force_renderer="remotion"),
+        )
+        scene = _make_scene("A girl walks through a magical garden")
+        mock_result = RenderResult(
+            scene_number=1, clip_path=Path("out.mp4"),
+            duration=10.0, renderer="remotion", success=True,
+        )
+        orch.remotion_renderer.render = MagicMock(return_value=mock_result)
+        orch.image_renderer.render = MagicMock()
+        orch.manim_renderer.render = MagicMock()
+
+        result = orch.render_scene(scene)
+
+        orch.remotion_renderer.render.assert_called_once_with(scene)
+        orch.image_renderer.render.assert_not_called()
+        orch.manim_renderer.render.assert_not_called()
+        assert result.renderer == "remotion"
+
+    def test_force_manim_calls_manim_renderer(self, tmp_path):
+        """Force manim actually routes render_scene() to manim renderer."""
+        orch = SceneRendererOrchestrator(
+            output_dir=tmp_path,
+            renderer_strategy=RendererStrategy(force_renderer="manim"),
+        )
+        scene = _make_scene("A girl walks through a magical garden")
+        mock_result = RenderResult(
+            scene_number=1, clip_path=Path("out.mp4"),
+            duration=10.0, renderer="manim", success=True,
+        )
+        orch.manim_renderer.render = MagicMock(return_value=mock_result)
+        orch.image_renderer.render = MagicMock()
+        orch.remotion_renderer.render = MagicMock()
+
+        result = orch.render_scene(scene)
+
+        orch.manim_renderer.render.assert_called_once_with(scene)
+        orch.image_renderer.render.assert_not_called()
+        orch.remotion_renderer.render.assert_not_called()
+        assert result.renderer == "manim"
 
 
 class TestRendererStrategyModel:
