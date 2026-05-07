@@ -45,25 +45,43 @@ You MUST output valid JSON matching this exact schema:
 ```json
 {
   "title": "Story Title",
-  "total_scenes": 3,
+  "total_scenes": 4,
   "scenes": [
     {
       "scene_number": 1,
       "duration": 20,
-      "visual_style": "image",
-      "description": "Opening landscape establishing shot",
-      "prompt": "Cinematic wide shot of misty mountains at dawn, golden hour lighting, atmospheric fog rolling through valleys, dramatic clouds, photorealistic, 4k quality",
+      "visual_style": "remotion",
+      "description": "Opening scene with animated landscape reveal",
+      "prompt": "Animated scene: fog rolls away to reveal misty mountains at dawn, camera pans slowly across the valley as golden light gradually fills the frame, particles of mist drift upward",
       "narration": "In the shadow of ancient mountains, a journey begins.",
       "transition": "fade_to_black"
     },
     {
       "scene_number": 2,
-      "duration": 15,
+      "duration": 25,
       "visual_style": "remotion",
-      "description": "Character introduction with text",
-      "prompt": "Dynamic text animation revealing character name 'Luna' with particle effects, modern typography, vibrant colors flowing across screen, abstract background",
+      "description": "Character introduction with dynamic motion",
+      "prompt": "Animated scene: silhouette of Luna walking through a forest, trees part as she moves, leaves swirl around her, her name appears in flowing script that traces itself on screen",
       "narration": "Luna had always been different.",
       "transition": "crossfade"
+    },
+    {
+      "scene_number": 3,
+      "duration": 30,
+      "visual_style": "remotion",
+      "description": "Discovery scene with visual transformation",
+      "prompt": "Animated scene: a door opens revealing blinding light, colors flood from the doorway filling a grey room, objects in the room transform from dull to vibrant one by one in a cascade",
+      "narration": "Behind the ancient door, everything changed.",
+      "transition": "crossfade"
+    },
+    {
+      "scene_number": 4,
+      "duration": 15,
+      "visual_style": "image",
+      "description": "Closing atmospheric shot",
+      "prompt": "Cinematic wide shot of transformed landscape, golden hour, magical elements subtly visible, photorealistic, 4k",
+      "narration": "And nothing would ever be the same again.",
+      "transition": "fade_to_black"
     }
   ]
 }
@@ -79,12 +97,24 @@ You MUST output valid JSON matching this exact schema:
 - Visual style must be exactly: "image", "remotion", or "manim"
 - Transition must be exactly: "none", "fade_to_black", or "crossfade"
 
-## Style Selection Best Practices
+## Style Selection — IMPORTANT
 
-- **Start with "image"** for establishing shots
-- Use **"remotion"** for dynamic action or abstract concepts
-- Use **"manim"** only when explaining processes, showing data, or teaching
-- Vary visual styles to keep the video interesting
-- Match style to the emotional tone (image=contemplative, remotion=energetic, manim=educational)
+**`"remotion"` is the DEFAULT for storytelling.** Most scenes should use remotion because stories need motion, action, and visual dynamics — not still photos.
+
+- **Use `"remotion"` for:** character actions, movement, dialogue moments, emotional beats, transitions, anything where things HAPPEN. This is the primary storytelling medium.
+- **Use `"image"` SPARINGLY for:** one establishing shot (opening or closing) at most. A Ken Burns zoom on a still is NOT a scene — it's a transition filler. Never use image for more than 1 scene in a 3-5 scene story.
+- **Use `"manim"` only for:** explaining processes, showing data, teaching concepts, or technical content. Rare in narrative stories.
+
+**Rule: At least 75% of scenes MUST be `"remotion"`.** A video made of still images is a slideshow, not a story.
+
+**Remotion prompt tips** — describe the MOTION and ACTION using CSS shapes only:
+- ALWAYS start prompts with: "Use only CSS shapes, gradients, and SVG. No external images."
+- Describe elements as geometric shapes (circles, rectangles, triangles) with colors
+- Focus on motion: growing, shrinking, moving, fading, rotating, pulsing
+- BAD: "A cat sitting in a garden" (this is a photo, not animation)
+- BAD: "A detailed realistic cat walks through a forest" (LLM will try to load image files)
+- GOOD: "Use only CSS shapes. A dark circle (cat silhouette) moves left to right. Green rectangles (trees) slide past. Small colored circles (flowers) bloom by growing from zero size."
+- GOOD: "Use only CSS shapes. Text 'The Garden' appears letter by letter. A brown rectangle (tree trunk) grows upward from bottom. A green circle (leaves) expands at the top."
+- GOOD: "Use only CSS shapes. Left half of screen is grey, right half has a radial gradient of colors. A vertical line sweeps from left to right revealing the colorful side."
 
 Now, convert the user's story into a structured scene plan following these guidelines.

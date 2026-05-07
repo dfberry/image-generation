@@ -43,28 +43,40 @@ class ScenePlanner:
             raise ValueError(f"Unknown provider: {self.provider}")
 
     def plan_scenes(self, story: str, style_hint: Optional[str] = None) -> StoryPlan:
-        """Convert story text into a structured scene plan."""
+        """Convert story text into a structured scene plan. Retries up to 3 times on parse failure."""
         system_prompt = self._load_system_prompt()
         user_prompt = self._build_user_prompt(story, style_hint)
 
-        response = self.client.chat.completions.create(
-            model=self.model,
-            messages=[
-                {"role": "system", "content": system_prompt},
-                {"role": "user", "content": user_prompt},
-            ],
-            temperature=0.7,
-        )
+        last_error = None
+        for attempt in range(3):
+            response = self.client.chat.completions.create(
+                model=self.model,
+                messages=[
+                    {"role": "system", "content": system_prompt},
+                    {"role": "user", "content": user_prompt + ("\n\nIMPORTANT: Respond with ONLY valid JSON. No commentary." if attempt > 0 else "")},
+                ],
+                temperature=max(0.3, 0.7 - (attempt * 0.2)),
+            )
 
-        response_text = response.choices[0].message.content
-        plan_data = self._extract_json(response_text)
-        return StoryPlan(**plan_data)
+            response_text = response.choices[0].message.content or ""
+            if not response_text.strip():
+                last_error = ValueError("LLM returned empty response")
+                continue
+
+            try:
+                plan_data = self._extract_json(response_text)
+                return StoryPlan(**plan_data)
+            except (json.JSONDecodeError, Exception) as e:
+                last_error = e
+                continue
+
+        raise last_error
 
     def _load_system_prompt(self) -> str:
         """Load the scene planning system prompt."""
         prompt_path = Path(__file__).parent.parent / "prompts" / "scene_planning.md"
         if prompt_path.exists():
-            return prompt_path.read_text()
+            return prompt_path.read_text(encoding="utf-8")
         return self._get_default_prompt()
 
     def _get_default_prompt(self) -> str:
@@ -108,16 +120,30 @@ Output must be valid JSON matching this schema:
         return prompt
 
     def _extract_json(self, response_text: str) -> dict:
-        """Extract JSON from LLM response (handles markdown code blocks)."""
+        """Extract JSON from LLM response (handles markdown code blocks, preamble text)."""
+        import re
+        
         text = response_text.strip()
         
         # Remove markdown code blocks if present
-        if text.startswith("```"):
-            lines = text.split("\n")
-            if lines[0].startswith("```"):
-                lines = lines[1:]
-            if lines and lines[-1].strip() == "```":
-                lines = lines[:-1]
-            text = "\n".join(lines)
+        code_block = re.search(r"```(?:json)?\s*\n(.*?)```", text, re.DOTALL)
+        if code_block:
+            text = code_block.group(1).strip()
+        else:
+            # Try to find JSON object by locating first { and last }
+            first_brace = text.find("{")
+            last_brace = text.rfind("}")
+            if first_brace != -1 and last_brace != -1 and last_brace > first_brace:
+                text = text[first_brace:last_brace + 1]
         
-        return json.loads(text)
+        try:
+            return json.loads(text)
+        except json.JSONDecodeError:
+            # One more attempt: strip any trailing non-JSON content
+            # Sometimes LLMs add commentary after the JSON
+            for end_pos in range(len(text), 0, -1):
+                try:
+                    return json.loads(text[:end_pos])
+                except json.JSONDecodeError:
+                    continue
+            raise

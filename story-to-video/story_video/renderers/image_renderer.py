@@ -68,25 +68,32 @@ class ImageRenderer(BaseRenderer):
         """Call image-generation to create a still image."""
         output_dir = self.temp_dir / f"scene_{scene.scene_number:03d}"
         output_dir.mkdir(exist_ok=True)
+        output_file = output_dir / f"scene_{scene.scene_number:03d}.png"
         
         cmd = [
             "python",
             str(self.image_gen_path),
             "--prompt", scene.prompt,
-            "--output-dir", str(output_dir),
+            "--output", str(output_file),
         ]
         
         result = subprocess.run(
             cmd,
             capture_output=True,
             text=True,
+            encoding="utf-8",
+            errors="replace",
             timeout=RENDER_TIMEOUT_IMAGE,
         )
         
         if result.returncode != 0:
             raise RuntimeError(f"Image generation failed: {result.stderr}")
         
-        # Find generated image
+        # Check the expected output file
+        if output_file.exists():
+            return output_file
+        
+        # Fallback: find any generated image in output_dir
         images = list(output_dir.glob("*.png")) + list(output_dir.glob("*.jpg"))
         if not images:
             raise RuntimeError("No image generated")

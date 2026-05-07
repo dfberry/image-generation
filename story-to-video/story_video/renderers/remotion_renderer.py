@@ -64,24 +64,27 @@ class RemotionRenderer(BaseRenderer):
             result = subprocess.run(
                 cmd,
                 capture_output=True,
-                text=True,
                 timeout=RENDER_TIMEOUT_REMOTION,
                 cwd=Path(self.remotion_cli).parent if "/" in self.remotion_cli or "\\" in self.remotion_cli else None,
+                env={**__import__('os').environ, "PYTHONIOENCODING": "utf-8"},
             )
+            
+            # Check success by output file existence (remotion-gen may have non-fatal
+            # encoding errors in stderr on Windows that don't prevent video creation)
+            if output_path.exists() and output_path.stat().st_size > 0:
+                return RenderResult(
+                    scene_number=scene.scene_number,
+                    clip_path=output_path,
+                    duration=float(scene.duration),
+                    renderer="remotion",
+                    success=True,
+                )
             
             if result.returncode != 0:
-                raise RuntimeError(f"Remotion rendering failed: {result.stderr}")
+                stderr_text = result.stderr.decode("utf-8", errors="replace") if isinstance(result.stderr, bytes) else str(result.stderr or "")
+                raise RuntimeError(f"Remotion rendering failed: {stderr_text}")
             
-            if not output_path.exists() or output_path.stat().st_size == 0:
-                raise RuntimeError("Output video is empty")
-            
-            return RenderResult(
-                scene_number=scene.scene_number,
-                clip_path=output_path,
-                duration=float(scene.duration),
-                renderer="remotion",
-                success=True,
-            )
+            raise RuntimeError("Output video is empty or missing")
         except Exception as e:
             return RenderResult(
                 scene_number=scene.scene_number,

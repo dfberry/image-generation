@@ -29,9 +29,10 @@ DEFAULT_PROVIDER: Literal["ollama", "openai", "azure"] = "ollama"
 DEFAULT_MODEL = "llama3.2"
 
 # Timeouts for rendering (seconds)
+# CPU-only inference with 32B models needs ~150s for TSX generation + render
 RENDER_TIMEOUT_IMAGE = 300
-RENDER_TIMEOUT_REMOTION = 120
-RENDER_TIMEOUT_MANIM = 120
+RENDER_TIMEOUT_REMOTION = 600
+RENDER_TIMEOUT_MANIM = 300
 RENDER_TIMEOUT_STITCH = 600
 
 # LLM configuration
