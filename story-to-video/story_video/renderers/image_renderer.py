@@ -147,9 +147,9 @@ class ImageRenderer(BaseRenderer):
         # Since we use subprocess.run with a list (no shell), we only need
         # ffmpeg filter-level escaping, not shell escaping.
         narration = (scene.narration
-            .replace("\\", "\\\\\\\\")
-            .replace("'", "\\\\'")
-            .replace(":", "\\\\:")
+            .replace("\\", "\\\\")
+            .replace("'", "\\'")
+            .replace(":", "\\:")
             .replace(",", "\\,")
             .replace("[", "\\[")
             .replace("]", "\\]")
