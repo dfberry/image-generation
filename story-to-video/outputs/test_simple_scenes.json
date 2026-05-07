@@ -1,0 +1,29 @@
+{
+  "title": "The Cat's Garden",
+  "scenes": [
+    {
+      "scene_number": 1,
+      "title": "The Gate",
+      "style": "remotion",
+      "prompt": "A cat walking toward a gate. The gate slowly opens with a glowing light behind it.",
+      "narration": "Whiskers discovered a hidden gate.",
+      "duration": 8
+    },
+    {
+      "scene_number": 2,
+      "title": "The Garden",
+      "style": "remotion",
+      "prompt": "Colorful flowers blooming one by one across the screen. A butterfly flies from left to right.",
+      "narration": "The most magical garden appeared before her.",
+      "duration": 8
+    },
+    {
+      "scene_number": 3,
+      "title": "The Wish",
+      "style": "remotion",
+      "prompt": "A large tree with a golden star at the top. The star pulses and sends sparkles downward.",
+      "narration": "The ancient tree granted her a wish.",
+      "duration": 8
+    }
+  ]
+}
