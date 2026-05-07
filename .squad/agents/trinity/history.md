@@ -950,3 +950,21 @@ Addressed all review findings from Morpheus (Security), Niobe (Image Quality), a
 - **Match logging verbosity:** Moved 'Found match' log from INFO to DEBUG level to avoid log spam on images with many matches.
 
 **Result:** All 7 review findings addressed in a single commit. No functionality regressions. OCR timeout/warning considered but deferred (out of scope for this PR).
+
+### 2026-05-07 — PR #122: Intelligent Scene Routing (#121)
+
+Implemented Phase 1 intelligent scene routing for story-to-video. Narrative scenes now route to SDXL image renderer instead of Remotion's geometric shapes.
+
+**Key files:**
+- `story-to-video/story_video/scene_renderer.py` — `_intelligent_routing()` with keyword scoring
+- `story-to-video/story_video/renderers/image_renderer.py` — `_build_sdxl_prompt()` with framing hints
+- `story-to-video/story_video/cli.py` — `--force-renderer` and `--renderer-strategy` CLI flags
+- `story-to-video/story_video/models.py` — `RendererStrategy` pydantic model
+- `story-to-video/tests/test_intelligent_routing.py` — 11 routing tests
+
+**Architecture patterns:**
+- Keyword-based routing: frozensets of NARRATIVE_KEYWORDS and ABSTRACT_KEYWORDS scored against scene text
+- Default bias: image renderer wins ties (conservative — better results for stories)
+- Strategy bias: `prefer-image` / `prefer-remotion` adds +2 to respective score
+- Force override: `force_renderer` bypasses all routing logic
+- SDXL prompt enhancement: framing hints (wide/medium/close-up by scene number) + style anchor
