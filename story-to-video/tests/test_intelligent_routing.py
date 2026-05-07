@@ -205,6 +205,40 @@ class TestForceRendererOverride:
         assert result.renderer == "manim"
 
 
+class TestRendererAvailability:
+    """Test renderer availability error paths."""
+
+    def test_unavailable_renderer_returns_failure(self, tmp_path):
+        """When is_available() returns False, render_scene() fails with reason."""
+        orch = SceneRendererOrchestrator(
+            output_dir=tmp_path,
+            renderer_strategy=RendererStrategy(force_renderer="image"),
+        )
+        scene = _make_scene("A girl in a garden")
+        orch.image_renderer.is_available = MagicMock(
+            return_value=(False, "ffmpeg not found")
+        )
+
+        result = orch.render_scene(scene)
+
+        assert result.success is False
+        assert "ffmpeg not found" in result.error
+        assert result.renderer == "image"
+
+    def test_unknown_renderer_style_returns_failure(self, tmp_path):
+        """When routing returns an unknown style, render_scene() fails."""
+        orch = SceneRendererOrchestrator(output_dir=tmp_path)
+        scene = _make_scene("A scene")
+        # Simulate an unknown style from routing (bypass pydantic validation)
+        orch._intelligent_routing = MagicMock(return_value="nonexistent")
+
+        result = orch.render_scene(scene)
+
+        assert result.success is False
+        assert "Unknown visual style" in result.error
+        assert "nonexistent" in result.error
+
+
 class TestRendererStrategyModel:
     """Test RendererStrategy pydantic model."""
 

@@ -143,11 +143,13 @@ class ImageRenderer(BaseRenderer):
         
         # Ken Burns effect: slow zoom and pan
         
-        # Text overlay (escape special chars for ffmpeg drawtext)
+        # Text overlay (escape special chars for ffmpeg drawtext filter).
+        # Since we use subprocess.run with a list (no shell), we only need
+        # ffmpeg filter-level escaping, not shell escaping.
         narration = (scene.narration
-            .replace("\\", "\\\\")
-            .replace("'", "'\\''")
-            .replace(":", "\\:")
+            .replace("\\", "\\\\\\\\")
+            .replace("'", "\\\\'")
+            .replace(":", "\\\\:")
             .replace(",", "\\,")
             .replace("[", "\\[")
             .replace("]", "\\]")

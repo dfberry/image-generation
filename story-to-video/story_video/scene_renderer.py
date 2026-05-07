@@ -56,6 +56,9 @@ class SceneRendererOrchestrator:
         
         Scores narrative vs abstract keywords in prompt+narration.
         Default bias: image renderer (better results for stories).
+        
+        Note: manim is NOT routable via keywords — it's specialized for
+        math/animation content and accessible only via --force-renderer manim.
         """
         text = f"{scene.prompt} {scene.narration}".lower()
 
@@ -106,7 +109,9 @@ class SceneRendererOrchestrator:
                 error=f"Unknown visual style: {effective_style}",
             )
 
-        # Check availability before rendering
+        # Fail-fast: if the selected renderer isn't available, return an error
+        # immediately. No automatic fallback — if the user forced a renderer,
+        # they want THAT renderer, not a silent substitute.
         available, reason = renderer.is_available()
         if not available:
             logger.warning(
