@@ -130,7 +130,19 @@ pytest tests/ -v
 ```bash
 # Generate blog images in sequence
 bash generate_blog_images.sh
+
+# Or use a batch JSON file
+python generate.py --batch-file batch_from_autocomplete_to_ai_team.json --cpu
 ```
+
+### Batch File Conventions
+
+When using `--batch-file`, follow these rules:
+
+1. **Always change seeds when changing prompts.** SDXL with the same seed + different prompt CAN produce identical outputs if the CLIP-significant tokens overlap. Increment all seeds by 10+ when prompts change meaningfully.
+2. **Use sequential seeds within a batch** (e.g., 52-57) for visual consistency across a series.
+3. **Document the seed range** in commit messages so regeneration history is traceable.
+4. **Keep batch files in version control.** They are the source of truth for what was generated and why.
 
 ## Example Prompts
 

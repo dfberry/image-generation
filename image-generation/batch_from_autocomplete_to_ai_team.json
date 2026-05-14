@@ -1,0 +1,38 @@
+[
+  {
+    "prompt": "Watercolor illustration, warm muted tones. One man in blue shirt and leather apron at a maple workbench, holding a welcome sign. A man in green shirt beside him offering a chisel. Brick walls, oak beam ceiling, arched windows, pegboard with saws, sawdust floor, no text",
+    "seed": 52,
+    "output": "outputs/from-autocomplete-to-ai-team/hero-copilot-journey.png",
+    "negative_prompt": "blurry, bad quality, worst quality, low resolution, text, watermark, signature, deformed, ugly, duplicate, morbid, photorealistic, empty room, no people"
+  },
+  {
+    "prompt": "Watercolor illustration, warm muted tones. One man in blue shirt holding a mallet, one man in green shirt steadying a dovetail joint beside him at a maple workbench. Chisel and wood glue on the bench. Brick walls, oak beam ceiling, arched windows, pegboard with saws, sawdust floor, no text",
+    "seed": 53,
+    "output": "outputs/from-autocomplete-to-ai-team/level-1-pair-programming.png",
+    "negative_prompt": "blurry, bad quality, worst quality, low resolution, text, watermark, signature, deformed, ugly, duplicate, morbid, photorealistic, empty room, no people"
+  },
+  {
+    "prompt": "Watercolor illustration, warm muted tones. One man in blue shirt at a maple workbench arranging custom jigs and labeled drawers. Glass jars of stain on shelf, open notebook with chair profiles. Brick walls, oak beam ceiling, arched windows, pegboard with saws, sawdust floor, no text",
+    "seed": 54,
+    "output": "outputs/from-autocomplete-to-ai-team/level-2-customization.png",
+    "negative_prompt": "blurry, bad quality, worst quality, low resolution, text, watermark, signature, deformed, ugly, duplicate, morbid, photorealistic, green shirt"
+  },
+  {
+    "prompt": "Watercolor illustration, warm muted tones. One man in blue shirt reading a blueprint, three men in green shirts around a maple workbench assembling a dining table. One green shirt holds a spoke shave, one uses clamps, one checks a spirit level. Brick walls, oak beam ceiling, arched windows, pegboard, sawdust floor, no text",
+    "seed": 55,
+    "output": "outputs/from-autocomplete-to-ai-team/level-3-squad-team.png",
+    "negative_prompt": "blurry, bad quality, worst quality, low resolution, text, watermark, signature, deformed, ugly, duplicate, morbid, photorealistic, empty room, no people"
+  },
+  {
+    "prompt": "Watercolor illustration, warm muted tones. One man in blue shirt sitting in an armchair with coffee cup, watching five men in green shirts working at maple workbenches building chairs independently. Brick walls, oak beam ceiling, arched windows, pegboard with saws, sawdust floor, golden light, no text",
+    "seed": 56,
+    "output": "outputs/from-autocomplete-to-ai-team/level-4-cloud-fleet.png",
+    "negative_prompt": "blurry, bad quality, worst quality, low resolution, text, watermark, signature, deformed, ugly, duplicate, morbid, photorealistic, empty room, no people, machinery"
+  },
+  {
+    "prompt": "Watercolor illustration, warm muted tones. One man in blue shirt on a catwalk with binoculars, looking down at many men in green shirts working at rows of maple workbenches building furniture. Brick walls, oak beam ceiling, arched windows, pegboard, sawdust floor, sunrise glow, no text",
+    "seed": 57,
+    "output": "outputs/from-autocomplete-to-ai-team/level-5-cloud-scale.png",
+    "negative_prompt": "blurry, bad quality, worst quality, low resolution, text, watermark, signature, deformed, ugly, duplicate, morbid, photorealistic, empty room, no people"
+  }
+]
