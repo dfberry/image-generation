@@ -1,7 +1,7 @@
 [
   {
-    "prompt": "Watercolor illustration, warm muted tones. One man in blue shirt and leather apron at a maple workbench, holding a welcome sign. A man in green shirt beside him offering a chisel. Brick walls, oak beam ceiling, arched windows, pegboard with saws, sawdust floor, no text",
-    "seed": 52,
+    "prompt": "Watercolor illustration, warm muted tones. Two men at a maple workbench. Left man wears a bright cobalt blue shirt, holding a welcome sign. Right man wears a bright green shirt, offering a chisel. Brick walls, oak beam ceiling, arched windows, pegboard with saws, sawdust floor, no text",
+    "seed": 62,
     "output": "outputs/from-autocomplete-to-ai-team/hero-copilot-journey.png",
     "negative_prompt": "blurry, bad quality, worst quality, low resolution, text, watermark, signature, deformed, ugly, duplicate, morbid, photorealistic, empty room, no people"
   },
