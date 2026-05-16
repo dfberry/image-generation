@@ -20,6 +20,7 @@ from pathlib import Path
 from types import SimpleNamespace
 
 from PIL import Image
+from PIL.PngImagePlugin import PngInfo
 
 logger = logging.getLogger(__name__)
 
@@ -218,10 +219,12 @@ def parse_args():
     )
     parser.add_argument("--refine", action="store_true", help="Use base + refiner pipeline (higher quality)")
     parser.add_argument("--cpu", action="store_true", help="Force CPU mode (slow, no GPU required)")
-    parser.add_argument("--lora", type=str, default=None,
-                        help="LoRA model ID or path to load (e.g. joachim_s/aether-watercolor-and-ink-sdxl)")
-    parser.add_argument("--lora-weight", type=_non_negative_float, default=0.8, dest="lora_weight",
-                        help="LoRA adapter weight (0.0–1.0)")
+    parser.add_argument("--lora", action='append', dest='lora', default=None,
+                        help="LoRA model ID (repeatable: --lora id1 --lora id2)")
+    parser.add_argument("--lora-weight", action='append', dest='lora_weight', type=_non_negative_float, default=None,
+                        help="LoRA weight per adapter (positional: 1st weight = 1st LoRA)")
+    parser.add_argument("--dry-run", action="store_true", dest="dry_run", default=False,
+                        help="Resolve and print all parameters as JSON; exit without generating any image.")
     parser.add_argument("--input", type=str, default=None,
                         help="Path to input image for img2img generation (PNG, JPEG, or WebP)")
     parser.add_argument("--strength", type=_strength_float, default=0.75,
@@ -370,13 +373,50 @@ def apply_scheduler(pipeline, scheduler_name: str):
     pipeline.scheduler = scheduler_cls.from_config(config)
 
 
-def apply_lora(pipeline, lora: str | None, lora_weight: float = 0.8):
-    """Load LoRA weights into the pipeline if specified."""
-    if lora is None:
+def apply_lora(pipeline, loras: list) -> None:
+    """Load LoRA adapters. Assigns unique names lora_0, lora_1, ... to prevent collision."""
+    if not loras:
         return
-    logger.info("Loading LoRA: %s (weight=%s)", lora, lora_weight)
-    pipeline.load_lora_weights(lora)
-    pipeline.set_adapters(["default"], adapter_weights=[lora_weight])
+    for i, (model_id, weight) in enumerate(loras):
+        adapter_name = f"lora_{i}"
+        logger.info("Loading LoRA %d: %s (weight=%s, adapter_name=%s)", i, model_id, weight, adapter_name)
+        pipeline.load_lora_weights(model_id, adapter_name=adapter_name)
+    pipeline.set_adapters(
+        [f"lora_{i}" for i in range(len(loras))],
+        adapter_weights=[w for _, w in loras],
+    )
+
+
+def _build_lora_list(args) -> list:
+    """Normalize --lora / --lora-weight args into [(model_id, weight), ...].
+
+    Handles three cases:
+    - args.lora is None -> empty list (no LoRA)
+    - args.lora is a list (action='append') -> paired with weights list
+    - args.lora is a str (legacy batch SimpleNamespace) -> wrapped in list
+
+    Weight defaults to 0.8 for any LoRA without an explicit weight.
+    """
+    lora_ids = getattr(args, 'lora', None)
+    if lora_ids is None:
+        return []
+    if isinstance(lora_ids, str):
+        lora_ids = [lora_ids]
+    weights_raw = getattr(args, 'lora_weight', None)
+    if weights_raw is None:
+        weights = [0.8] * len(lora_ids)
+    elif isinstance(weights_raw, float):
+        weights = [weights_raw] + [0.8] * (len(lora_ids) - 1)
+    else:
+        weights = list(weights_raw)
+        if len(weights) < len(lora_ids):
+            logger.warning(
+                "LoRA weight count (%d) < LoRA count (%d); defaulting remaining weights to 0.8",
+                len(weights), len(lora_ids),
+            )
+            while len(weights) < len(lora_ids):
+                weights.append(0.8)
+    return list(zip(lora_ids, weights))
 
 
 # ---------------------------------------------------------------------------
@@ -392,7 +432,7 @@ def _load_pipeline(device, args):
     """Load the base SDXL pipeline with scheduler and optional LoRA applied."""
     base = load_base(device)
     apply_scheduler(base, args.scheduler)
-    apply_lora(base, getattr(args, 'lora', None), getattr(args, 'lora_weight', 0.8))
+    apply_lora(base, _build_lora_list(args))
     return base
 
 
@@ -438,8 +478,44 @@ def _run_refiner(latents, text_encoder_2, vae, device, args, generator):
     return refiner, image
 
 
+def _save_with_metadata(image, output_path: str, params: dict) -> None:
+    """Save PNG with generation parameters embedded in tEXt chunk under key 'generate_params'."""
+    meta = PngInfo()
+    meta.add_text("generate_params", json.dumps(params, default=str))
+    image.save(output_path, pnginfo=meta)
+
+
 def generate(args) -> str:
     """Run image generation and save to output path."""
+    # Dry-run: resolve all params and print JSON, exit without generating
+    if getattr(args, 'dry_run', False):
+        output_path = args.output
+        if output_path is None:
+            timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+            output_path = f"outputs/image_{timestamp}.png"
+        loras = _build_lora_list(args)
+        # Lightweight device detection (no model load)
+        _ensure_heavy_imports()
+        device = get_device(args.cpu)
+        resolved = {
+            "prompt": args.prompt,
+            "negative_prompt": getattr(args, 'negative_prompt', None),
+            "steps": args.steps,
+            "guidance": args.guidance,
+            "width": args.width,
+            "height": args.height,
+            "effective_seed": args.seed,
+            "scheduler": getattr(args, 'scheduler', 'DPMSolverMultistepScheduler'),
+            "loras": [[m, w] for m, w in loras],
+            "refine": getattr(args, 'refine', False),
+            "refiner_steps": getattr(args, 'refiner_steps', 10),
+            "model": getattr(args, 'model', None),
+            "output": output_path,
+            "device": device,
+            "dry_run": True,
+        }
+        print(json.dumps({"resolved": resolved}, indent=2))
+        return output_path
     _ensure_heavy_imports()
     validate_dimensions(args.width, args.height)
     device = get_device(args.cpu)
@@ -448,14 +524,19 @@ def generate(args) -> str:
     # call before loading new pipelines. Reduces OOM risk in back-to-back runs.
     _flush_gpu_memory()
 
-    # Set up generator for reproducible output
-    generator = None
+    # Always capture an explicit seed before generation (Change 5)
     if args.seed is not None:
-        # Fix C: cpu_offload routes layers to CPU for "cpu"/"mps" devices,
-        # so bind the generator to CPU to avoid a device mismatch.
-        generator_device = "cpu" if device in ("cpu", "mps") else device
-        generator = torch.Generator(device=generator_device).manual_seed(args.seed)
-        logger.info("Seed: %s", args.seed)
+        effective_seed = args.seed
+        seed_source = "user-specified"
+    else:
+        effective_seed = torch.randint(0, 2**32, (1,)).item()
+        seed_source = "auto-generated"
+
+    generator_device = "cpu" if device in ("cpu", "mps") else device
+    generator = torch.Generator(device=generator_device).manual_seed(effective_seed)
+    logger.info("Seed: %s (%s)", effective_seed, seed_source)
+    # Set in-place so downstream code (metadata, return) can read it
+    args.seed = effective_seed
 
     # Resolve output path
     output_path = args.output
@@ -499,7 +580,23 @@ def generate(args) -> str:
             image = _run_inference(base, args, generator)
 
         if image is not None:
-            image.save(output_path)
+            loras = _build_lora_list(args)
+            params = {
+                "prompt": args.prompt,
+                "negative_prompt": getattr(args, 'negative_prompt', None),
+                "seed": args.seed,
+                "steps": args.steps,
+                "guidance": args.guidance,
+                "width": args.width,
+                "height": args.height,
+                "model": getattr(args, 'model', None),
+                "scheduler": getattr(args, 'scheduler', None),
+                "loras": [[m, w] for m, w in loras],
+                "refine": getattr(args, 'refine', False),
+                "refiner_steps": getattr(args, 'refiner_steps', 10),
+                "generated_at": datetime.now().isoformat(),
+            }
+            _save_with_metadata(image, output_path, params)
             logger.info("Saved: %s", output_path)
     except Exception as exc:
         _cuda_oom_cls = getattr(torch.cuda, "OutOfMemoryError", None)
@@ -550,9 +647,18 @@ def _validate_batch_item(item: dict, index: int) -> str | None:
     Prints warnings for unexpected keys (does not fail).
     """
     _REQUIRED_KEYS = {"prompt", "output"}
+    # NOTE: simple_config.py (the simplifier wrapper) is responsible for flattening
+    # v2 structured batch entries into the standard format before writing to --batch-file.
+    # generate.py only validates the flat format defined by _REQUIRED_KEYS and _KNOWN_KEYS.
+    # Unknown keys are logged as warnings (not errors) to preserve forward compatibility.
+    #
+    # Flat format contract:
+    #   Required: "prompt", "output"
+    #   Known optional: "seed", "steps", "guidance", "scheduler", "negative_prompt",
+    #                   "lora", "lora_weight", "refiner_steps", "model"
     _KNOWN_KEYS = {
         "prompt", "output", "seed", "negative_prompt",
-        "lora", "lora_weight", "scheduler", "refiner_steps",
+        "lora", "lora_weight", "scheduler", "refiner_steps", "model",
     }
 
     # Check required keys exist
@@ -617,6 +723,13 @@ def batch_generate(prompts: list[dict], device: str = None, args=None) -> list[d
             continue
 
         try:
+            # Wrap scalar lora/lora_weight values for backward compat with existing batch JSON
+            lora_val = item.get("lora", getattr(args, 'lora', None))
+            lora_weight_val = item.get("lora_weight", getattr(args, 'lora_weight', None))
+            if isinstance(lora_val, str):
+                lora_val = [lora_val]
+            if isinstance(lora_weight_val, float):
+                lora_weight_val = [lora_weight_val]
             batch_args = SimpleNamespace(
                 prompt=item["prompt"],
                 output=item["output"],
@@ -630,11 +743,18 @@ def batch_generate(prompts: list[dict], device: str = None, args=None) -> list[d
                 refine=args.refine if args else False,
                 negative_prompt=item.get("negative_prompt", args.negative_prompt if args else ""),
                 cpu=(device == "cpu"),
-                lora=item.get("lora", getattr(args, 'lora', None)),
-                lora_weight=item.get("lora_weight", getattr(args, 'lora_weight', 0.8)),
+                lora=lora_val,
+                lora_weight=lora_weight_val,
                 refiner_steps=item.get("refiner_steps", getattr(args, 'refiner_steps', 10)),
+                model=item.get("model", getattr(args, 'model', None)),
+                dry_run=False,
             )
-            output_path = generate_with_retry(batch_args)
+            # Route through provider path when --model is specified (Change 3)
+            batch_model = getattr(batch_args, 'model', None)
+            if batch_model:
+                output_path = generate_with_provider(batch_args)
+            else:
+                output_path = generate_with_retry(batch_args)
             results.append({
                 "prompt": item["prompt"],
                 "output": output_path,
@@ -728,17 +848,41 @@ def generate_with_provider(args) -> str:
     This is the new path when --model is specified. It uses the provider
     registry to load the appropriate model and generate the image.
     """
-    from providers import get_provider, GenerationConfig
+    from providers import GenerationConfig, get_provider
 
-    # Warn about unsupported flags in provider path
-    unsupported = []
-    if getattr(args, 'lora', None):
-        unsupported.append("--lora")
+    # Warn only for unsupported flags (--lora is now supported via lora_ids in config)
     if getattr(args, 'refine', False):
-        unsupported.append("--refine")
-    if unsupported:
         model_name = getattr(args, 'model', 'precise') or 'precise'
-        print(f"Warning: {' and '.join(unsupported)} are not yet supported with --model {model_name}. These flags will be ignored.")
+        print(f"Warning: --refine is not yet supported with --model {model_name}. This flag will be ignored.")
+
+    # Dry-run: resolve params and print JSON, exit without generating
+    if getattr(args, 'dry_run', False):
+        output_path = args.output
+        if output_path is None:
+            timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+            output_path = f"outputs/image_{timestamp}.png"
+        _ensure_heavy_imports()
+        device = get_device(args.cpu)
+        loras = _build_lora_list(args)
+        resolved = {
+            "prompt": args.prompt,
+            "negative_prompt": getattr(args, 'negative_prompt', None),
+            "steps": args.steps,
+            "guidance": args.guidance,
+            "width": args.width,
+            "height": args.height,
+            "effective_seed": getattr(args, 'seed', None),
+            "scheduler": getattr(args, 'scheduler', 'DPMSolverMultistepScheduler'),
+            "loras": [[m, w] for m, w in loras],
+            "refine": getattr(args, 'refine', False),
+            "refiner_steps": getattr(args, 'refiner_steps', 10),
+            "model": getattr(args, 'model', None),
+            "output": output_path,
+            "device": device,
+            "dry_run": True,
+        }
+        print(json.dumps({"resolved": resolved}, indent=2))
+        return output_path
 
     _ensure_heavy_imports()
     validate_dimensions(args.width, args.height)
@@ -760,6 +904,7 @@ def generate_with_provider(args) -> str:
 
         # Build generation config
         input_img = getattr(args, '_input_image', None)
+        loras = _build_lora_list(args)
         config = GenerationConfig(
             prompt=args.prompt,
             negative_prompt=getattr(args, 'negative_prompt', None),
@@ -771,6 +916,7 @@ def generate_with_provider(args) -> str:
             scheduler=getattr(args, 'scheduler', None),
             input_image=input_img,
             strength=getattr(args, 'strength', 0.75),
+            lora_ids=loras,
         )
 
         # Notify user about img2img mode
@@ -778,7 +924,22 @@ def generate_with_provider(args) -> str:
             print(f"img2img mode enabled. Provider '{model_name}' will process your input image.")
 
         image = provider.generate(config)
-        image.save(output_path)
+        params = {
+            "prompt": args.prompt,
+            "negative_prompt": getattr(args, 'negative_prompt', None),
+            "seed": getattr(args, 'seed', None),
+            "steps": args.steps,
+            "guidance": args.guidance,
+            "width": args.width,
+            "height": args.height,
+            "model": getattr(args, 'model', None),
+            "scheduler": getattr(args, 'scheduler', None),
+            "loras": [[m, w] for m, w in loras],
+            "refine": getattr(args, 'refine', False),
+            "refiner_steps": getattr(args, 'refiner_steps', 10),
+            "generated_at": datetime.now().isoformat(),
+        }
+        _save_with_metadata(image, output_path, params)
         logger.info("Saved: %s", output_path)
     except Exception as exc:
         _cuda_oom_cls = getattr(torch.cuda, "OutOfMemoryError", None)
@@ -821,8 +982,8 @@ def main():
             sys.exit(1)
         # Apply style preset defaults
         preset = get_style(style_name)
-        args.lora = preset.lora_id
-        args.lora_weight = preset.lora_weight
+        args.lora = [preset.lora_id]
+        args.lora_weight = [preset.lora_weight]
         args.strength = preset.strength
         args.guidance = preset.guidance_scale
         # Merge negative prompt additions
