@@ -304,3 +304,139 @@ class TestLoraAddModelIdValidation:
         lora_add("short-id", entry, path=tmp_path / "loras.json")
         loaded = load_loras(path=tmp_path / "loras.json")
         assert "short-id" in loaded
+
+
+# ---------------------------------------------------------------------------
+# TL-13 — lora add: duplicate name with overwrite=False raises KeyError
+# ---------------------------------------------------------------------------
+
+
+class TestLoraAddDuplicate:
+    _ENTRY = {
+        "model_id": "test/dup-lora",
+        "default_weight": 0.7,
+        "trigger_words": [],
+        "compatible_models": ["sdxl"],
+        "guidance_delta": 0,
+        "style_tokens": "",
+        "description": "Duplicate test",
+    }
+
+    def test_duplicate_name_raises_key_error(self, tmp_path):
+        """TL-13: lora_add with an already-existing name raises KeyError when overwrite=False."""
+        from simple_config import lora_add  # noqa: PLC0415
+
+        loras_path = tmp_path / "loras.json"
+        lora_add("dup-lora", self._ENTRY, path=loras_path)
+        with pytest.raises(KeyError, match="dup-lora"):
+            lora_add("dup-lora", self._ENTRY, path=loras_path, overwrite=False)
+
+    def test_duplicate_name_overwrite_true_replaces_entry(self, tmp_path):
+        """TL-13: lora_add with overwrite=True replaces the existing entry."""
+        from simple_config import lora_add  # noqa: PLC0415
+
+        loras_path = tmp_path / "loras.json"
+        lora_add("dup-lora", self._ENTRY, path=loras_path)
+        updated = {**self._ENTRY, "default_weight": 0.3}
+        lora_add("dup-lora", updated, path=loras_path, overwrite=True)
+        loaded = load_loras(path=loras_path)
+        assert loaded["dup-lora"]["default_weight"] == 0.3
+
+
+# ---------------------------------------------------------------------------
+# TL-14 — Malformed loras.json raises json.JSONDecodeError
+# ---------------------------------------------------------------------------
+
+
+class TestMalformedJson:
+    def test_load_registry_raises_on_corrupt_file(self, tmp_path):
+        """TL-14: _load_registry raises json.JSONDecodeError when loras.json is corrupted."""
+        from simple_config import _load_registry  # noqa: PLC0415
+
+        bad_path = tmp_path / "loras.json"
+        bad_path.write_text("{not valid json!!!}", encoding="utf-8")
+        with pytest.raises(json.JSONDecodeError):
+            _load_registry(path=bad_path)
+
+    def test_load_loras_raises_on_corrupt_file(self, tmp_path):
+        """TL-14: load_loras raises json.JSONDecodeError when loras.json is corrupted."""
+        bad_path = tmp_path / "loras.json"
+        bad_path.write_text("GARBAGE", encoding="utf-8")
+        with pytest.raises(json.JSONDecodeError):
+            load_loras(path=bad_path)
+
+
+# ---------------------------------------------------------------------------
+# TL-15 — Word boundary: trigger "ink" must not match "thinking"
+# ---------------------------------------------------------------------------
+
+
+class TestTriggerWordBoundary:
+    def test_ink_not_matched_inside_thinking(self):
+        """TL-15: Trigger word 'ink' must not falsely match inside 'thinking'."""
+        from simple_config import check_and_inject_trigger_words  # noqa: PLC0415
+
+        loras = {
+            "test-ink": {
+                "trigger_words": ["ink"],
+                "compatible_models": ["sdxl"],
+                "model_id": "test/model",
+                "default_weight": 0.7,
+                "description": "Boundary test",
+            }
+        }
+        # "thinking" contains "ink" as a substring but NOT as a word
+        prompt = "A developer thinking at a desk, blinking lights, no text"
+        result = check_and_inject_trigger_words(prompt, "test-ink", loras, interactive=False)
+        assert "ink" in result, "Trigger 'ink' should have been injected (was absent as a word)"
+
+    def test_ink_present_as_word_not_reinjected(self):
+        """TL-15: Trigger word 'ink' present as a standalone word — no injection."""
+        from simple_config import check_and_inject_trigger_words  # noqa: PLC0415
+
+        loras = {
+            "test-ink": {
+                "trigger_words": ["ink"],
+                "compatible_models": ["sdxl"],
+                "model_id": "test/model",
+                "default_weight": 0.7,
+                "description": "Boundary test",
+            }
+        }
+        prompt = "A scene rendered in ink, no text"
+        result = check_and_inject_trigger_words(prompt, "test-ink", loras, interactive=False)
+        assert result == prompt, "Prompt should be unchanged when trigger word 'ink' is already a word"
+
+
+# ---------------------------------------------------------------------------
+# TL-16 — Temp file cleanup on write failure
+# ---------------------------------------------------------------------------
+
+
+class TestTempFileCleanup:
+    def test_tmp_file_cleaned_up_on_write_failure(self, tmp_path, monkeypatch):
+        """TL-16: .loras.json.tmp is removed if an error occurs during save."""
+        from simple_config import _save_registry  # noqa: PLC0415
+
+        target = tmp_path / "loras.json"
+        tmp_file = tmp_path / ".loras.json.tmp"
+
+        # Force the rename to fail by making it a dir that can't be replaced
+        def _fail_replace(dst):
+            raise OSError("simulated rename failure")
+
+        # Write will succeed, replace will fail
+        orig_replace = Path.replace
+
+        def patched_replace(self, target_path):
+            if self.name == ".loras.json.tmp":
+                raise OSError("simulated rename failure")
+            return orig_replace(self, target_path)
+
+        monkeypatch.setattr(Path, "replace", patched_replace)
+
+        with pytest.raises(OSError, match="simulated rename failure"):
+            _save_registry({"version": 1, "loras": {}}, path=target)
+
+        assert not tmp_file.exists(), ".loras.json.tmp should be cleaned up after failure"
+

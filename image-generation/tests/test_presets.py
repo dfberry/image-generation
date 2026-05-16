@@ -400,15 +400,20 @@ class TestWeightAliasRawFloat:
 
 
 # ---------------------------------------------------------------------------
-# Test 19 (TP-15) — Unknown intensity raises ValueError
+# Test 20 (TP-16) — Weight aliases: light → 0.4 and medium → 0.7
 # ---------------------------------------------------------------------------
 
 
-class TestWeightAliasUnknown:
-    def test_unknown_alias_raises_value_error(self):
-        """TP-15: resolve_lora_weight('very-strong') raises ValueError."""
+class TestWeightAliasLightMedium:
+    def test_light_resolves_to_0_4(self):
+        """TP-16: resolve_lora_weight('light') == 0.4."""
         from presets import resolve_lora_weight  # noqa: PLC0415
 
-        with pytest.raises(ValueError, match="Unknown LoRA weight"):
-            resolve_lora_weight("very-strong")
+        assert resolve_lora_weight("light") == 0.4
+
+    def test_medium_resolves_to_0_7(self):
+        """TP-16: resolve_lora_weight('medium') == 0.7."""
+        from presets import resolve_lora_weight  # noqa: PLC0415
+
+        assert resolve_lora_weight("medium") == 0.7
 
