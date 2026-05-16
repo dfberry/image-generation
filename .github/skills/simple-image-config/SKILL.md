@@ -43,7 +43,7 @@ Modifiers adjust parameters on top of the active preset. Use `--modifier` (repea
 | `--modifier photorealistic` | guidance → 9.0, model → precise | Forces precise model |
 | `--modifier more-detailed` | steps +10; if steps ≥ 30 → refine auto-on | Additive |
 | `--modifier less-detailed` | steps −5 (floor: 10) | |
-| `--modifier artistic` | model → creative (FLUX.1) | |
+| `--modifier artistic` | model → creative | |
 | `--modifier fast` | steps → 15, refine off | Override step count |
 
 **Stacking:** Modifiers apply left-to-right. Last absolute guidance value wins.
