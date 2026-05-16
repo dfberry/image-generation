@@ -327,3 +327,93 @@ class TestFastModifierRefinerSteps:
         assert params["refine"] is False
         assert params["steps"] == 15
         assert params["refiner_steps"] == 10
+
+
+# ---------------------------------------------------------------------------
+# Test 15 (TP-11) — LoRA registry loading
+# ---------------------------------------------------------------------------
+
+
+class TestLoraRegistryLoading:
+    def test_load_loras_returns_dict_with_aether_watercolor(self):
+        """TP-11: load_loras() returns a dict containing 'aether-watercolor'."""
+        from presets import load_loras  # noqa: PLC0415
+
+        loras = load_loras()
+        assert isinstance(loras, dict)
+        assert "aether-watercolor" in loras
+
+    def test_aether_watercolor_has_required_fields(self):
+        """TP-11: The 'aether-watercolor' entry has model_id, default_weight, compatible_models."""
+        from presets import load_loras  # noqa: PLC0415
+
+        loras = load_loras()
+        entry = loras["aether-watercolor"]
+        assert "model_id" in entry
+        assert "default_weight" in entry
+        assert "compatible_models" in entry
+
+
+# ---------------------------------------------------------------------------
+# Test 16 (TP-12) — LoRA name resolution
+# ---------------------------------------------------------------------------
+
+
+class TestLoraNameResolution:
+    def test_aether_watercolor_resolves_to_correct_hf_model_id(self):
+        """TP-12: LORAS['aether-watercolor']['model_id'] == correct HuggingFace model ID."""
+        from presets import LORAS  # noqa: PLC0415
+
+        assert LORAS["aether-watercolor"]["model_id"] == "joachim_s/aether-watercolor-and-ink-sdxl"
+
+
+# ---------------------------------------------------------------------------
+# Test 17 (TP-13) — Weight alias: strong → 0.9
+# ---------------------------------------------------------------------------
+
+
+class TestWeightAliasStrong:
+    def test_strong_resolves_to_0_9(self):
+        """TP-13: resolve_lora_weight('strong') == 0.9."""
+        from presets import resolve_lora_weight  # noqa: PLC0415
+
+        assert resolve_lora_weight("strong") == 0.9
+
+
+# ---------------------------------------------------------------------------
+# Test 18 (TP-14) — Weight alias: raw float passthrough
+# ---------------------------------------------------------------------------
+
+
+class TestWeightAliasRawFloat:
+    def test_raw_float_string_resolves_correctly(self):
+        """TP-14: resolve_lora_weight('0.75') == 0.75."""
+        from presets import resolve_lora_weight  # noqa: PLC0415
+
+        assert resolve_lora_weight("0.75") == 0.75
+
+    def test_float_instance_passthrough(self):
+        """TP-14: resolve_lora_weight(0.8) returns 0.8 (float instance passthrough)."""
+        from presets import resolve_lora_weight  # noqa: PLC0415
+
+        assert resolve_lora_weight(0.8) == 0.8
+
+
+# ---------------------------------------------------------------------------
+# Test 20 (TP-16) — Weight aliases: light → 0.4 and medium → 0.7
+# ---------------------------------------------------------------------------
+
+
+class TestWeightAliasLightMedium:
+    def test_light_resolves_to_0_4(self):
+        """TP-16: resolve_lora_weight('light') == 0.4."""
+        from presets import resolve_lora_weight  # noqa: PLC0415
+
+        assert resolve_lora_weight("light") == 0.4
+
+    def test_medium_resolves_to_0_7(self):
+        """TP-16: resolve_lora_weight('medium') == 0.7."""
+        from presets import resolve_lora_weight  # noqa: PLC0415
+
+        assert resolve_lora_weight("medium") == 0.7
+

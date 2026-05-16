@@ -6,7 +6,9 @@ plus helper functions for resolving and applying them.
 
 from __future__ import annotations
 
+import json
 import re
+from pathlib import Path
 
 _REQUIRED_PRESET_KEYS = frozenset({"steps", "refine", "refiner_steps", "guidance", "refiner_guidance", "scheduler"})
 
@@ -87,6 +89,56 @@ PROMPT_TEMPLATES: dict[str, str] = {
     "concept-diagram": "[PROCESS OR RELATIONSHIP] shown as [DIAGRAM STYLE], clean composition, no text",
     "portrait": "[PERSON OR CHARACTER] at [LOCATION], [EXPRESSION], [LIGHTING], no text",
 }
+
+LORA_INTENSITY: dict[str, float] = {
+    "light": 0.4,
+    "medium": 0.7,
+    "strong": 0.9,
+}
+
+
+def resolve_lora_weight(value: str | float) -> float:
+    """Resolve a named intensity alias or raw float string to a LoRA weight float.
+
+    Accepts:
+        - Named aliases: "light" → 0.4, "medium" → 0.7, "strong" → 0.9
+        - Float instances: returned as-is
+        - Float strings: "0.8" → 0.8
+
+    Raises ValueError for unrecognised strings.
+    """
+    if isinstance(value, float):
+        return value
+    if value in LORA_INTENSITY:
+        return LORA_INTENSITY[value]
+    try:
+        return float(value)
+    except (ValueError, TypeError):
+        raise ValueError(
+            f"Unknown LoRA weight '{value}'. "
+            f"Use light / medium / strong, or a float (e.g. 0.8)."
+        )
+
+
+def load_loras(path: Path | None = None) -> dict:
+    """Load the LoRA registry from loras.json.
+
+    Args:
+        path: Override the registry file location (useful for testing).
+
+    Returns:
+        Dict mapping friendly names to registry entries, or {} if file absent.
+    """
+    p = path or (Path(__file__).parent / "loras.json")
+    if not p.exists():
+        return {}
+    with p.open(encoding="utf-8") as f:
+        data = json.load(f)
+    return data.get("loras", {})
+
+
+LORAS: dict = load_loras()
+
 
 _VAGUE_COLOR_WORDS = frozenset({
     "blue",
