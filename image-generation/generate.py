@@ -982,8 +982,9 @@ def main():
             sys.exit(1)
         # Apply style preset defaults
         preset = get_style(style_name)
-        args.lora = [preset.lora_id]
-        args.lora_weight = [preset.lora_weight]
+        if preset.lora_id:
+            args.lora = [preset.lora_id]
+            args.lora_weight = [preset.lora_weight]
         args.strength = preset.strength
         args.guidance = preset.guidance_scale
         # Merge negative prompt additions
