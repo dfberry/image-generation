@@ -181,7 +181,11 @@ def apply_style_tokens(
         passthrough_style_name is non-None when the style should be forwarded to
         generate.py as ``--style <name>`` rather than handled by this function.
     """
-    if no_default_style or (style_name is not None and style_name.lower() == "none"):
+    if style_name is not None and style_name.lower() == "none":
+        return user_prompt, None, None, None
+
+    # no_default_style only suppresses the folk-art default; explicit styles take precedence
+    if no_default_style and style_name is None:
         return user_prompt, None, None, None
 
     effective_style = style_name if style_name is not None else "folk-art"
