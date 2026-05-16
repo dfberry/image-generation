@@ -374,7 +374,14 @@ def apply_scheduler(pipeline, scheduler_name: str):
 
 
 def apply_lora(pipeline, loras: list) -> None:
-    """Load LoRA adapters. Assigns unique names lora_0, lora_1, ... to prevent collision."""
+    """Load LoRA adapters onto pipeline.
+
+    Assigns unique names lora_0, lora_1, ... to prevent collision.
+
+    Note: API changed from (pipeline, lora: str | None, lora_weight: float)
+    to (pipeline, loras: list[tuple[str, float]]). Build the list with
+    _build_lora_list(args) before calling.
+    """
     if not loras:
         return
     for i, (model_id, weight) in enumerate(loras):

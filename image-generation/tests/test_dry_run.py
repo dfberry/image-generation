@@ -64,6 +64,12 @@ class TestDryRun:
         assert result.returncode == 0
         assert not out_path.exists()
 
+    def test_dry_run_resolved_dry_run_field_is_true(self):
+        """TDR-06: resolved['dry_run'] is explicitly True, not just present."""
+        result = _run_dry_run(cwd=_get_generate_cwd())
+        resolved = json.loads(result.stdout)["resolved"]
+        assert resolved["dry_run"] is True
+
     def test_dry_run_with_seed_shows_seed_in_resolved(self):
         """TDR-07: --seed 42 --dry-run -> resolved['effective_seed'] is 42."""
         result = _run_dry_run("--seed", "42", cwd=_get_generate_cwd())

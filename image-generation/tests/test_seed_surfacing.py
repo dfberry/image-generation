@@ -204,3 +204,55 @@ class TestSeedSurfacing:
         parsed = json.loads(saved.info["generate_params"])
         assert parsed["seed"] is not None
         assert isinstance(parsed["seed"], int)
+
+    def test_provider_path_surfaces_effective_seed(self, tmp_path):
+        """TSS-05: generate_with_provider() sets args.seed to effective seed when args.seed=None."""
+        from types import SimpleNamespace
+        args = SimpleNamespace(
+            prompt="Test prompt",
+            negative_prompt="bad quality",
+            seed=None,
+            steps=1,
+            guidance=6.5,
+            refiner_guidance=5.0,
+            width=64,
+            height=64,
+            refine=False,
+            cpu=True,
+            lora=None,
+            lora_weight=None,
+            scheduler="DPMSolverMultistepScheduler",
+            refiner_steps=10,
+            output=str(tmp_path / "out.png"),
+            model="precise",
+            dry_run=False,
+            _input_image=None,
+            strength=0.75,
+        )
+
+        mock_torch = MagicMock()
+        mock_torch.float32 = "float32"
+        mock_torch.float16 = "float16"
+        mock_torch.cuda.is_available.return_value = False
+        mock_torch.backends.mps = MagicMock()
+        mock_torch.backends.mps.is_available.return_value = False
+        auto_seed = MagicMock()
+        auto_seed.item.return_value = 33333
+        mock_torch.randint.return_value = auto_seed
+
+        mock_image = Image.new("RGB", (64, 64))
+        mock_provider = MagicMock()
+        mock_provider.generate.return_value = mock_image
+        mock_provider.friendly_name = "precise"
+        mock_provider.description = "test"
+
+        with patch("generate._ensure_heavy_imports"), \
+             patch("generate.torch", mock_torch), \
+             patch("generate.get_device", return_value="cpu"), \
+             patch("generate.validate_dimensions"), \
+             patch("generate.get_provider", return_value=mock_provider), \
+             patch("generate._save_with_metadata"):
+            gen_mod.generate_with_provider(args)
+
+        assert args.seed == 33333
+        mock_torch.randint.assert_called_once()

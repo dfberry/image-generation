@@ -97,7 +97,7 @@ def mock_args_base(tmp_path):
     args.scheduler = "DPMSolverMultistepScheduler"
     args.refiner_guidance = 5.0
     args.lora = None
-    args.lora_weight = 0.8
+    args.lora_weight = None
     args.refiner_steps = 10
     args.model = None
     args.dry_run = False
@@ -121,7 +121,7 @@ def mock_args_refine(tmp_path):
     args.scheduler = "DPMSolverMultistepScheduler"
     args.refiner_guidance = 5.0
     args.lora = None
-    args.lora_weight = 0.8
+    args.lora_weight = None
     args.refiner_steps = 10
     args.model = None
     args.dry_run = False
@@ -145,7 +145,7 @@ def mock_args_cuda(tmp_path):
     args.scheduler = "DPMSolverMultistepScheduler"
     args.refiner_guidance = 5.0
     args.lora = None
-    args.lora_weight = 0.8
+    args.lora_weight = None
     args.refiner_steps = 10
     args.model = None
     args.dry_run = False
@@ -169,7 +169,7 @@ def mock_args_cuda_refine(tmp_path):
     args.scheduler = "DPMSolverMultistepScheduler"
     args.refiner_guidance = 5.0
     args.lora = None
-    args.lora_weight = 0.8
+    args.lora_weight = None
     args.refiner_steps = 10
     args.model = None
     args.dry_run = False
