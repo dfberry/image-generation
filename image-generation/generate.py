@@ -485,37 +485,44 @@ def _save_with_metadata(image, output_path: str, params: dict) -> None:
     image.save(output_path, pnginfo=meta)
 
 
+def _resolve_dry_run_output(args) -> str:
+    """Resolve all generation params for --dry-run mode, print JSON, return output_path.
+
+    Shared by generate() and generate_with_provider() to eliminate duplication.
+    """
+    output_path = args.output
+    if output_path is None:
+        timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+        output_path = f"outputs/image_{timestamp}.png"
+    _ensure_heavy_imports()
+    device = get_device(args.cpu)
+    loras = _build_lora_list(args)
+    resolved = {
+        "prompt": args.prompt,
+        "negative_prompt": getattr(args, 'negative_prompt', None),
+        "steps": args.steps,
+        "guidance": args.guidance,
+        "width": args.width,
+        "height": args.height,
+        "effective_seed": getattr(args, 'seed', None),
+        "scheduler": getattr(args, 'scheduler', 'DPMSolverMultistepScheduler'),
+        "loras": [[m, w] for m, w in loras],
+        "refine": getattr(args, 'refine', False),
+        "refiner_steps": getattr(args, 'refiner_steps', 10),
+        "model": getattr(args, 'model', None),
+        "output": output_path,
+        "device": device,
+        "dry_run": True,
+    }
+    print(json.dumps({"resolved": resolved}, indent=2))
+    return output_path
+
+
 def generate(args) -> str:
     """Run image generation and save to output path."""
     # Dry-run: resolve all params and print JSON, exit without generating
     if getattr(args, 'dry_run', False):
-        output_path = args.output
-        if output_path is None:
-            timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-            output_path = f"outputs/image_{timestamp}.png"
-        loras = _build_lora_list(args)
-        # Lightweight device detection (no model load)
-        _ensure_heavy_imports()
-        device = get_device(args.cpu)
-        resolved = {
-            "prompt": args.prompt,
-            "negative_prompt": getattr(args, 'negative_prompt', None),
-            "steps": args.steps,
-            "guidance": args.guidance,
-            "width": args.width,
-            "height": args.height,
-            "effective_seed": args.seed,
-            "scheduler": getattr(args, 'scheduler', 'DPMSolverMultistepScheduler'),
-            "loras": [[m, w] for m, w in loras],
-            "refine": getattr(args, 'refine', False),
-            "refiner_steps": getattr(args, 'refiner_steps', 10),
-            "model": getattr(args, 'model', None),
-            "output": output_path,
-            "device": device,
-            "dry_run": True,
-        }
-        print(json.dumps({"resolved": resolved}, indent=2))
-        return output_path
+        return _resolve_dry_run_output(args)
     _ensure_heavy_imports()
     validate_dimensions(args.width, args.height)
     device = get_device(args.cpu)
@@ -862,32 +869,7 @@ def generate_with_provider(args) -> str:
 
     # Dry-run: resolve params and print JSON, exit without generating
     if getattr(args, 'dry_run', False):
-        output_path = args.output
-        if output_path is None:
-            timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-            output_path = f"outputs/image_{timestamp}.png"
-        _ensure_heavy_imports()
-        device = get_device(args.cpu)
-        loras = _build_lora_list(args)
-        resolved = {
-            "prompt": args.prompt,
-            "negative_prompt": getattr(args, 'negative_prompt', None),
-            "steps": args.steps,
-            "guidance": args.guidance,
-            "width": args.width,
-            "height": args.height,
-            "effective_seed": getattr(args, 'seed', None),
-            "scheduler": getattr(args, 'scheduler', 'DPMSolverMultistepScheduler'),
-            "loras": [[m, w] for m, w in loras],
-            "refine": getattr(args, 'refine', False),
-            "refiner_steps": getattr(args, 'refiner_steps', 10),
-            "model": getattr(args, 'model', None),
-            "output": output_path,
-            "device": device,
-            "dry_run": True,
-        }
-        print(json.dumps({"resolved": resolved}, indent=2))
-        return output_path
+        return _resolve_dry_run_output(args)
 
     _ensure_heavy_imports()
     validate_dimensions(args.width, args.height)
