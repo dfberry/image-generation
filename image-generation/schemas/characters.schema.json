@@ -1,0 +1,23 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "type": "object",
+  "additionalProperties": {
+    "type": "object",
+    "required": ["description", "tokens", "negative_tokens", "role"],
+    "additionalProperties": false,
+    "properties": {
+      "description": { "type": "string" },
+      "tokens": {
+        "type": "string",
+        "description": "Full SDXL token string for this character's visual identity"
+      },
+      "negative_tokens": {
+        "type": "string",
+        "description": "Tokens added to negative prompt when this character appears"
+      },
+      "role": { "type": "string" },
+      "shorthand": { "type": "string" },
+      "count_notes": { "type": "string" }
+    }
+  }
+}
