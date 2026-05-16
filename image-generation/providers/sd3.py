@@ -110,7 +110,14 @@ class SD3Provider(BaseProvider):
             raise RuntimeError("SD3 provider not loaded. Call load() first.")
         _ensure_imports()
 
-        generator = None
+        # LoRA not yet supported for SD3 Medium
+        if config.lora_ids:
+            raise ValueError(
+                "LoRA is not supported with model 'balanced' (SD3 Medium). "
+                "Use --model precise or --model creative, or remove --lora."
+            )
+
+        generator= None
         if config.seed is not None:
             gen_device = "cpu" if self._device in ("cpu", "mps") else self._device
             generator = torch.Generator(device=gen_device).manual_seed(config.seed)
