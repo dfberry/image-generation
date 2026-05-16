@@ -16,6 +16,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import re
 import shlex
 import subprocess
 import sys
@@ -71,8 +72,13 @@ def _save_registry(data: dict, path: Path | None = None) -> None:
     """Write the registry atomically via a temp file → rename."""
     p = path or _LORAS_JSON
     tmp = p.parent / ".loras.json.tmp"
-    tmp.write_text(json.dumps(data, indent=2), encoding="utf-8")
-    tmp.replace(p)
+    try:
+        tmp.write_text(json.dumps(data, indent=2), encoding="utf-8")
+        tmp.replace(p)
+    except Exception:
+        if tmp.exists():
+            tmp.unlink(missing_ok=True)
+        raise
 
 
 def lora_add(
@@ -204,7 +210,7 @@ def check_and_inject_trigger_words(
     if not trigger_words:
         return prompt
 
-    missing = [w for w in trigger_words if w.lower() not in prompt.lower()]
+    missing = [w for w in trigger_words if not re.search(r'\b' + re.escape(w) + r'\b', prompt, re.IGNORECASE)]
     if not missing:
         return prompt
 
@@ -246,7 +252,13 @@ def _extract_effective_lora(
     effective = lora_list[-1]
     if ":" in effective:
         name, intensity = effective.rsplit(":", 1)
-        return name, intensity
+        # Validate intensity — if it's not a known alias or parseable float,
+        # the whole string is a raw HF ID with a version tag (e.g. author/model:v2)
+        try:
+            resolve_lora_weight(intensity)
+            return name, intensity
+        except ValueError:
+            return effective, None
     return effective, None
 
 
@@ -529,11 +541,12 @@ def apply_prompt_and_style(
         if guidance_delta:
             params["guidance"] = params.get("guidance", 6.5) + guidance_delta
 
-    # Compatibility check (runs after all modifier resolution; only for registered LoRAs)
-    if lora_override:
+    # Compatibility check: fires for both explicit (--lora) and style-resolved LoRAs
+    # so that model/LoRA mismatches are caught before any generation run starts.
+    if lora_name_for_meta:
         model_alias = params.get("model")
         if model_alias:
-            check_lora_compatibility(lora_override, model_alias, LORAS)
+            check_lora_compatibility(lora_name_for_meta, model_alias, LORAS)
 
     if model_id:
         params["lora"] = model_id
@@ -542,11 +555,11 @@ def apply_prompt_and_style(
         params["lora"] = None
         params["lora_weight"] = 0.8
 
-    # Trigger word injection (interactive on TTY, silent in non-interactive contexts)
-    if model_id and lora_override and lora_override in LORAS:
+    # Trigger word injection: fires for both explicit and style-resolved LoRAs.
+    if model_id and lora_name_for_meta and lora_name_for_meta in LORAS:
         params["prompt"] = check_and_inject_trigger_words(
             params["prompt"],
-            lora_override,
+            lora_name_for_meta,
             LORAS,
             interactive=sys.stdin.isatty(),
         )
