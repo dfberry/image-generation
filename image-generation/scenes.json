@@ -1,0 +1,27 @@
+{
+  "woodshop": {
+    "description": "Traditional woodworking workshop",
+    "tokens": "brick walls, oak beam ceiling, arched windows, pegboard with saws, sawdust floor",
+    "lighting_default": "warm afternoon light through arched windows",
+    "variations": {
+      "morning": "bright morning light through arched windows, long shadows",
+      "evening": "golden evening light, lantern glow, long shadows",
+      "dramatic": "single overhead spotlight, deep shadow corners"
+    }
+  },
+  "office": {
+    "description": "Modern open-plan tech office",
+    "tokens": "modern open-plan office, floor-to-ceiling windows, city skyline, natural light, standing desks",
+    "lighting_default": "soft natural daylight",
+    "variations": {
+      "night": "city lights at night, monitor glow",
+      "morning": "sunrise through tall windows, coffee cups"
+    }
+  },
+  "garden": {
+    "description": "Lush tropical outdoor workspace",
+    "tokens": "tropical garden, lush green foliage, stone path, dappled sunlight, outdoor table",
+    "lighting_default": "warm dappled sunlight through palm leaves",
+    "variations": {}
+  }
+}

@@ -1,0 +1,32 @@
+{
+  "focused": {
+    "tokens": "concentrated expression, intent gaze, engaged posture",
+    "reliability": "Reliable",
+    "implied_by": ["sawing", "measuring", "writing", "coding"],
+    "notes": "Works well for technical work scenes. Activity context is the best trigger."
+  },
+  "collaborative": {
+    "tokens": "leaning forward, gesturing toward shared work, open posture",
+    "reliability": "Reliable",
+    "implied_by": ["building together", "reviewing plans", "pair programming"],
+    "notes": "Activity context is the best trigger for this expression."
+  },
+  "presenting": {
+    "tokens": "open hand gesture toward viewer, confident stance, engaged expression",
+    "reliability": "Reliable",
+    "implied_by": ["pointing at plans", "demonstrating"],
+    "notes": "Good for explaining/directing scenes."
+  },
+  "happy": {
+    "tokens": "warm smile, relaxed shoulders, friendly expression",
+    "reliability": "Reliable",
+    "implied_by": ["welcoming", "celebrating", "greeting"],
+    "notes": "Reliable for positive scenes."
+  },
+  "thinking": {
+    "tokens": "tilted head, hand near chin, contemplative expression",
+    "reliability": "Moderate",
+    "implied_by": ["examining", "considering", "looking at a problem"],
+    "notes": "Posture tokens help. Less reliable without complementary activity words."
+  }
+}

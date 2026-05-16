@@ -1,0 +1,25 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "type": "object",
+  "additionalProperties": {
+    "type": "object",
+    "required": ["tokens", "reliability", "notes"],
+    "additionalProperties": false,
+    "properties": {
+      "tokens": {
+        "type": "string",
+        "description": "SDXL-effective token string for this expression"
+      },
+      "reliability": {
+        "type": "string",
+        "enum": ["Reliable", "Moderate", "Unreliable"]
+      },
+      "implied_by": {
+        "type": "array",
+        "items": { "type": "string" },
+        "description": "Activity words that naturally imply this expression"
+      },
+      "notes": { "type": "string" }
+    }
+  }
+}

@@ -1,0 +1,30 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "type": "object",
+  "additionalProperties": {
+    "type": "object",
+    "required": ["description"],
+    "additionalProperties": false,
+    "properties": {
+      "description": { "type": "string" },
+      "extends": {
+        "type": "string",
+        "description": "Name of parent profile. One level only — no deep chains."
+      },
+      "scene": { "type": "string" },
+      "style": { "type": "string" },
+      "size": { "type": "string" },
+      "preset": { "type": "string" },
+      "seed_base": { "type": "integer", "minimum": 0 },
+      "seed_strategy": {
+        "type": "string",
+        "enum": ["sequential", "fixed", "manual"]
+      },
+      "characters": {
+        "type": "object",
+        "additionalProperties": { "type": "string" }
+      },
+      "negative_base": { "type": "string" }
+    }
+  }
+}

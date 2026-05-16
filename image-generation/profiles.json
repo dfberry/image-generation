@@ -1,0 +1,22 @@
+{
+  "woodshop-blog": {
+    "description": "From Autocomplete to AI Team — woodshop visual identity",
+    "scene": "woodshop",
+    "style": "watercolor",
+    "size": "square",
+    "preset": "production",
+    "seed_base": 50,
+    "seed_strategy": "sequential",
+    "characters": {
+      "protagonist": "protagonist",
+      "ai-team": "ai-agent"
+    },
+    "negative_base": "blurry, bad quality, worst quality, low resolution, text, watermark, signature, deformed, ugly, duplicate, morbid, photorealistic, empty room, no people"
+  },
+  "woodshop-blog-hero": {
+    "extends": "woodshop-blog",
+    "description": "Hero image variant of woodshop-blog — wider format",
+    "size": "blog-hero",
+    "preset": "production"
+  }
+}
