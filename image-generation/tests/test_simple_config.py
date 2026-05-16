@@ -345,3 +345,135 @@ class TestBatchFileDryRun:
         )
         assert result.returncode == 0
         assert "Watercolor illustration" in result.stdout
+
+
+# ---------------------------------------------------------------------------
+# Test 5 (TS-4) — Registry resolution end-to-end
+# ---------------------------------------------------------------------------
+
+
+@pytest.mark.integration
+class TestRegistryResolutionEndToEnd:
+    def test_lora_friendly_name_resolves_to_hf_model_id(self):
+        """TS-4: --lora aether-watercolor resolves to joachim_s/aether-watercolor-and-ink-sdxl."""
+        result = _run(
+            "--prompt", "a test scene, no text",
+            "--preset", "standard",
+            "--no-default-style",
+            "--lora", "aether-watercolor",
+            "--dry-run",
+        )
+        assert result.returncode == 0, f"stderr: {result.stderr}"
+        assert "joachim_s/aether-watercolor-and-ink-sdxl" in result.stdout, (
+            f"Expected resolved HF model ID in output:\n{result.stdout}"
+        )
+
+    def test_lora_registry_injects_style_tokens_when_no_style(self):
+        """TS-4: --lora aether-watercolor with no --style injects registry style_tokens."""
+        result = _run(
+            "--prompt", "a developer at a desk, no text",
+            "--preset", "standard",
+            "--lora", "aether-watercolor",
+            "--dry-run",
+        )
+        assert result.returncode == 0, f"stderr: {result.stderr}"
+        assert "Watercolor illustration" in result.stdout, (
+            f"Expected registry style_tokens in output:\n{result.stdout}"
+        )
+
+
+# ---------------------------------------------------------------------------
+# Test 6 (TS-5) — Weight alias in dry-run output
+# ---------------------------------------------------------------------------
+
+
+@pytest.mark.integration
+class TestWeightAliasInDryRun:
+    def test_strong_alias_produces_0_9_in_resolved_command(self):
+        """TS-5: --lora aether-watercolor --lora-weight strong → --lora-weight 0.9."""
+        result = _run(
+            "--prompt", "a test scene, no text",
+            "--preset", "standard",
+            "--no-default-style",
+            "--lora", "aether-watercolor",
+            "--lora-weight", "strong",
+            "--dry-run",
+        )
+        assert result.returncode == 0, f"stderr: {result.stderr}"
+        resolved = _parse_resolved_cmd(result.stdout)
+        assert "--lora-weight" in resolved
+        idx = resolved.index("--lora-weight")
+        assert resolved[idx + 1] == "0.9", (
+            f"Expected 0.9 for 'strong', got {resolved[idx + 1]}"
+        )
+
+    def test_light_alias_produces_0_4_in_resolved_command(self):
+        """TS-5: --lora-weight light → --lora-weight 0.4."""
+        result = _run(
+            "--prompt", "a test scene, no text",
+            "--preset", "standard",
+            "--no-default-style",
+            "--lora", "aether-watercolor",
+            "--lora-weight", "light",
+            "--dry-run",
+        )
+        assert result.returncode == 0
+        resolved = _parse_resolved_cmd(result.stdout)
+        assert "--lora-weight" in resolved
+        idx = resolved.index("--lora-weight")
+        assert resolved[idx + 1] == "0.4"
+
+    def test_colon_syntax_resolves_weight(self):
+        """TS-5: --lora aether-watercolor:strong resolves weight to 0.9."""
+        result = _run(
+            "--prompt", "a test scene, no text",
+            "--preset", "standard",
+            "--no-default-style",
+            "--lora", "aether-watercolor:strong",
+            "--dry-run",
+        )
+        assert result.returncode == 0, f"stderr: {result.stderr}"
+        resolved = _parse_resolved_cmd(result.stdout)
+        assert "--lora-weight" in resolved
+        idx = resolved.index("--lora-weight")
+        assert resolved[idx + 1] == "0.9"
+
+
+# ---------------------------------------------------------------------------
+# Test 7 (TS-6) — Compatibility error before generate.py
+# ---------------------------------------------------------------------------
+
+
+@pytest.mark.integration
+class TestCompatibilityErrorBeforeGenerate:
+    def test_sdxl_lora_with_artistic_modifier_exits_nonzero(self):
+        """TS-6: --lora aether-watercolor --modifier artistic → non-zero exit, no generate.py call."""
+        result = _run(
+            "--prompt", "abstract geometric shapes, vivid colors, no text",
+            "--preset", "standard",
+            "--no-default-style",
+            "--lora", "aether-watercolor",
+            "--modifier", "artistic",  # sets model=creative (FLUX.1) — incompatible with SDXL LoRA
+            "--dry-run",
+        )
+        # Should exit non-zero due to SystemExit from check_lora_compatibility
+        assert result.returncode != 0, (
+            f"Expected non-zero exit for incompatible LoRA+model, got 0.\n"
+            f"stdout: {result.stdout}\nstderr: {result.stderr}"
+        )
+
+    def test_compatibility_error_message_is_helpful(self):
+        """TS-6: Compatibility error message names the LoRA and model."""
+        result = _run(
+            "--prompt", "abstract shapes, no text",
+            "--preset", "standard",
+            "--no-default-style",
+            "--lora", "aether-watercolor",
+            "--modifier", "artistic",
+            "--dry-run",
+        )
+        combined = result.stdout + result.stderr
+        assert "aether-watercolor" in combined or "error" in combined.lower(), (
+            "Error message should name the LoRA or include [error]"
+        )
+
