@@ -6,8 +6,8 @@
     "negative_prompt": "blurry, bad quality, worst quality, low resolution, text, watermark, signature, deformed, ugly, duplicate, morbid, photorealistic, empty room, no people"
   },
   {
-    "prompt": "Watercolor illustration, warm muted tones. One man in blue shirt holding a mallet, one man in green shirt steadying a dovetail joint beside him at a maple workbench. Chisel and wood glue on the bench. Brick walls, oak beam ceiling, arched windows, pegboard with saws, sawdust floor, no text",
-    "seed": 53,
+    "prompt": "Watercolor illustration, warm muted tones. On the LEFT a man wearing a bright cobalt blue long-sleeve shirt holding a mallet. On the RIGHT a man wearing a vivid emerald green long-sleeve shirt steadying a dovetail joint. Both at a maple workbench. Chisel and wood glue on the bench. The blue-shirted man and the green-shirted man contrast clearly. Brick walls, oak beam ceiling, arched windows, pegboard with saws, sawdust floor, no text",
+    "seed": 71,
     "output": "outputs/from-autocomplete-to-ai-team/level-1-pair-programming.png",
     "negative_prompt": "blurry, bad quality, worst quality, low resolution, text, watermark, signature, deformed, ugly, duplicate, morbid, photorealistic, empty room, no people"
   },
@@ -18,16 +18,16 @@
     "negative_prompt": "blurry, bad quality, worst quality, low resolution, text, watermark, signature, deformed, ugly, duplicate, morbid, photorealistic, green shirt"
   },
   {
-    "prompt": "Watercolor illustration, warm muted tones. One man in blue shirt reading a blueprint, three men in green shirts around a maple workbench assembling a dining table. One green shirt holds a spoke shave, one uses clamps, one checks a spirit level. Brick walls, oak beam ceiling, arched windows, pegboard, sawdust floor, no text",
-    "seed": 55,
+    "prompt": "Watercolor illustration. Four men total standing at a large shared maple workbench building furniture together. One man wears a bright cobalt blue shirt, three men wear vivid emerald green shirts. Blue shirt man points at plans, green shirt men saw and hammer. Warm tones, brick walls, oak beams, arched windows, sawdust",
+    "seed": 101,
     "output": "outputs/from-autocomplete-to-ai-team/level-3-squad-team.png",
-    "negative_prompt": "blurry, bad quality, worst quality, low resolution, text, watermark, signature, deformed, ugly, duplicate, morbid, photorealistic, empty room, no people"
+    "negative_prompt": "blurry, bad quality, worst quality, low resolution, text, watermark, signature, deformed, ugly, duplicate, morbid, photorealistic, five people, six people, two people"
   },
   {
-    "prompt": "Watercolor illustration, warm muted tones. One man in blue shirt sitting in an armchair with coffee cup, watching five men in green shirts working at maple workbenches building chairs independently. Brick walls, oak beam ceiling, arched windows, pegboard with saws, sawdust floor, golden light, no text",
-    "seed": 56,
+    "prompt": "Watercolor illustration. Six men all wearing vivid emerald green shirts working at separate maple workbenches building furniture. All shirts are green, no blue shirts. One saws wood, one hammers, one planes a board, one uses clamps. Warm muted tones, brick walls, oak beams, sawdust floor, arched windows, no text",
+    "seed": 99,
     "output": "outputs/from-autocomplete-to-ai-team/level-4-cloud-fleet.png",
-    "negative_prompt": "blurry, bad quality, worst quality, low resolution, text, watermark, signature, deformed, ugly, duplicate, morbid, photorealistic, empty room, no people, machinery"
+    "negative_prompt": "blurry, bad quality, worst quality, low resolution, text, watermark, signature, deformed, ugly, duplicate, morbid, photorealistic, empty room, no people, blue shirt, cobalt shirt"
   },
   {
     "prompt": "Watercolor illustration, warm muted tones. One man in blue shirt on a catwalk with binoculars, looking down at many men in green shirts working at rows of maple workbenches building furniture. Brick walls, oak beam ceiling, arched windows, pegboard, sawdust floor, sunrise glow, no text",
