@@ -14,6 +14,7 @@ from presets import (
     apply_modifier,
     apply_style_tokens,
     check_guidance_warning,
+    estimate_tokens,
     resolve_preset,
 )
 
@@ -295,3 +296,34 @@ class TestModifierPrecedence:
     def test_unknown_preset_raises(self):
         with pytest.raises(ValueError, match="Unknown preset"):
             resolve_preset("ultra-mega-quality")
+
+
+# ---------------------------------------------------------------------------
+# Test 13 — estimate_tokens null/empty guard
+# ---------------------------------------------------------------------------
+
+
+class TestEstimateTokensNullGuard:
+    def test_none_returns_zero(self):
+        """estimate_tokens(None) must return 0, not raise TypeError."""
+        assert estimate_tokens(None) == 0
+
+    def test_empty_string_returns_zero(self):
+        """estimate_tokens('') must return 0."""
+        assert estimate_tokens("") == 0
+
+
+# ---------------------------------------------------------------------------
+# Test 14 — fast modifier resets refiner_steps
+# ---------------------------------------------------------------------------
+
+
+class TestFastModifierRefinerSteps:
+    def test_fast_on_production_resets_refiner_steps(self):
+        """fast modifier must reset refiner_steps to 10 when applied to production preset."""
+        params = resolve_preset("production")
+        assert params["refiner_steps"] == 15
+        apply_modifier(params, "fast")
+        assert params["refine"] is False
+        assert params["steps"] == 15
+        assert params["refiner_steps"] == 10

@@ -54,7 +54,7 @@ MODIFIERS: dict[str, dict] = {
     "more-detailed": {"steps_delta": +10, "refine_if_steps_gte": 30},
     "less-detailed": {"steps_delta": -5, "steps_min": 10},
     "artistic": {"model": "creative"},
-    "fast": {"steps": 15, "refine": False},
+    "fast": {"steps": 15, "refine": False, "refiner_steps": 10},
 }
 
 STYLES: dict[str, dict] = {
@@ -141,6 +141,8 @@ def apply_modifier(params: dict, modifier_name: str) -> None:
         params["steps"] = mod["steps"]
     if "refine" in mod:
         params["refine"] = mod["refine"]
+    if "refiner_steps" in mod:
+        params["refiner_steps"] = mod["refiner_steps"]
     if "steps_delta" in mod:
         params["steps"] = params["steps"] + mod["steps_delta"]
         if "steps_min" in mod:
@@ -218,6 +220,8 @@ def estimate_tokens(text: str) -> int:
     Accuracy: ±5 tokens relative to the CLIP tokenizer. No external dependencies required.
     See: OQ-8 in prd-wrapper-core.md.
     """
+    if not text:
+        return 0
     return len(re.findall(r"\w+|[^\w\s]", text))
 
 
