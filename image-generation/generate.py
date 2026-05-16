@@ -405,7 +405,7 @@ def _build_lora_list(args) -> list:
     weights_raw = getattr(args, 'lora_weight', None)
     if weights_raw is None:
         weights = [0.8] * len(lora_ids)
-    elif isinstance(weights_raw, float):
+    elif isinstance(weights_raw, (int, float)):
         weights = [weights_raw] + [0.8] * (len(lora_ids) - 1)
     else:
         weights = list(weights_raw)
@@ -728,8 +728,8 @@ def batch_generate(prompts: list[dict], device: str = None, args=None) -> list[d
             lora_weight_val = item.get("lora_weight", getattr(args, 'lora_weight', None))
             if isinstance(lora_val, str):
                 lora_val = [lora_val]
-            if isinstance(lora_weight_val, float):
-                lora_weight_val = [lora_weight_val]
+            if isinstance(lora_weight_val, (int, float)):
+                lora_weight_val = [float(lora_weight_val)]
             batch_args = SimpleNamespace(
                 prompt=item["prompt"],
                 output=item["output"],
