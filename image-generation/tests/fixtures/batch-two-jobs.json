@@ -1,0 +1,12 @@
+[
+  {
+    "prompt": "A developer at a standing desk, warm afternoon light, no text",
+    "seed": 42,
+    "output": "outputs/hero-01.png"
+  },
+  {
+    "prompt": "A team meeting around a table, evening light, no text",
+    "seed": 43,
+    "output": "outputs/hero-02.png"
+  }
+]
