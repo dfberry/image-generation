@@ -1,0 +1,65 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "LoRA Registry",
+  "type": "object",
+  "required": ["version", "loras"],
+  "properties": {
+    "version": {
+      "type": "integer",
+      "enum": [1],
+      "description": "Schema version — increment on breaking changes"
+    },
+    "loras": {
+      "type": "object",
+      "additionalProperties": {
+        "type": "object",
+        "required": ["model_id", "default_weight", "compatible_models", "description"],
+        "properties": {
+          "model_id": {
+            "type": "string",
+            "minLength": 3,
+            "description": "HuggingFace model ID (author/repo) or local path"
+          },
+          "default_weight": {
+            "type": "number",
+            "minimum": 0.0,
+            "maximum": 1.5,
+            "description": "Default LoRA influence weight (aesthetic optimum for this model)"
+          },
+          "trigger_words": {
+            "type": "array",
+            "items": {"type": "string"},
+            "default": [],
+            "description": "Keywords that must appear in the prompt to activate this LoRA"
+          },
+          "compatible_models": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "enum": ["sdxl", "flux", "sd3"]
+            },
+            "minItems": 1,
+            "description": "Internal model types this LoRA is compatible with"
+          },
+          "guidance_delta": {
+            "type": "number",
+            "default": 0,
+            "description": "Signed adjustment to guidance scale when this LoRA is active"
+          },
+          "style_tokens": {
+            "type": "string",
+            "default": "",
+            "description": "Optional style tokens prepended to prompt when LoRA is used standalone"
+          },
+          "description": {
+            "type": "string",
+            "minLength": 5,
+            "description": "One-line human-readable description of the visual effect"
+          }
+        },
+        "additionalProperties": false
+      }
+    }
+  },
+  "additionalProperties": false
+}

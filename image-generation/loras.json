@@ -1,0 +1,14 @@
+{
+  "version": 1,
+  "loras": {
+    "aether-watercolor": {
+      "model_id": "joachim_s/aether-watercolor-and-ink-sdxl",
+      "default_weight": 0.8,
+      "trigger_words": [],
+      "compatible_models": ["sdxl"],
+      "guidance_delta": 0,
+      "style_tokens": "Watercolor illustration, soft wet-on-wet washes, visible paper texture, warm muted tones, loose brushwork,",
+      "description": "Aether Watercolor & Ink — soft SDXL watercolor illustration style"
+    }
+  }
+}
