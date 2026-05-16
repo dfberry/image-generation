@@ -139,19 +139,29 @@ def resolve_profile(name: str, profiles: dict) -> dict:
 # ---------------------------------------------------------------------------
 
 _POSITION_MAP: dict[str, str] = {
-    "left": "On the LEFT a",
-    "right": "on the RIGHT a",
-    "center": "in the CENTER a",
-    "foreground": "in the FOREGROUND a",
-    "background": "in the BACKGROUND a",
+    "left": "on the left a",
+    "right": "on the right a",
+    "center": "in the center a",
+    "foreground": "in the foreground a",
+    "background": "in the background a",
 }
 
 
 def _position_prefix(position: str | None) -> str:
-    """Return positional language prefix, or empty string if no position given."""
+    """Return positional language prefix, or empty string if no position given.
+
+    Raises ValueError for unrecognised position values so that typos (e.g.
+    "bottom") surface immediately rather than silently producing an empty token.
+    """
     if position is None:
         return ""
-    return _POSITION_MAP.get(position.lower(), "")
+    key = position.lower()
+    if key not in _POSITION_MAP:
+        raise ValueError(
+            f"Unknown position {position!r}. "
+            f"Expected one of: {sorted(_POSITION_MAP)}"
+        )
+    return _POSITION_MAP[key]
 
 
 # ---------------------------------------------------------------------------
