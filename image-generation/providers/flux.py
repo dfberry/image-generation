@@ -94,7 +94,20 @@ class FluxProvider(BaseProvider):
             raise RuntimeError("FLUX provider not loaded. Call load() first.")
         _ensure_imports()
 
-        generator = None
+        # LoRA support: single LoRA only (FLUX.1 limitation)
+        if config.lora_ids:
+            if len(config.lora_ids) > 1:
+                raise ValueError(
+                    f"FLUX.1 (--model creative) supports at most 1 LoRA adapter, "
+                    f"but {len(config.lora_ids)} were specified. Use --model precise for multi-LoRA."
+                )
+            self._pipeline.unload_lora_weights()
+            model_id, weight = config.lora_ids[0]
+            logger.info("Loading LoRA for FLUX.1: %s (weight=%s)", model_id, weight)
+            self._pipeline.load_lora_weights(model_id, adapter_name="lora_0")
+            self._pipeline.set_adapters(["lora_0"], adapter_weights=[weight])
+
+        generator= None
         if config.seed is not None:
             gen_device = "cpu" if self._device in ("cpu", "mps") else self._device
             generator = torch.Generator(device=gen_device).manual_seed(config.seed)

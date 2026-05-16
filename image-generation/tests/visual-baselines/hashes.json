@@ -1,0 +1,24 @@
+{
+  "baseline_version": "1.0",
+  "recorded_at": "PENDING",
+  "generate_py_version": "post-engine-changes",
+  "note": "Hashes below are PLACEHOLDERS. Run 'make test-visual' after first real generation to populate with actual pHash values.",
+  "entries": [
+    {
+      "id": "seed42-precise-no-lora",
+      "command": "python generate.py --prompt 'Woodshop illustration' --model precise --seed 42 --steps 22",
+      "phash": "PLACEHOLDER",
+      "file_size_min_kb": 200,
+      "width": 1024,
+      "height": 1024
+    },
+    {
+      "id": "seed42-precise-watercolor-lora",
+      "command": "python generate.py --prompt 'Woodshop illustration' --model precise --lora joachim_s/aether-watercolor-and-ink-sdxl --seed 42 --steps 22",
+      "phash": "PLACEHOLDER",
+      "file_size_min_kb": 200,
+      "width": 1024,
+      "height": 1024
+    }
+  ]
+}

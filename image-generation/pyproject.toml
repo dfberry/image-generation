@@ -1,0 +1,6 @@
+[tool.pytest.ini_options]
+markers = [
+    "integration: marks tests that invoke subprocess or have I/O (deselect with -m 'not integration')",
+    "visual: marks tests that compare image hashes (slow, manual trigger only)",
+    "perf: marks performance baseline tests",
+]

@@ -121,7 +121,19 @@ class SDXLProvider(BaseProvider):
         if config.scheduler:
             self._apply_scheduler(config.scheduler)
 
-        generator = None
+        # Apply LoRA adapters if specified
+        if config.lora_ids:
+            self._pipeline.unload_lora_weights()
+            for i, (model_id, weight) in enumerate(config.lora_ids):
+                adapter_name = f"lora_{i}"
+                logger.info("Loading LoRA %d: %s (weight=%s)", i, model_id, weight)
+                self._pipeline.load_lora_weights(model_id, adapter_name=adapter_name)
+            self._pipeline.set_adapters(
+                [f"lora_{i}" for i in range(len(config.lora_ids))],
+                adapter_weights=[w for _, w in config.lora_ids],
+            )
+
+        generator= None
         if config.seed is not None:
             gen_device = "cpu" if self._device in ("cpu", "mps") else self._device
             generator = torch.Generator(device=gen_device).manual_seed(config.seed)

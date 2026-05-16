@@ -57,6 +57,8 @@ def _base_args(tmp_path, refine=False, cpu=False):
     args.lora = None
     args.lora_weight = 0.8
     args.refiner_steps = 10
+    args.model = None
+    args.dry_run = False
     return args
 
 

@@ -394,7 +394,7 @@ class TestStylePresetsEdgeCases:
 
         # Style overrides strength
         assert captured_args["strength"] == 0.70
-        assert captured_args["lora"] == "ostris/watercolor_style_lora_sdxl"
+        assert captured_args["lora"] == ["ostris/watercolor_style_lora_sdxl"]
 
     def test_style_with_custom_guidance_override(self, tmp_path):
         """Style sets guidance_scale from the preset."""
@@ -480,8 +480,8 @@ class TestCrossFeatureIntegration:
                     main()
 
         assert captured_args["prompt"] == "extra detail"
-        assert captured_args["lora"] == "ostris/watercolor_style_lora_sdxl"
-        assert captured_args["lora_weight"] == 0.85
+        assert captured_args["lora"] == ["ostris/watercolor_style_lora_sdxl"]
+        assert captured_args["lora_weight"] == [0.85]
         assert captured_args["strength"] == 0.70
         assert captured_args["guidance"] == 7.0
         assert "photograph" in captured_args["negative_prompt"]

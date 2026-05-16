@@ -112,17 +112,21 @@ class TestSeedBinding:
         mock_torch.Generator.assert_called_once()
         mock_generator.manual_seed.assert_called_once_with(42)
 
-    def test_no_seed_skips_generator(self, tmp_path):
-        """When seed is None, torch.Generator should NOT be called."""
+    def test_no_seed_auto_generates_seed(self, tmp_path):
+        """When seed is None, torch.Generator IS called with an auto-generated seed."""
         args = _base_args(tmp_path, seed=None)
 
         with _patch_heavy() as mock_torch:
+            auto_seed = MagicMock()
+            auto_seed.item.return_value = 99999
+            mock_torch.randint.return_value = auto_seed
             mock_pipe = _make_mock_pipe()
             with patch.object(gen_module, "load_base", return_value=mock_pipe), \
                  patch.object(gen_module, "get_device", return_value="cpu"):
                 gen_module.generate(args)
 
-        mock_torch.Generator.assert_not_called()
+        mock_torch.Generator.assert_called_once()
+        assert args.seed == 99999
 
     def test_seed_generator_device_is_cpu_for_cpu_mode(self, tmp_path):
         """On CPU device, Generator device must be 'cpu'."""

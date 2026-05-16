@@ -85,17 +85,17 @@ class TestLoRACLI:
     def test_lora_flag_accepted(self):
         with patch("sys.argv", ["prog", "--prompt", "test", "--lora", "some/lora-model"]):
             args = parse_args()
-            assert args.lora == "some/lora-model"
+            assert args.lora == ["some/lora-model"]
 
     def test_lora_weight_default(self):
         with patch("sys.argv", ["prog", "--prompt", "test", "--lora", "some/lora-model"]):
             args = parse_args()
-            assert args.lora_weight == 0.8
+            assert args.lora_weight is None  # action='append' default is None
 
     def test_lora_weight_custom(self):
         with patch("sys.argv", ["prog", "--prompt", "test", "--lora", "m", "--lora-weight", "0.6"]):
             args = parse_args()
-            assert args.lora_weight == 0.6
+            assert args.lora_weight == [0.6]
 
     def test_no_lora_defaults_none(self):
         with patch("sys.argv", ["prog", "--prompt", "test"]):
@@ -119,10 +119,11 @@ class TestLoRALoading:
             prompt="test", output="out.png", seed=None, steps=2,
             guidance=6.5, width=1024, height=1024, refine=False,
             negative_prompt="", cpu=True, scheduler="DPMSolverMultistepScheduler",
-            refiner_guidance=5.0, lora="some/model", lora_weight=0.7,
+            refiner_guidance=5.0, lora=["some/model"], lora_weight=[0.7],
+            refiner_steps=10, model=None, dry_run=False,
         )
         generate(args)
-        pipe.load_lora_weights.assert_called_once_with("some/model")
+        pipe.load_lora_weights.assert_called_once_with("some/model", adapter_name="lora_0")
         pipe.set_adapters.assert_called_once()
 
     @patch("generate.load_base")
@@ -137,7 +138,8 @@ class TestLoRALoading:
             prompt="test", output="out.png", seed=None, steps=2,
             guidance=6.5, width=1024, height=1024, refine=False,
             negative_prompt="", cpu=True, scheduler="DPMSolverMultistepScheduler",
-            refiner_guidance=5.0, lora=None, lora_weight=0.8,
+            refiner_guidance=5.0, lora=None, lora_weight=None,
+            refiner_steps=10, model=None, dry_run=False,
         )
         generate(args)
         pipe.load_lora_weights.assert_not_called()

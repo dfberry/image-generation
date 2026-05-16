@@ -360,6 +360,12 @@ class TestModelFlag:
         args.negative_prompt = ""
         args.seed = None
         args.scheduler = None
+        args.lora = None
+        args.lora_weight = None
+        args.refine = False
+        args.refiner_steps = 10
+        args.dry_run = False
+        args.strength = 0.75
 
         with patch("providers.registry.get_provider", return_value=mock_provider), \
              patch("providers.get_provider", return_value=mock_provider):

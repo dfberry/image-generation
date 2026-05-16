@@ -1,0 +1,14 @@
+{
+  "recorded_at": "2026-05-16",
+  "note": "dry_run_subprocess_ms threshold matches TDR-10/TPF-01 test assertions (includes cold torch import via subprocess)",
+  "baselines": {
+    "dry_run_subprocess_ms": 800,
+    "multi_lora_build_ms": 50,
+    "png_metadata_overhead_ms": 30
+  },
+  "thresholds": {
+    "dry_run_subprocess_ms": 30000,
+    "multi_lora_build_ms": 500,
+    "png_metadata_overhead_ms": 100
+  }
+}
