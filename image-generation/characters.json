@@ -1,0 +1,24 @@
+{
+  "protagonist": {
+    "description": "Human developer. Visual identity: bright cobalt blue long-sleeve shirt.",
+    "tokens": "man wearing bright cobalt blue long-sleeve shirt, dark hair, medium build",
+    "negative_tokens": "green shirt, emerald shirt",
+    "role": "human developer",
+    "shorthand": "blue-shirt man"
+  },
+  "ai-agent": {
+    "description": "AI team member (singular). Visual identity: vivid emerald green shirt.",
+    "tokens": "man wearing vivid emerald green long-sleeve shirt",
+    "negative_tokens": "cobalt blue shirt, blue shirt",
+    "role": "AI assistant",
+    "shorthand": "green-shirt man"
+  },
+  "ai-team": {
+    "description": "Multiple AI team members, all in emerald green.",
+    "tokens": "men wearing vivid emerald green shirts",
+    "negative_tokens": "cobalt blue shirt, blue shirt",
+    "role": "AI team (plural)",
+    "shorthand": "green-shirt men",
+    "count_notes": "SDXL unreliable for exact counts > 3. Use count_hint for best effort only."
+  }
+}
