@@ -590,3 +590,30 @@ def test_clip_overflow_profile_assembly_error_threshold(scenes, characters, expr
         assemble_image_prompt(image_entry, profile, scenes, characters, expressions)
     # Error message must include the 77-token limit
     assert "77" in str(exc_info.value)
+
+
+# ---------------------------------------------------------------------------
+# T1.16 — Edge case: empty characters list
+# ---------------------------------------------------------------------------
+
+
+def test_empty_characters_list(scenes, characters, expressions):
+    """Prompt assembly with an empty characters list still produces valid output."""
+    profile = {
+        "description": "Test",
+        "style": "watercolor",
+        "scene": "woodshop",
+        "seed_base": 42,
+        "seed_strategy": "fixed",
+    }
+    image_entry = {
+        "prompt_core": "An empty workshop",
+        "characters": [],
+    }
+    result = assemble_image_prompt(
+        image_entry, profile, scenes, characters, expressions, allow_over_budget=True
+    )
+    assert "prompt" in result
+    assert "negative_prompt" in result
+    assert "An empty workshop" in result["prompt"]
+    assert result["prompt"].endswith("no text")
