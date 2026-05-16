@@ -54,4 +54,7 @@ remotion-animation/outputs/*.tsx
 .pytest_cache/
 .ruff_cache/
 
+# Performance benchmark results — machine-specific, regenerated on every test run
+image-generation/tests/benchmarks.json
+
 media/
