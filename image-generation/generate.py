@@ -752,7 +752,7 @@ def batch_generate(prompts: list[dict], device: str = None, args=None) -> list[d
             # Route through provider path when --model is specified (Change 3)
             batch_model = getattr(batch_args, 'model', None)
             if batch_model:
-                output_path = generate_with_provider(batch_args)
+                output_path = generate_with_retry(batch_args, _generate_fn=generate_with_provider)
             else:
                 output_path = generate_with_retry(batch_args)
             results.append({
@@ -776,21 +776,26 @@ def batch_generate(prompts: list[dict], device: str = None, args=None) -> list[d
     return results
 
 
-def generate_with_retry(args, max_retries: int = 2) -> str:
+def generate_with_retry(args, max_retries: int = 2, _generate_fn=None) -> str:
     """
-    Wraps generate(args) with OOM retry logic.
+    Wraps a generation function with OOM retry logic.
     - On OOMError: halves steps (floor at 1), prints warning, retries
     - Retries up to max_retries times (so up to max_retries+1 total calls)
     - If all retries exhausted: raises OOMError with message mentioning final steps count
     - Non-OOM exceptions: re-raised immediately, no retry
     - Does NOT mutate args.steps — uses a local copy for each attempt.
+
+    _generate_fn: callable(args)->str. Defaults to generate(). Pass
+    generate_with_provider to apply retry to the provider path.
     """
+    if _generate_fn is None:
+        _generate_fn = generate
     current_steps = args.steps
     for attempt in range(max_retries + 1):
         try:
             retry_args = SimpleNamespace(**vars(args))
             retry_args.steps = current_steps
-            return generate(retry_args)
+            return _generate_fn(retry_args)
         except OOMError:
             if attempt == max_retries:
                 raise OOMError(
