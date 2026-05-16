@@ -13,7 +13,7 @@ else
     ACTIVATE := $(VENV)/bin/activate
 endif
 
-.PHONY: all setup install install-dev test lint format clean
+.PHONY: all setup install install-dev test lint format test-unit test-integration test-perf test-visual clean
 
 all: setup lint test
 
@@ -36,6 +36,22 @@ lint:
 
 format:
 	$(PYTHON) -m ruff format .
+
+# Run only unit tests (fast, no I/O)
+test-unit:
+	$(PYTHON) -m pytest tests/ -v -m "not integration and not visual and not perf"
+
+# Run integration tests (subprocess-based)
+test-integration:
+	$(PYTHON) -m pytest tests/ -v -m "integration"
+
+# Run performance baseline tests
+test-perf:
+	$(PYTHON) -m pytest tests/test_performance.py -v --tb=short
+
+# Run visual regression tests (manual trigger only - requires image generation)
+test-visual:
+	$(PYTHON) -m pytest tests/test_visual_regression.py -v -m "visual"
 
 clean:
 ifeq ($(OS),Windows_NT)
