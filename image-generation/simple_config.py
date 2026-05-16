@@ -44,6 +44,47 @@ _DEFAULT_NEGATIVE_PROMPT = (
 
 
 # ---------------------------------------------------------------------------
+# Scene token helper (for --scene flag in single-image mode)
+# ---------------------------------------------------------------------------
+
+
+def _append_scene_tokens(prompt: str, scene_name: str, scene_variant: str | None) -> str:
+    """Append scene tokens and lighting to prompt. Returns modified prompt string."""
+    from consistency import load_registry
+
+    scenes_path = Path(__file__).parent / "scenes.json"
+    try:
+        scenes = load_registry(scenes_path)
+    except (FileNotFoundError, json.JSONDecodeError) as exc:
+        print(f"[simple_config] ⚠️ Could not load scenes.json: {exc}", file=sys.stderr)
+        return prompt
+
+    if scene_name not in scenes:
+        print(
+            f"[simple_config] ❌ Unknown scene '{scene_name}'. "
+            f"Available: {', '.join(sorted(scenes))}",
+            file=sys.stderr,
+        )
+        return prompt
+
+    scene_data = scenes[scene_name]
+    scene_tokens = scene_data.get("tokens", "")
+    if scene_variant:
+        variations = scene_data.get("variations", {})
+        lighting = variations.get(scene_variant, scene_data.get("lighting_default", ""))
+    else:
+        lighting = scene_data.get("lighting_default", "")
+
+    parts = [prompt.rstrip(" ,")]
+    if scene_tokens:
+        parts.append(scene_tokens.strip(" ,"))
+    if lighting:
+        parts.append(lighting.strip(" ,"))
+
+    return ", ".join(parts)
+
+
+# ---------------------------------------------------------------------------
 # Argument parser
 # ---------------------------------------------------------------------------
 
@@ -204,6 +245,42 @@ examples:
         default=None,
         metavar="PATH",
         help="JSON file with array of generation jobs",
+    )
+
+    # --- Phase 2: Consistency controls ---
+    parser.add_argument(
+        "--profile",
+        default=None,
+        metavar="NAME",
+        help="Apply named consistency profile from profiles.json (scene + characters + style + size + preset)",
+    )
+    parser.add_argument(
+        "--scene",
+        default=None,
+        metavar="NAME",
+        help="Apply named scene tokens from scenes.json (standalone, no profile required)",
+    )
+    parser.add_argument(
+        "--scene-variant",
+        dest="scene_variant",
+        default=None,
+        metavar="VARIANT",
+        help="Override lighting variant for the scene (requires --scene or --profile with scene)",
+    )
+    parser.add_argument(
+        "--allow-over-budget",
+        action="store_true",
+        dest="allow_over_budget",
+        help="Downgrade CLIP >77-token error to a warning (not recommended)",
+    )
+    parser.add_argument(
+        "--preview-prompts",
+        action="store_true",
+        dest="preview_prompts",
+        help=(
+            "Print all assembled prompts and negatives without invoking generate.py. "
+            "Use to verify consistency settings before a generation run."
+        ),
     )
 
     return parser.parse_args(argv)
@@ -481,6 +558,10 @@ def run_single(args: argparse.Namespace) -> int:
         )
         return 1
 
+    # --scene: append scene tokens to the prompt (before style injection)
+    if args.scene and prompt:
+        prompt = _append_scene_tokens(prompt, args.scene, getattr(args, "scene_variant", None))
+
     base = resolve_base_params(args)
     params = apply_prompt_and_style(
         base,
@@ -511,6 +592,115 @@ def run_single(args: argparse.Namespace) -> int:
 # ---------------------------------------------------------------------------
 
 
+def _build_v2_params(job: dict, profile: dict, args: argparse.Namespace) -> dict:
+    """Build a generate.py params dict from a resolved v2 job + profile settings."""
+    # Preset from profile (CLI preset overrides profile preset)
+    profile_preset = profile.get("preset", _DEFAULT_PRESET)
+    effective_preset = args.preset if args.preset != _DEFAULT_PRESET else profile_preset
+    params = resolve_preset(effective_preset)
+
+    # Size from profile (CLI --size overrides)
+    profile_size = profile.get("size")
+    if profile_size and profile_size in SIZES:
+        params.update(SIZES[profile_size])
+    else:
+        params["width"] = 1024
+        params["height"] = 1024
+    if args.size:
+        params.update(SIZES[args.size])
+    if args.width is not None:
+        params["width"] = args.width
+    if args.height is not None:
+        params["height"] = args.height
+
+    # Assembled prompt + negatives from job
+    params["prompt"] = job.get("prompt", "")
+    params["negative_prompt"] = job.get("negative_prompt", "")
+    params["seed"] = job.get("seed")
+    params["output"] = job.get("output")
+    params["cpu"] = args.cpu
+
+    if args.model:
+        params["model"] = args.model
+
+    # Style passthrough and LoRA from profile style
+    style_name = profile.get("style")
+    if style_name and style_name.lower() not in ("none",):
+        if style_name in STYLES:
+            style_data = STYLES[style_name]
+            if style_data.get("passthrough"):
+                params["style_passthrough"] = style_name
+            elif style_data.get("lora"):
+                params["lora"] = style_data["lora"]
+                params["lora_weight"] = style_data.get("lora_weight", 0.8)
+
+    # CLI --lora overrides profile lora
+    if args.lora:
+        params["lora"] = args.lora
+        params["lora_weight"] = args.lora_weight if args.lora_weight is not None else 0.8
+
+    return params
+
+
+def _run_v2_batch(args: argparse.Namespace, batch_data: dict) -> int:
+    """Handle a v2 batch JSON {profile, images: [...]}."""
+    from consistency import assemble_v2_batch, load_registries, print_preview, resolve_profile
+
+    allow_over_budget = getattr(args, "allow_over_budget", False)
+    scene_variant = getattr(args, "scene_variant", None)
+    preview_prompts = getattr(args, "preview_prompts", False)
+    base_dir = Path(__file__).parent
+
+    try:
+        resolved_jobs = assemble_v2_batch(
+            batch_data,
+            scene_variant=scene_variant,
+            allow_over_budget=allow_over_budget,
+            base_dir=base_dir,
+        )
+    except (ValueError, KeyError) as exc:
+        print(f"[simple_config] ❌ Batch assembly error: {exc}", file=sys.stderr)
+        return 1
+
+    if preview_prompts:
+        print_preview(resolved_jobs)
+        print("\n[simple_config] --preview-prompts: 0 generate.py calls made.")
+        return 0
+
+    # Load profile for build_v2_params
+    try:
+        _, _, _, profiles = load_registries(base_dir)
+        profile = resolve_profile(batch_data["profile"], profiles)
+    except (ValueError, KeyError) as exc:
+        print(f"[simple_config] ❌ Profile resolution error: {exc}", file=sys.stderr)
+        return 1
+
+    total = len(resolved_jobs)
+    failures: list[int] = []
+
+    for i, job in enumerate(resolved_jobs, 1):
+        params = _build_v2_params(job, profile, args)
+        cmd = build_generate_cmd(params)
+        cmd_str = " ".join(shlex.quote(c) for c in cmd)
+        print(f"[job {i}/{total}] {cmd_str}")
+
+        if not args.dry_run:
+            result = subprocess.run(cmd, cwd=Path(__file__).parent, timeout=3600)
+            if result.returncode != 0:
+                failures.append(i)
+
+    if args.dry_run:
+        print(f"[dry-run] {total} jobs resolved. 0 generate.py calls made.")
+        return 0
+
+    if failures:
+        print(f"\n[simple_config] ⚠️  {len(failures)}/{total} jobs failed: {failures}")
+        return 1
+
+    print(f"\n[simple_config] ✅ {total}/{total} jobs completed.")
+    return 0
+
+
 def run_batch(args: argparse.Namespace) -> int:
     """Process a JSON batch file of generation jobs."""
     batch_path = Path(args.batch_file)
@@ -523,14 +713,32 @@ def run_batch(args: argparse.Namespace) -> int:
         return 1
 
     try:
-        jobs = json.loads(batch_path.read_text(encoding="utf-8"))
+        batch_data = json.loads(batch_path.read_text(encoding="utf-8"))
     except json.JSONDecodeError as exc:
         print(f"[simple_config] ❌ Invalid JSON in batch file: {exc}", file=sys.stderr)
         return 1
 
-    if not isinstance(jobs, list):
+    # --- v2 format detection: {profile, images: [...]} ---
+    if isinstance(batch_data, dict) and "images" in batch_data:
+        return _run_v2_batch(args, batch_data)
+
+    # --- v1 legacy flat array ---
+    if not isinstance(batch_data, list):
         print("[simple_config] ❌ Batch file must contain a JSON array of job objects.", file=sys.stderr)
         return 1
+
+    jobs = batch_data
+    preview_prompts = getattr(args, "preview_prompts", False)
+
+    # --preview-prompts on v1: print prompts as-is and exit
+    if preview_prompts:
+        for i, job in enumerate(jobs, 1):
+            if isinstance(job, dict):
+                prompt = job.get("prompt", "")
+                print(f"\n[simple_config] Image {i} — Assembled prompt:")
+                print(f"  {prompt}")
+        print("\n[simple_config] --preview-prompts: 0 generate.py calls made.")
+        return 0
 
     base = resolve_base_params(args)
     total = len(jobs)
