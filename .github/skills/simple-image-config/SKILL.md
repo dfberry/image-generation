@@ -187,4 +187,106 @@ python simple_config.py --assist --template blog-hero --preset production --styl
 
 ---
 
-*PRD: `projects/dina/2026-05-16T06-48-prd-wrapper-core.md`*
+## LoRA Management
+
+LoRAs are registered by friendly name in `loras.json`. Use `--lora name` instead of `--lora author/repo-id`.
+
+### LoRA Registry Subcommands
+
+```bash
+# List all registered LoRAs
+python simple_config.py lora list
+
+# Show full metadata for one LoRA
+python simple_config.py lora show aether-watercolor
+
+# Register a new LoRA (one-time setup)
+python simple_config.py lora add "ink-sketch" \
+  --id "author/ink-sketch-sdxl" \
+  --weight 0.6 \
+  --models sdxl \
+  --triggers "ink sketch style" \
+  --description "Clean ink sketch line art effect"
+
+# Remove a LoRA from the registry
+python simple_config.py lora remove "ink-sketch"
+```
+
+### LoRA Intensity Aliases
+
+Use named aliases instead of decimal weights:
+
+| Alias | Float | Visual effect |
+|-------|-------|---------------|
+| `light` | 0.4 | Subtle hint; content dominates |
+| `medium` | 0.7 | Style present; balanced |
+| `strong` | 0.9 | Style dominates |
+| `0.8` | 0.8 | Raw float (still valid) |
+
+```bash
+# Named intensity
+python simple_config.py --prompt "..." --lora aether-watercolor --lora-weight strong
+
+# Per-LoRA colon syntax (intensity encoded inline)
+python simple_config.py --prompt "..." --lora aether-watercolor:strong
+```
+
+### Registered LoRAs
+
+| Name | HuggingFace Model ID | Compatible | Default Weight |
+|------|---------------------|-----------|----------------|
+| `aether-watercolor` | `joachim_s/aether-watercolor-and-ink-sdxl` | sdxl | 0.8 |
+
+### Style/LoRA Composition Rules
+
+| `--style` | `--lora` | Tokens used | LoRA loaded |
+|-----------|----------|-------------|-------------|
+| `watercolor` | (none) | watercolor style tokens | `aether-watercolor` (from style) |
+| `watercolor` | `fine-detail` | watercolor style tokens | `fine-detail` (explicit wins) |
+| (none) | `aether-watercolor` | registry `style_tokens` | `aether-watercolor` |
+| (none) | (none) | folk-art tokens (default) | none |
+| (none) | raw HF ID | none | raw HF ID (passthrough) |
+
+### Model Compatibility Enforcement
+
+LoRAs declare which base models they support (`sdxl`, `flux`, `sd3`). Using an incompatible combination exits immediately with a clear error — before any model loading.
+
+```
+[error] LoRA 'aether-watercolor' is compatible with: ['sdxl'].
+        Selected model 'creative' is type 'flux'.
+        Use --model precise (SDXL) or choose a different LoRA.
+```
+
+| `--model` alias | Internal type |
+|----------------|--------------|
+| `precise` | `sdxl` |
+| `balanced` | `sd3` |
+| `creative` | `flux` |
+
+### Examples
+
+```bash
+# Named LoRA with intensity override (resolves to HF model ID automatically)
+python simple_config.py \
+  --prompt "A developer at a standing desk, warm afternoon light, no text" \
+  --preset production \
+  --lora aether-watercolor \
+  --lora-weight strong \
+  --size blog-hero \
+  --seed 52 --output outputs/hero.png --cpu
+
+# Watercolor style (LoRA resolved from style registry entry)
+python simple_config.py \
+  --prompt "A glowing tropical garden, soft morning light, no text" \
+  --preset production --style watercolor --size blog-hero \
+  --seed 52 --output outputs/hero.png --cpu
+
+# Raw HF ID still works (backward compatible)
+python simple_config.py \
+  --prompt "test prompt, no text" \
+  --lora joachim_s/aether-watercolor-and-ink-sdxl --lora-weight 0.8 --dry-run
+```
+
+---
+
+*PRD: `projects/dina/2026-05-16T06-48-prd-lora.md`*
