@@ -16,8 +16,14 @@
         "description": "Tokens added to negative prompt when this character appears"
       },
       "role": { "type": "string" },
-      "shorthand": { "type": "string" },
-      "count_notes": { "type": "string" }
+      "shorthand": {
+        "type": "string",
+        "description": "Short human-readable label used in logs and debug output (e.g., 'blue-shirt man')"
+      },
+      "count_notes": {
+        "type": "string",
+        "description": "Notes on SDXL count reliability for this character (e.g., plurals are unreliable for exact counts above 3)"
+      }
     }
   }
 }
