@@ -893,6 +893,16 @@ def generate_with_provider(args) -> str:
     validate_dimensions(args.width, args.height)
     device = get_device(args.cpu)
 
+    # Capture effective seed (mirrors generate() for reproducibility)
+    if getattr(args, 'seed', None) is not None:
+        effective_seed = args.seed
+        seed_source = "user-specified"
+    else:
+        effective_seed = torch.randint(0, 2**32, (1,)).item()
+        seed_source = "auto-generated"
+    logger.info("Seed: %s (%s)", effective_seed, seed_source)
+    args.seed = effective_seed
+
     # Resolve output path
     output_path = args.output
     if output_path is None:
@@ -917,7 +927,7 @@ def generate_with_provider(args) -> str:
             height=args.height,
             steps=args.steps,
             guidance_scale=args.guidance,
-            seed=getattr(args, 'seed', None),
+            seed=effective_seed,
             scheduler=getattr(args, 'scheduler', None),
             input_image=input_img,
             strength=getattr(args, 'strength', 0.75),
@@ -932,7 +942,7 @@ def generate_with_provider(args) -> str:
         params = {
             "prompt": args.prompt,
             "negative_prompt": getattr(args, 'negative_prompt', None),
-            "seed": getattr(args, 'seed', None),
+            "seed": args.seed,
             "steps": args.steps,
             "guidance": args.guidance,
             "width": args.width,
