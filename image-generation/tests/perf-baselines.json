@@ -1,0 +1,13 @@
+{
+  "recorded_at": "2026-05-16",
+  "baselines": {
+    "dry_run_subprocess_ms": 800,
+    "multi_lora_build_ms": 50,
+    "png_metadata_overhead_ms": 30
+  },
+  "thresholds": {
+    "dry_run_subprocess_ms": 2000,
+    "multi_lora_build_ms": 500,
+    "png_metadata_overhead_ms": 100
+  }
+}

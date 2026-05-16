@@ -30,7 +30,7 @@ import pytest
 class MockImage:
     """Minimal PIL Image stand-in."""
 
-    def save(self, path):
+    def save(self, path, **kwargs):
         pass
 
 
@@ -99,6 +99,8 @@ def mock_args_base(tmp_path):
     args.lora = None
     args.lora_weight = 0.8
     args.refiner_steps = 10
+    args.model = None
+    args.dry_run = False
     return args
 
 
@@ -121,6 +123,8 @@ def mock_args_refine(tmp_path):
     args.lora = None
     args.lora_weight = 0.8
     args.refiner_steps = 10
+    args.model = None
+    args.dry_run = False
     return args
 
 
@@ -143,6 +147,8 @@ def mock_args_cuda(tmp_path):
     args.lora = None
     args.lora_weight = 0.8
     args.refiner_steps = 10
+    args.model = None
+    args.dry_run = False
     return args
 
 
@@ -165,6 +171,8 @@ def mock_args_cuda_refine(tmp_path):
     args.lora = None
     args.lora_weight = 0.8
     args.refiner_steps = 10
+    args.model = None
+    args.dry_run = False
     return args
 
 

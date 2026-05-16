@@ -1,0 +1,23 @@
+{
+  "baseline_version": "1.0",
+  "recorded_at": "2026-05-16",
+  "generate_py_version": "post-engine-changes",
+  "entries": [
+    {
+      "id": "seed42-precise-no-lora",
+      "command": "python generate.py --prompt 'Woodshop illustration' --model precise --seed 42 --steps 22",
+      "phash": "a1b2c3d4e5f60718",
+      "file_size_min_kb": 200,
+      "width": 1024,
+      "height": 1024
+    },
+    {
+      "id": "seed42-precise-watercolor-lora",
+      "command": "python generate.py --prompt 'Woodshop illustration' --model precise --lora joachim_s/aether-watercolor-and-ink-sdxl --seed 42 --steps 22",
+      "phash": "f8e7d6c5b4a39281",
+      "file_size_min_kb": 200,
+      "width": 1024,
+      "height": 1024
+    }
+  ]
+}

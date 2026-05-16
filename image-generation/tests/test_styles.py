@@ -123,8 +123,8 @@ class TestStyleCLI:
                     generate.main()
 
         preset = get_style("anime")
-        assert captured_args["lora"] == preset.lora_id
-        assert captured_args["lora_weight"] == preset.lora_weight
+        assert captured_args["lora"] == [preset.lora_id]
+        assert captured_args["lora_weight"] == [preset.lora_weight]
         assert captured_args["strength"] == preset.strength
         assert captured_args["guidance"] == preset.guidance_scale
 
@@ -153,7 +153,7 @@ class TestStyleCLI:
                     generate.main()
 
         assert captured_args["prompt"] == "autumn forest sunset"
-        assert captured_args["lora"] == "TheLastBen/Oil_Painting_SDXL_LoRA"
+        assert captured_args["lora"] == ["TheLastBen/Oil_Painting_SDXL_LoRA"]
 
     def test_style_merges_negative_prompt(self, tmp_path):
         """--style appends its negative prompt additions to existing negative."""

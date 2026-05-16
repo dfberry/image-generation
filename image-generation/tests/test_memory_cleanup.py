@@ -171,7 +171,7 @@ class TestExceptionSafety:
         save_calls = []
 
         class TrackingSaveImage:
-            def save(self, path):
+            def save(self, path, **kwargs):
                 save_calls.append(path)
 
         class TrackingPipeline(MockPipeline):
