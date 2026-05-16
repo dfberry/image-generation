@@ -101,6 +101,7 @@ class FluxProvider(BaseProvider):
                     f"FLUX.1 (--model creative) supports at most 1 LoRA adapter, "
                     f"but {len(config.lora_ids)} were specified. Use --model precise for multi-LoRA."
                 )
+            self._pipeline.unload_lora_weights()
             model_id, weight = config.lora_ids[0]
             logger.info("Loading LoRA for FLUX.1: %s (weight=%s)", model_id, weight)
             self._pipeline.load_lora_weights(model_id, adapter_name="lora_0")

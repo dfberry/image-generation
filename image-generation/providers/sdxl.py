@@ -123,6 +123,7 @@ class SDXLProvider(BaseProvider):
 
         # Apply LoRA adapters if specified
         if config.lora_ids:
+            self._pipeline.unload_lora_weights()
             for i, (model_id, weight) in enumerate(config.lora_ids):
                 adapter_name = f"lora_{i}"
                 logger.info("Loading LoRA %d: %s (weight=%s)", i, model_id, weight)
