@@ -117,6 +117,7 @@ examples:
     parser.add_argument(
         "--style",
         default=None,
+        choices=list(STYLES) + ["none"],
         metavar="STYLE",
         help=f"Style preset: {', '.join(STYLES)}, none",
     )
@@ -457,15 +458,8 @@ def run_assist(params: dict, args: argparse.Namespace) -> dict:
         if is_interactive:
             resp = input("  → Use suggestion? [Y/n]: ").strip().lower()
             if resp in ("", "y", "yes"):
-                expanded, lora, lw, passthrough = apply_style_tokens(
-                    suggestion,
-                    None if (args.no_default_style or (args.style and args.style.lower() == "none")) else args.style,
-                    no_default_style=args.no_default_style,
-                )
-                params["prompt"] = expanded
-                if lora and not params.get("lora"):
-                    params["lora"] = lora
-                    params["lora_weight"] = lw if lw is not None else 0.8
+                # params["prompt"] already has style tokens prepended; just extend it
+                params["prompt"] = params["prompt"].rstrip(" ,") + ", warm afternoon light"
 
     return params
 
@@ -508,7 +502,7 @@ def run_single(args: argparse.Namespace) -> int:
         print("[dry-run] 0 generate.py calls made.")
         return 0
 
-    result = subprocess.run(cmd, cwd=Path(__file__).parent)
+    result = subprocess.run(cmd, cwd=Path(__file__).parent, timeout=3600)
     return result.returncode
 
 
@@ -563,10 +557,43 @@ def run_batch(args: argparse.Namespace) -> int:
             args.lora_weight,
         )
 
-        # Apply per-job field overrides
-        for field in ("seed", "output", "steps", "guidance", "width", "height", "model"):
-            if field in job:
-                params[field] = job[field]
+        # Apply per-job field overrides with type validation
+        _JOB_FIELD_TYPES: dict[str, type | tuple] = {
+            "seed": int,
+            "output": str,
+            "steps": int,
+            "guidance": (int, float),
+            "width": int,
+            "height": int,
+            "model": str,
+        }
+        _MODEL_CHOICES = frozenset({"creative", "precise", "balanced"})
+        job_valid = True
+        for field, expected_type in _JOB_FIELD_TYPES.items():
+            if field not in job:
+                continue
+            value = job[field]
+            if not isinstance(value, expected_type):
+                print(
+                    f"[simple_config] ❌ Job {i}/{total}: field '{field}' must be "
+                    f"{expected_type if isinstance(expected_type, type) else '/'.join(t.__name__ for t in expected_type)}"
+                    f", got {type(value).__name__} — skipping job.",
+                    file=sys.stderr,
+                )
+                job_valid = False
+                break
+            if field == "model" and value not in _MODEL_CHOICES:
+                print(
+                    f"[simple_config] ❌ Job {i}/{total}: field 'model' must be one of "
+                    f"{sorted(_MODEL_CHOICES)}, got '{value}' — skipping job.",
+                    file=sys.stderr,
+                )
+                job_valid = False
+                break
+            params[field] = value
+        if not job_valid:
+            failures.append(i)
+            continue
 
         # --assist runs in non-interactive (silent safe-defaults) mode for batch
         if args.assist:
@@ -580,7 +607,7 @@ def run_batch(args: argparse.Namespace) -> int:
         print(f"[job {i}/{total}] {cmd_str}")
 
         if not args.dry_run:
-            result = subprocess.run(cmd, cwd=Path(__file__).parent)
+            result = subprocess.run(cmd, cwd=Path(__file__).parent, timeout=3600)
             if result.returncode != 0:
                 failures.append(i)
 
