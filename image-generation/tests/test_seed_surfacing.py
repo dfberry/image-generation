@@ -250,7 +250,7 @@ class TestSeedSurfacing:
              patch("generate.torch", mock_torch), \
              patch("generate.get_device", return_value="cpu"), \
              patch("generate.validate_dimensions"), \
-             patch("generate.get_provider", return_value=mock_provider), \
+             patch("providers.get_provider", return_value=mock_provider), \
              patch("generate._save_with_metadata"):
             gen_mod.generate_with_provider(args)
 
