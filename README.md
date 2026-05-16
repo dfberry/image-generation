@@ -80,16 +80,21 @@ python simple_config.py \
 | `blog-hero` | 1200×632 | Blog post header |
 | `wide` | 1280×720 | 16:9 landscape |
 | `portrait` | 768×1024 | Vertical/mobile |
+| `tall` | 832×1216 | ~2:3 tall portrait |
 
 **Modifiers** — stack on top of any preset
 
 | Modifier | Effect |
 |----------|--------|
 | `dreamier` | guidance → 4.0 (looser) |
+| `softer` | guidance → 5.0 |
 | `crisper` | guidance → 7.5 |
+| `sharper` | guidance → 8.0 |
 | `more-detailed` | steps +10; auto-enables refine when ≥ 30 |
+| `less-detailed` | steps −5 (floor 10) |
 | `fast` | steps → 15, refine off |
 | `photorealistic` | guidance → 9.0, model → precise |
+| `artistic` | model → creative |
 
 ```bash
 # Stacked modifiers example
@@ -110,7 +115,7 @@ python simple_config.py lora add "ink-sketch" --id "author/ink-sketch-sdxl" --we
 
 ### Consistency controls
 
-Use `--profile` to reuse a saved parameter set across multiple runs, ensuring visual consistency across a blog post series.
+Use `--profile` to reuse a saved parameter set (scene, character, expression) across multiple runs, ensuring visual consistency across a blog post series. Profiles are stored in `profiles.json`.
 
 ```bash
 python simple_config.py --prompt "..." --profile my-blog-series --cpu
