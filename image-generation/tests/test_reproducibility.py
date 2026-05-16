@@ -105,11 +105,12 @@ class TestSeedDeterminism:
 
     @pytest.mark.integration
     def test_dry_run_output_is_stable_across_10_runs(self):
-        """TRP-03: --seed 42 --dry-run invoked 10 times -> identical JSON output each time."""
+        """TRP-03: --seed 42 --dry-run --output fixed.png invoked 10 times -> identical JSON."""
         outputs = []
         for _ in range(10):
             result = subprocess.run(
-                [sys.executable, "generate.py", "--prompt", "Test", "--seed", "42", "--dry-run"],
+                [sys.executable, "generate.py", "--prompt", "Test", "--seed", "42",
+                 "--dry-run", "--output", "outputs/stable_test.png"],
                 capture_output=True, text=True, cwd=_get_generate_cwd()
             )
             assert result.returncode == 0
