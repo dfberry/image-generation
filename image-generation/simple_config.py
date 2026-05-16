@@ -718,7 +718,13 @@ def run_batch(args: argparse.Namespace) -> int:
         print(f"[simple_config] ❌ Invalid JSON in batch file: {exc}", file=sys.stderr)
         return 1
 
-    # --- v2 format detection: {profile, images: [...]} ---
+    # --- v2 format detection ---
+    # v2 batch files are a JSON *object* with a "profile" key and an "images"
+    # array: {"profile": "woodshop-blog", "images": [...]}
+    # v1 batch files are a flat JSON *array*: [{...}, {...}]
+    # Detection rule: if the top-level value is a dict that contains "images",
+    # treat it as v2 and route to _run_v2_batch(); otherwise fall through to
+    # the v1 flat-array path below.
     if isinstance(batch_data, dict) and "images" in batch_data:
         return _run_v2_batch(args, batch_data)
 
