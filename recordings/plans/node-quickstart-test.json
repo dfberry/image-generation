@@ -3,6 +3,7 @@
   "description": "Node.js quickstart: create and run a simple script",
   "pre_record": {
     "commands": [
+      "command -v node >/dev/null 2>&1 || { echo 'Installing Node.js...'; sudo apt-get update -qq && sudo apt-get install -y -qq nodejs npm; }",
       "rm -rf /tmp/node-demo && mkdir -p /tmp/node-demo && cd /tmp/node-demo && npm init -y --silent 2>/dev/null"
     ],
     "clear_screen": true

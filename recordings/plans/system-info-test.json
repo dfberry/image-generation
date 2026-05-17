@@ -2,7 +2,10 @@
   "name": "system-info-test",
   "description": "Check system info with multiple commands (hostname, whoami, date, python3, node)",
   "pre_record": {
-    "commands": [],
+    "commands": [
+      "command -v python3 >/dev/null 2>&1 || { echo 'Installing Python3...'; sudo apt-get update -qq && sudo apt-get install -y -qq python3; }",
+      "command -v node >/dev/null 2>&1 || { echo 'Installing Node.js...'; sudo apt-get update -qq && sudo apt-get install -y -qq nodejs npm; }"
+    ],
     "clear_screen": true
   },
   "record": {
