@@ -1,0 +1,37 @@
+{
+  "name": "interactive-python-test",
+  "description": "Test interactive recording: Python3 REPL via expect-style automation",
+  "pre_record": {
+    "commands": [
+      "command -v python3 || sudo apt-get install -y python3",
+      "command -v expect || sudo apt-get install -y expect",
+      "export PS1='demo $ '"
+    ],
+    "clear_screen": true
+  },
+  "record": {
+    "commands": [
+      {
+        "type": "interactive",
+        "program": "python3",
+        "steps": [
+          { "wait_for": ">>> ", "send": "print('Hello from interactive recording!')", "pause_after": 1.0 },
+          { "wait_for": ">>> ", "send": "2 + 2", "pause_after": 1.0 },
+          { "wait_for": ">>> ", "send": "exit()" }
+        ],
+        "timeout": 10
+      }
+    ],
+    "typing_speed": "medium",
+    "default_pause": 1.0,
+    "end_pause": 3
+  },
+  "output": {
+    "subdir": "test",
+    "convert": {
+      "preset": "blog-landscape",
+      "format": "both",
+      "no_loop": true
+    }
+  }
+}

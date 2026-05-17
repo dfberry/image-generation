@@ -210,6 +210,24 @@ case "$TYPING_SPEED" in
         ;;
 esac
 
+# --- Check for expect if plan uses interactive commands ---
+if [ "$DRY_RUN" = "false" ]; then
+    _has_interactive=0
+    if command -v jq >/dev/null 2>&1; then
+        _has_interactive=$(jq -r '[.record.commands[]? | select(.type == "interactive")] | length' "$PLAN_FILE" 2>/dev/null || echo 0)
+    elif command -v python3 >/dev/null 2>&1; then
+        _has_interactive=$(python3 -c '
+import json, sys
+d = json.load(open(sys.argv[1]))
+cmds = d.get("record", {}).get("commands", [])
+print(sum(1 for c in cmds if c.get("type") == "interactive"))
+' "$PLAN_FILE" 2>/dev/null || echo 0)
+    fi
+    if [ "${_has_interactive:-0}" -gt 0 ]; then
+        command -v expect >/dev/null 2>&1 || { echo "Error: 'expect' is required for interactive commands. Install with: sudo apt-get install -y expect"; exit 1; }
+    fi
+fi
+
 # --- Locate repo root and config ---
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 REPO_ROOT=$(git -C "$SCRIPT_DIR" rev-parse --show-toplevel 2>/dev/null) || REPO_ROOT="$(dirname "$SCRIPT_DIR")"
@@ -298,6 +316,15 @@ if [ "$DRY_RUN" = "true" ]; then
                 type)    echo "  [type]     $VALUE" ;;
                 key)     echo "  [key]      $VALUE" ;;
                 pause)   echo "  [pause]    ${DURATION:-1.0}s" ;;
+                interactive)
+                    INT_PROG=$(json_get_index_field "$PLAN_FILE" ".record.commands" $i "program")
+                    if command -v jq >/dev/null 2>&1; then
+                        INT_STEPS=$(jq -r "(.record.commands[$i].steps // []) | length" "$PLAN_FILE" 2>/dev/null)
+                    else
+                        INT_STEPS=$(python3 -c "import json,sys; d=json.load(open(sys.argv[1])); print(len(d['record']['commands'][$i].get('steps',[])))" "$PLAN_FILE" 2>/dev/null)
+                    fi
+                    echo "  [interactive] program=$INT_PROG  (${INT_STEPS:-0} steps, pause_after: ${PAUSE_AFTER:-$DEFAULT_PAUSE}s)"
+                    ;;
                 *)       echo "  [unknown]  type=$TYPE" ;;
             esac
             i=$((i+1))
@@ -318,7 +345,8 @@ fi
 
 # --- Generate temp demo script ---
 TEMP_SCRIPT=$(mktemp /tmp/plan_demo_XXXXXX.sh)
-trap 'rm -f "$TEMP_SCRIPT"' EXIT INT TERM
+TEMP_EXPECT_SCRIPTS=""
+trap 'rm -f "$TEMP_SCRIPT" $TEMP_EXPECT_SCRIPTS' EXIT INT TERM
 
 cat > "$TEMP_SCRIPT" <<SCRIPT_HEADER
 #!/bin/bash
@@ -438,6 +466,63 @@ TYPE_BLOCK
             pause)
                 [ -z "$DURATION" ] && DURATION="1.0"
                 echo "sleep $DURATION" >> "$TEMP_SCRIPT"
+                ;;
+            interactive)
+                PROGRAM=$(json_get_index_field "$PLAN_FILE" ".record.commands" $i "program")
+                INT_TIMEOUT=$(json_get_index_field "$PLAN_FILE" ".record.commands" $i "timeout")
+                [ -z "$INT_TIMEOUT" ] && INT_TIMEOUT="10"
+
+                # Generate a per-segment expect script
+                EXPECT_SCRIPT=$(mktemp /tmp/plan_expect_XXXXXX.exp)
+                TEMP_EXPECT_SCRIPTS="$TEMP_EXPECT_SCRIPTS $EXPECT_SCRIPT"
+
+                python3 - "$PLAN_FILE" "$i" "$CHAR_DELAY" "$CHAR_VARIANCE" "$INT_TIMEOUT" "$EXPECT_SCRIPT" <<'PYEOF'
+import json, sys, os
+
+plan   = json.load(open(sys.argv[1]))
+i      = int(sys.argv[2])
+char_delay    = float(sys.argv[3])
+char_variance = float(sys.argv[4])
+timeout  = sys.argv[5]
+out_file = sys.argv[6]
+
+cmd     = plan['record']['commands'][i]
+program = cmd.get('program', 'bash')
+steps   = cmd.get('steps', [])
+
+human_min = max(0.01, char_delay - char_variance)
+human_max = char_delay + char_variance
+
+lines = [
+    '#!/usr/bin/expect -f',
+    'set timeout ' + timeout,
+    'set send_human {' + f'{human_min:.3f} {char_delay:.3f} {human_max:.3f} 0.5 1' + '}',
+    'spawn ' + program,
+]
+
+for step in steps:
+    wait_for  = step.get('wait_for', '')
+    send_text = step.get('send', '')
+    pause     = step.get('pause_after', None)
+    # Braces for expect pattern → literal match, no special-char interpretation
+    # Only escape } inside the pattern
+    safe_wait = wait_for.replace('\\', '\\\\').replace('}', '\\}')
+    # Double-quoted Tcl string for send; escape \ and "
+    safe_send = send_text.replace('\\', '\\\\').replace('"', '\\"')
+    lines.append('expect {' + safe_wait + '}')
+    lines.append('send -h "' + safe_send + '\\r"')
+    if pause is not None:
+        lines.append('sleep ' + str(pause))
+
+lines.append('expect eof')
+
+with open(out_file, 'w') as f:
+    f.write('\n'.join(lines) + '\n')
+os.chmod(out_file, 0o755)
+PYEOF
+
+                echo "expect -f $EXPECT_SCRIPT" >> "$TEMP_SCRIPT"
+                echo "sleep $PAUSE_AFTER" >> "$TEMP_SCRIPT"
                 ;;
             *)
                 echo "# unknown command type: $TYPE" >> "$TEMP_SCRIPT"

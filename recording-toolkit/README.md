@@ -201,13 +201,55 @@ Plans live in `recordings/plans/`. See `recordings/plans/copilot-cli-demo.json` 
 | `pause` | `duration` | Waits silently (dramatic effect, output rendering) |
 | `type` | `value` | Types text without pressing Enter (partial input demos) |
 | `key` | `value` | Sends a special key: `enter`, `ctrl-c`, `ctrl-d`, `tab` |
+| `interactive` | `program`, `steps` | Spawns an interactive program and drives it via expect-style send/wait |
 
 Command-type options:
 
 | Option | Default | Description |
 |--------|---------|-------------|
-| `wait_for_output` | `false` | Wait after Enter for command output to render |
+| `wait_for_output` | `false` | Wait after Enter for command output to render (`command` type only) |
 | `pause_after` | `default_pause` | Seconds to pause after this command |
+
+#### `interactive` command
+
+Drives interactive programs (REPLs, CLIs) that take over stdin. Uses `expect` under the hood.
+
+```json
+{
+  "type": "interactive",
+  "program": "python3",
+  "steps": [
+    { "wait_for": ">>> ", "send": "print('hello')", "pause_after": 1.0 },
+    { "wait_for": ">>> ", "send": "2 + 2",           "pause_after": 1.0 },
+    { "wait_for": ">>> ", "send": "exit()" }
+  ],
+  "timeout": 10
+}
+```
+
+| Field | Required | Description |
+|-------|----------|-------------|
+| `program` | yes | Program to spawn (e.g., `python3`, `node`, `gh copilot`) |
+| `steps` | yes | Array of send/wait steps (see below) |
+| `timeout` | no | Seconds to wait for each pattern before failing (default: `10`) |
+
+Each step:
+
+| Field | Required | Description |
+|-------|----------|-------------|
+| `wait_for` | yes | Pattern to wait for before sending input (e.g., `">>> "`) |
+| `send` | yes | Text to type (Enter is appended automatically) |
+| `pause_after` | no | Seconds to pause after sending (for output to render) |
+
+**Prerequisites:** `expect` must be installed (`sudo apt-get install -y expect`). Include it in `pre_record.commands` for portability:
+
+```json
+"pre_record": {
+  "commands": [
+    "command -v expect || sudo apt-get install -y expect"
+  ]
+}
+```
 
 ### Typing Speed Presets
 
@@ -324,7 +366,16 @@ The toolkit supports `gif`, `mp4`, or `both` via the `output.convert.format` pla
 
 ### Can I record interactive programs like GitHub Copilot CLI?
 
-The current toolkit uses auto-type + eval for non-interactive commands. Interactive programs (REPLs, Copilot CLI, etc.) that take over stdin are not yet supported. Options:
+Yes — use the `"type": "interactive"` command with `expect`-style send/wait steps. The toolkit
+spawns the program, waits for each prompt pattern, then types input character-by-character so the
+keystrokes appear naturally in the recording.
 
-- Use `asciinema rec` directly (manual recording)
-- Future: `expect`-based interactive command type is planned
+```json
+{ "type": "interactive", "program": "python3",
+  "steps": [{ "wait_for": ">>> ", "send": "print('hello')", "pause_after": 1.0 },
+            { "wait_for": ">>> ", "send": "exit()" }],
+  "timeout": 10 }
+```
+
+Requires `expect` (`sudo apt-get install -y expect`). Add the install check to `pre_record.commands`
+for portability. See `recordings/plans/interactive-python-test.json` for a full example.
