@@ -21,6 +21,8 @@ param(
     [string]$Config,
     [string]$Preset,
     [string]$OutputFile,
+    [ValidateSet("gif", "mp4")]
+    [string]$Format = "gif",
     [switch]$Help
 )
 
@@ -44,6 +46,7 @@ Options:
   -Config             Path to config JSON file
   -Preset             Preset name from config file
   -OutputFile         Override output file path
+  -Format             Output format: gif (default) or mp4. MP4 uses agg→GIF→ffmpeg pipeline
   -Help               Show this help
 
 Priority: CLI switches > preset > config defaults > built-in defaults
@@ -210,4 +213,24 @@ if ($settings.watermark_text -and $settings.watermark_text -ne "") {
     } else {
         Write-Warning "ImageMagick (magick) not found - skipping watermark. Install from https://imagemagick.org"
     }
+}
+
+# --- MP4 conversion (when -Format mp4) ---
+if ($Format -eq "mp4") {
+    if (-not (Get-Command ffmpeg -ErrorAction SilentlyContinue)) {
+        Write-Error "ffmpeg not found. Install from https://ffmpeg.org or via winget: winget install ffmpeg"
+        exit 1
+    }
+    $Mp4File = [System.IO.Path]::ChangeExtension($OutputFile, ".mp4")
+    Write-Host "Converting GIF to MP4: $Mp4File"
+    & ffmpeg -y -i "$OutputFile" `
+        -movflags faststart `
+        -pix_fmt yuv420p `
+        -vf "scale=trunc(iw/2)*2:trunc(ih/2)*2" `
+        "$Mp4File" 2>$null
+    if ($LASTEXITCODE -ne 0) {
+        Write-Error "ffmpeg failed with exit code $LASTEXITCODE"
+        exit $LASTEXITCODE
+    }
+    Write-Host "Created: $Mp4File"
 }

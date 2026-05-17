@@ -6,4 +6,5 @@
 # But keep test outputs for reproducibility
 !test/*.cast
 !test/*.gif
+!test/*.mp4
 

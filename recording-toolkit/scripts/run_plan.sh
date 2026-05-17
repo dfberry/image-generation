@@ -189,6 +189,7 @@ DEFAULT_PAUSE=$(json_get "$PLAN_FILE" ".record.default_pause")
 END_PAUSE=$(json_get "$PLAN_FILE" ".record.end_pause")
 PROMPT_STR=$(json_get "$PLAN_FILE" ".record.prompt")
 NO_LOOP=$(json_get "$PLAN_FILE" ".output.convert.no_loop")
+CONVERT_FORMAT=$(json_get "$PLAN_FILE" ".output.convert.format")
 
 # Defaults
 [ -z "$OUTPUT_SUBDIR" ] && OUTPUT_SUBDIR="cli"
@@ -463,18 +464,41 @@ echo ""
 asciinema rec --command "bash $TEMP_SCRIPT" --idle-time-limit "$IDLE_LIMIT" --cols "$REC_COLS" --rows "$REC_ROWS" "$CAST_FILE"
 echo "Recording saved: $CAST_FILE"
 
-# --- Optional GIF conversion ---
+# --- Optional conversion ---
 if [ -n "$CONVERT_PRESET" ] && [ "$NO_CONVERT" = "false" ]; then
     CONVERT_SCRIPT="$(dirname "$0")/convert_cast_to_gif.sh"
     if [ -f "$CONVERT_SCRIPT" ]; then
+        [ -z "$CONVERT_FORMAT" ] && CONVERT_FORMAT="gif"
         GIF_FILE="${CAST_FILE%.cast}.gif"
-        echo "Converting to GIF with preset: $CONVERT_PRESET"
         CONVERT_ARGS=("$CAST_FILE" "--preset" "$CONVERT_PRESET" "--output" "$GIF_FILE")
         [ "$NO_LOOP" = "true" ] && CONVERT_ARGS+=("--no-loop")
         [ -n "$CONFIG_PATH" ] && CONVERT_ARGS+=("--config" "$CONFIG_PATH")
-        bash "$CONVERT_SCRIPT" "${CONVERT_ARGS[@]}"
-        echo "GIF created: $GIF_FILE"
+
+        case "$CONVERT_FORMAT" in
+            gif)
+                echo "Converting to GIF with preset: $CONVERT_PRESET"
+                bash "$CONVERT_SCRIPT" "${CONVERT_ARGS[@]}"
+                echo "GIF created: $GIF_FILE"
+                ;;
+            mp4)
+                echo "Converting to MP4 with preset: $CONVERT_PRESET"
+                bash "$CONVERT_SCRIPT" "${CONVERT_ARGS[@]}" --format mp4
+                echo "MP4 created: ${CAST_FILE%.cast}.mp4"
+                ;;
+            both)
+                echo "Converting to GIF + MP4 with preset: $CONVERT_PRESET"
+                bash "$CONVERT_SCRIPT" "${CONVERT_ARGS[@]}"
+                echo "GIF created: $GIF_FILE"
+                bash "$CONVERT_SCRIPT" "${CONVERT_ARGS[@]}" --format mp4
+                echo "MP4 created: ${CAST_FILE%.cast}.mp4"
+                ;;
+            *)
+                echo "Warning: unknown format '$CONVERT_FORMAT', defaulting to GIF"
+                bash "$CONVERT_SCRIPT" "${CONVERT_ARGS[@]}"
+                echo "GIF created: $GIF_FILE"
+                ;;
+        esac
     else
-        echo "Warning: convert_cast_to_gif.sh not found, skipping GIF conversion"
+        echo "Warning: convert_cast_to_gif.sh not found, skipping conversion"
     fi
 fi
