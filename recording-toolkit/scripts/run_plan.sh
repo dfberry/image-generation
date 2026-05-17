@@ -183,12 +183,17 @@ CONVERT_PRESET=$(json_get "$PLAN_FILE" ".output.convert.preset")
 CLEAR_SCREEN=$(json_get "$PLAN_FILE" ".pre_record.clear_screen")
 TYPING_SPEED=$(json_get "$PLAN_FILE" ".record.typing_speed")
 DEFAULT_PAUSE=$(json_get "$PLAN_FILE" ".record.default_pause")
+END_PAUSE=$(json_get "$PLAN_FILE" ".record.end_pause")
+PROMPT_STR=$(json_get "$PLAN_FILE" ".record.prompt")
+NO_LOOP=$(json_get "$PLAN_FILE" ".output.convert.no_loop")
 
 # Defaults
 [ -z "$OUTPUT_SUBDIR" ] && OUTPUT_SUBDIR="cli"
 [ -z "$TYPING_SPEED" ] && TYPING_SPEED="medium"
 [ -z "$DEFAULT_PAUSE" ] && DEFAULT_PAUSE="1.0"
 [ -z "$CLEAR_SCREEN" ] && CLEAR_SCREEN="false"
+[ -z "$END_PAUSE" ] && END_PAUSE="2"
+[ -z "$PROMPT_STR" ] && PROMPT_STR='$ '
 
 # --- Typing speed presets ---
 case "$TYPING_SPEED" in
@@ -213,10 +218,23 @@ if [ -z "$CONFIG_PATH" ]; then
 fi
 
 IDLE_LIMIT="3"
+REC_COLS=""
+REC_ROWS=""
 if [ -n "$CONFIG_PATH" ] && [ -f "$CONFIG_PATH" ]; then
     val=$(json_get "$CONFIG_PATH" ".defaults.idle_time_limit")
     [ -n "$val" ] && IDLE_LIMIT="$val"
+
+    # Load cols/rows from preset if specified, otherwise from defaults
+    if [ -n "$CONVERT_PRESET" ]; then
+        REC_COLS=$(json_get "$CONFIG_PATH" ".presets.${CONVERT_PRESET}.cols")
+        REC_ROWS=$(json_get "$CONFIG_PATH" ".presets.${CONVERT_PRESET}.rows")
+    fi
+    [ -z "$REC_COLS" ] && REC_COLS=$(json_get "$CONFIG_PATH" ".defaults.cols")
+    [ -z "$REC_ROWS" ] && REC_ROWS=$(json_get "$CONFIG_PATH" ".defaults.rows")
 fi
+# Fallback defaults
+[ -z "$REC_COLS" ] && REC_COLS="120"
+[ -z "$REC_ROWS" ] && REC_ROWS="30"
 
 # --- Resolve output path ---
 if [ -n "$OUTPUT_OVERRIDE" ]; then
@@ -259,6 +277,8 @@ if [ "$DRY_RUN" = "true" ]; then
     echo ""
 
     echo "--- Phase 2: record ---"
+    echo "  Prompt:    '$PROMPT_STR'"
+    echo "  End pause: ${END_PAUSE}s"
     REC_COUNT=$(json_get_array_length "$PLAN_FILE" ".record.commands")
     if [ -z "$REC_COUNT" ] || [ "$REC_COUNT" = "0" ]; then
         echo "  (no record commands)"
@@ -270,7 +290,7 @@ if [ "$DRY_RUN" = "true" ]; then
             DURATION=$(json_get_index_field "$PLAN_FILE" ".record.commands" $i "duration")
             PAUSE_AFTER=$(json_get_index_field "$PLAN_FILE" ".record.commands" $i "pause_after")
             case "$TYPE" in
-                command) echo "  [command]  $ $VALUE  (pause_after: ${PAUSE_AFTER:-$DEFAULT_PAUSE}s)" ;;
+                command) echo "  [command]  ${PROMPT_STR}$VALUE  (pause_after: ${PAUSE_AFTER:-$DEFAULT_PAUSE}s)" ;;
                 type)    echo "  [type]     $VALUE" ;;
                 key)     echo "  [key]      $VALUE" ;;
                 pause)   echo "  [pause]    ${DURATION:-1.0}s" ;;
@@ -284,6 +304,7 @@ if [ "$DRY_RUN" = "true" ]; then
     if [ -n "$CONVERT_PRESET" ] && [ "$NO_CONVERT" = "false" ]; then
         echo "--- Post-record: convert ---"
         echo "  Preset: $CONVERT_PRESET"
+        [ "$NO_LOOP" = "true" ] && echo "  No-loop: yes"
         GIF_FILE="${CAST_FILE%.cast}.gif"
         echo "  Output: $GIF_FILE"
     fi
@@ -355,8 +376,11 @@ if [ -n "$REC_COUNT" ] && [ "$REC_COUNT" -gt 0 ]; then
             command)
                 # Escape value for embedding in single-quoted shell string
                 ESCAPED_VALUE=$(printf '%s' "$VALUE" | sed "s/'/'\\\\''/g")
+                ESCAPED_PROMPT=$(printf '%s' "$PROMPT_STR" | sed "s/'/'\\\\''/g")
                 cat >> "$TEMP_SCRIPT" <<CMD_BLOCK
+printf '%s' '$ESCAPED_PROMPT'
 auto_type '$ESCAPED_VALUE' $CHAR_DELAY $CHAR_VARIANCE
+$VALUE
 CMD_BLOCK
                 if [ "$WAIT_OUTPUT" = "true" ]; then
                     echo "wait_for_prompt $PAUSE_AFTER" >> "$TEMP_SCRIPT"
@@ -399,7 +423,7 @@ TYPE_BLOCK
 fi
 
 # Final hold so last output is visible before recording ends
-echo "sleep 1" >> "$TEMP_SCRIPT"
+echo "sleep $END_PAUSE" >> "$TEMP_SCRIPT"
 chmod +x "$TEMP_SCRIPT"
 
 # --- Create output directory ---
@@ -412,7 +436,7 @@ echo "Recording plan: ${PLAN_NAME:-<unnamed>}"
 echo "Output: $CAST_FILE"
 echo ""
 
-asciinema rec --command "bash $TEMP_SCRIPT" --idle-time-limit "$IDLE_LIMIT" "$CAST_FILE"
+asciinema rec --command "bash $TEMP_SCRIPT" --idle-time-limit "$IDLE_LIMIT" --cols "$REC_COLS" --rows "$REC_ROWS" "$CAST_FILE"
 echo "Recording saved: $CAST_FILE"
 
 # --- Optional GIF conversion ---
@@ -422,6 +446,7 @@ if [ -n "$CONVERT_PRESET" ] && [ "$NO_CONVERT" = "false" ]; then
         GIF_FILE="${CAST_FILE%.cast}.gif"
         echo "Converting to GIF with preset: $CONVERT_PRESET"
         CONVERT_ARGS=("$CAST_FILE" "--preset" "$CONVERT_PRESET" "--output" "$GIF_FILE")
+        [ "$NO_LOOP" = "true" ] && CONVERT_ARGS+=("--no-loop")
         [ -n "$CONFIG_PATH" ] && CONVERT_ARGS+=("--config" "$CONFIG_PATH")
         bash "$CONVERT_SCRIPT" "${CONVERT_ARGS[@]}"
         echo "GIF created: $GIF_FILE"
