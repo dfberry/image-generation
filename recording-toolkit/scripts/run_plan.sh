@@ -91,15 +91,14 @@ json_get() {
     if command -v jq >/dev/null 2>&1; then
         jq -r "$query // empty" "$file" 2>/dev/null
     elif command -v python3 >/dev/null 2>&1; then
-        python3 -c "
+        python3 -c '
 import json, sys
 try:
-    data = json.load(open('$file'))
-    # Simple dot-notation path, e.g. .name or .output.subdir
-    path = '''$query'''.lstrip('.')
+    data = json.load(open(sys.argv[1]))
+    path = sys.argv[2].lstrip(".")
     val = data
     if path:
-        for k in path.split('.'):
+        for k in path.split("."):
             if isinstance(val, dict) and k in val:
                 val = val[k]
             else:
@@ -108,7 +107,7 @@ try:
         print(val)
 except Exception:
     sys.exit(0)
-" 2>/dev/null
+' "$file" "$query" 2>/dev/null
     fi
 }
 
@@ -117,18 +116,18 @@ json_get_array_length() {
     if command -v jq >/dev/null 2>&1; then
         jq -r "($query) | length" "$file" 2>/dev/null
     elif command -v python3 >/dev/null 2>&1; then
-        python3 -c "
+        python3 -c '
 import json, sys
 try:
-    data = json.load(open('$file'))
-    path = '''$query'''.lstrip('.')
+    data = json.load(open(sys.argv[1]))
+    path = sys.argv[2].lstrip(".")
     val = data
-    for k in path.split('.'):
+    for k in path.split("."):
         val = val[k]
     print(len(val))
 except Exception:
     print(0)
-" 2>/dev/null
+' "$file" "$query" 2>/dev/null
     fi
 }
 
@@ -144,21 +143,23 @@ json_get_index_field() {
     if command -v jq >/dev/null 2>&1; then
         jq -r "(${array_path}[$index].${field}) // empty" "$file" 2>/dev/null
     elif command -v python3 >/dev/null 2>&1; then
-        python3 -c "
+        python3 -c '
 import json, sys
 try:
-    data = json.load(open('$file'))
-    path = '''$array_path'''.lstrip('.')
+    data = json.load(open(sys.argv[1]))
+    path = sys.argv[2].lstrip(".")
+    idx = int(sys.argv[3])
+    field = sys.argv[4]
     val = data
-    for k in path.split('.'):
+    for k in path.split("."):
         val = val[k]
-    item = val[$index]
-    result = item.get('$field')
+    item = val[idx]
+    result = item.get(field)
     if result is not None and not isinstance(result, (dict, list)):
         print(result)
 except Exception:
     sys.exit(0)
-" 2>/dev/null
+' "$file" "$array_path" "$index" "$field" 2>/dev/null
     fi
 }
 
@@ -248,7 +249,7 @@ if [ "$DRY_RUN" = "true" ]; then
             if command -v jq >/dev/null 2>&1; then
                 CMD=$(jq -r ".pre_record.commands[$i]" "$PLAN_FILE" 2>/dev/null)
             elif command -v python3 >/dev/null 2>&1; then
-                CMD=$(python3 -c "import json; d=json.load(open('$PLAN_FILE')); print(d['pre_record']['commands'][$i])" 2>/dev/null)
+                CMD=$(python3 -c 'import json,sys; d=json.load(open(sys.argv[1])); print(d["pre_record"]["commands"][int(sys.argv[2])])' "$PLAN_FILE" "$i" 2>/dev/null)
             fi
             echo "  [setup] $CMD"
             i=$((i+1))
@@ -325,7 +326,7 @@ if [ -n "$PRE_COUNT" ] && [ "$PRE_COUNT" -gt 0 ]; then
         if command -v jq >/dev/null 2>&1; then
             CMD=$(jq -r ".pre_record.commands[$i]" "$PLAN_FILE" 2>/dev/null)
         elif command -v python3 >/dev/null 2>&1; then
-            CMD=$(python3 -c "import json; d=json.load(open('$PLAN_FILE')); print(d['pre_record']['commands'][$i])" 2>/dev/null)
+            CMD=$(python3 -c 'import json,sys; d=json.load(open(sys.argv[1])); print(d["pre_record"]["commands"][int(sys.argv[2])])' "$PLAN_FILE" "$i" 2>/dev/null)
         fi
         printf '%s\n' "$CMD" >> "$TEMP_SCRIPT"
         i=$((i+1))
@@ -364,24 +365,17 @@ CMD_BLOCK
                 fi
                 ;;
             type)
+                # Type characters without pressing Enter
                 ESCAPED_VALUE=$(printf '%s' "$VALUE" | sed "s/'/'\\\\''/g")
                 cat >> "$TEMP_SCRIPT" <<TYPE_BLOCK
-# type (no Enter)
+# type (no Enter) — auto-type without newline
+_text='$ESCAPED_VALUE'
 for (( _i=0; _i<\${#_text}; _i++ )); do
     _char="\${_text:\$_i:1}"
     printf '%s' "\$_char"
     sleep \$(python3 -c "import random; print(f'{max(0.01, $CHAR_DELAY + random.uniform(-$CHAR_VARIANCE, $CHAR_VARIANCE)):.3f}')")
 done
 TYPE_BLOCK
-                # Simpler: use auto_type logic inline since we can't pass variable easily
-                printf '_text=%s\n' "'$ESCAPED_VALUE'" >> "$TEMP_SCRIPT"
-                cat >> "$TEMP_SCRIPT" <<'TYPE_INLINE'
-for (( _i=0; _i<${#_text}; _i++ )); do
-    _char="${_text:$_i:1}"
-    printf '%s' "$_char"
-    sleep 0.06
-done
-TYPE_INLINE
                 ;;
             key)
                 case "$VALUE" in

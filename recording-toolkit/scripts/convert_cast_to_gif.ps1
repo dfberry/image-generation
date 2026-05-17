@@ -172,8 +172,8 @@ if (-not $OutputFile) {
 
 # --- Build agg command ---
 $aggArgs = @(
-    "`"$InputFile`""
-    "`"$OutputFile`""
+    $InputFile
+    $OutputFile
     "--font-size", $settings.font_size
     "--theme", $settings.theme
     "--speed", $settings.speed
@@ -186,8 +186,7 @@ if ($settings.rows -gt 0)  { $aggArgs += @("--rows", $settings.rows) }
 if (-not $settings.loop)   { $aggArgs += "--no-loop" }
 
 Write-Host "Running: agg $($aggArgs -join ' ')"
-$aggCmd = "agg $($aggArgs -join ' ')"
-Invoke-Expression $aggCmd
+& agg @aggArgs
 
 if ($LASTEXITCODE -ne 0) {
     Write-Error "agg failed with exit code $LASTEXITCODE"

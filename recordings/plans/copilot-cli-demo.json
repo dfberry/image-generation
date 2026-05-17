@@ -27,7 +27,6 @@
       }
     ],
     "typing_speed": "medium",
-    "pause_between_commands": true,
     "default_pause": 1.0
   },
   "output": {

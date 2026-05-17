@@ -54,21 +54,29 @@ OUTPUT_FILE=""
 INPUT_FILE=""
 COLS_FROM_CLI="false"
 ROWS_FROM_CLI="false"
+THEME_FROM_CLI="false"
+SPEED_FROM_CLI="false"
+FONT_SIZE_FROM_CLI="false"
+IDLE_LIMIT_FROM_CLI="false"
+LOOP_FROM_CLI="false"
+FPS_CAP_FROM_CLI="false"
+LAST_FRAME_DURATION_FROM_CLI="false"
+WATERMARK_FROM_CLI="false"
 
 # --- Parse arguments ---
 while [ $# -gt 0 ]; do
     case "$1" in
         --help)            show_help ;;
-        --theme)           THEME="$2"; shift 2 ;;
-        --speed)           SPEED="$2"; shift 2 ;;
-        --font-size)       FONT_SIZE="$2"; shift 2 ;;
+        --theme)           THEME="$2"; THEME_FROM_CLI="true"; shift 2 ;;
+        --speed)           SPEED="$2"; SPEED_FROM_CLI="true"; shift 2 ;;
+        --font-size)       FONT_SIZE="$2"; FONT_SIZE_FROM_CLI="true"; shift 2 ;;
         --cols)            COLS="$2"; COLS_FROM_CLI="true"; shift 2 ;;
         --rows)            ROWS="$2"; ROWS_FROM_CLI="true"; shift 2 ;;
-        --idle-limit)      IDLE_LIMIT="$2"; shift 2 ;;
-        --no-loop)         LOOP="false"; shift ;;
-        --fps-cap)         FPS_CAP="$2"; shift 2 ;;
-        --last-frame-duration) LAST_FRAME_DURATION="$2"; shift 2 ;;
-        --watermark-text)  WATERMARK_TEXT="$2"; shift 2 ;;
+        --idle-limit)      IDLE_LIMIT="$2"; IDLE_LIMIT_FROM_CLI="true"; shift 2 ;;
+        --no-loop)         LOOP="false"; LOOP_FROM_CLI="true"; shift ;;
+        --fps-cap)         FPS_CAP="$2"; FPS_CAP_FROM_CLI="true"; shift 2 ;;
+        --last-frame-duration) LAST_FRAME_DURATION="$2"; LAST_FRAME_DURATION_FROM_CLI="true"; shift 2 ;;
+        --watermark-text)  WATERMARK_TEXT="$2"; WATERMARK_FROM_CLI="true"; shift 2 ;;
         --orientation)     ORIENTATION="$2"; shift 2 ;;
         --config)          CONFIG_PATH="$2"; shift 2 ;;
         --preset)          PRESET="$2"; shift 2 ;;
@@ -91,7 +99,7 @@ if [ -z "$INPUT_FILE" ]; then
     exit 1
 fi
 
-# Track which settings came from CLI (before config/preset override)
+# Save CLI values for re-application after config/preset loading
 CLI_THEME="$THEME"
 CLI_SPEED="$SPEED"
 CLI_FONT_SIZE="$FONT_SIZE"
@@ -119,19 +127,19 @@ json_get() {
     if command -v jq >/dev/null 2>&1; then
         jq -r "$query // empty" "$file" 2>/dev/null
     elif command -v python3 >/dev/null 2>&1; then
-        python3 -c "
+        python3 -c '
 import json, sys
-data = json.load(open('$file'))
-keys = '''$query'''.strip('.').split('.')
+data = json.load(open(sys.argv[1]))
+keys = sys.argv[2].strip(".").split(".")
 val = data
 for k in keys:
     if isinstance(val, dict) and k in val:
         val = val[k]
     else:
         sys.exit(0)
-if val is not None and val != '':
+if val is not None and val != "":
     print(val)
-" 2>/dev/null
+' "$file" "$query" 2>/dev/null
     fi
 }
 
@@ -184,14 +192,14 @@ if [ -n "$PRESET" ]; then
 fi
 
 # --- Apply CLI overrides (highest priority) ---
-[ "$CLI_THEME" != "asciinema" ]    && THEME="$CLI_THEME"
-[ "$CLI_SPEED" != "1.5" ]         && SPEED="$CLI_SPEED"
-[ "$CLI_FONT_SIZE" != "14" ]      && FONT_SIZE="$CLI_FONT_SIZE"
-[ "$CLI_IDLE_LIMIT" != "3" ]      && IDLE_LIMIT="$CLI_IDLE_LIMIT"
-[ "$CLI_LOOP" = "false" ]         && LOOP="false"
-[ "$CLI_FPS_CAP" != "30" ]        && FPS_CAP="$CLI_FPS_CAP"
-[ "$CLI_LAST_FRAME_DURATION" != "3" ] && LAST_FRAME_DURATION="$CLI_LAST_FRAME_DURATION"
-[ -n "$CLI_WATERMARK_TEXT" ]       && WATERMARK_TEXT="$CLI_WATERMARK_TEXT"
+[ "$THEME_FROM_CLI" = "true" ]              && THEME="$CLI_THEME"
+[ "$SPEED_FROM_CLI" = "true" ]              && SPEED="$CLI_SPEED"
+[ "$FONT_SIZE_FROM_CLI" = "true" ]          && FONT_SIZE="$CLI_FONT_SIZE"
+[ "$IDLE_LIMIT_FROM_CLI" = "true" ]         && IDLE_LIMIT="$CLI_IDLE_LIMIT"
+[ "$LOOP_FROM_CLI" = "true" ]               && LOOP="$CLI_LOOP"
+[ "$FPS_CAP_FROM_CLI" = "true" ]            && FPS_CAP="$CLI_FPS_CAP"
+[ "$LAST_FRAME_DURATION_FROM_CLI" = "true" ] && LAST_FRAME_DURATION="$CLI_LAST_FRAME_DURATION"
+[ "$WATERMARK_FROM_CLI" = "true" ]          && WATERMARK_TEXT="$CLI_WATERMARK_TEXT"
 
 # --- Apply orientation (if no explicit cols/rows from CLI) ---
 if [ -n "$ORIENTATION" ] && [ "$COLS_FROM_CLI" = "false" ] && [ "$ROWS_FROM_CLI" = "false" ]; then
