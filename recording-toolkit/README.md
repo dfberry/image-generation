@@ -6,6 +6,7 @@ Scripts, config, and guides for creating terminal demo recordings and GIFs.
 
 - **[asciinema](https://asciinema.org/)** — records terminal sessions to `.cast` files
 - **[agg](https://github.com/asciinema/agg)** — converts `.cast` files to animated GIFs (install: `cargo install agg`)
+- **[ffmpeg](https://ffmpeg.org/)** — converts GIFs to web-optimized MP4 (install: `sudo apt-get install ffmpeg` or `winget install ffmpeg`)
 - **[ImageMagick](https://imagemagick.org/)** — optional, for watermark overlay
 
 ## Quick Start
@@ -123,6 +124,7 @@ Converts `.cast` files to `.gif` using agg.
 | `--config` | `-Config` | auto | Path to config JSON |
 | `--preset` | `-Preset` | — | Preset name from config |
 | `--output` | `-OutputFile` | — | Override output file path |
+| `--format` | `-Format` | gif | Output format: `gif` or `mp4` (MP4 requires ffmpeg) |
 
 ### `record_cli.sh` / `record_cli.ps1`
 
@@ -170,7 +172,7 @@ Plans live in `recordings/plans/`. See `recordings/plans/copilot-cli-demo.json` 
   },
   "output": {
     "subdir": "cli",
-    "convert": { "preset": "blog-landscape" }
+    "convert": { "preset": "blog-landscape", "format": "both", "no_loop": true }
   }
 }
 ```
@@ -188,6 +190,8 @@ Plans live in `recordings/plans/`. See `recordings/plans/copilot-cli-demo.json` 
 | `record.default_pause` | no | Seconds to pause after each command (default: `1.0`) |
 | `output.subdir` | no | Subdirectory under `recordings/` for output (default: `cli`) |
 | `output.convert.preset` | no | Auto-convert to GIF using this preset after recording |
+| `output.convert.format` | no | Output format: `gif` (default), `mp4`, or `both` |
+| `output.convert.no_loop` | no | If `true`, disables GIF animation looping |
 
 ### Command Types
 
@@ -295,3 +299,32 @@ PowerShell (Windows via WSL):
 - **Config auto-discovery**: Scripts look for `recording-config.json` in the toolkit root (parent of `scripts/`) automatically.
 - **Watermark**: Requires ImageMagick (`magick` command). If not installed, the GIF is created without watermark and a warning is shown.
 - See `docs/` for detailed per-tool guides and `docs/azure_demo_best_practices.md` for demo structure guidance.
+
+## FAQ
+
+### Can MP4 videos loop like GIFs?
+
+GIF has a built-in loop flag (controlled via `no_loop` in plan config). MP4 looping depends on the player — use the HTML `<video loop>` attribute for web playback. The toolkit doesn't add looping metadata to MP4 files, but any player can loop them.
+
+### Do pre_record steps need to install all prerequisites every time?
+
+No. WSL persists state between recordings — software installed via `apt-get` stays installed, and files created remain on disk. The `command -v tool || apt-get install tool` pattern in pre_record is idempotent: it only installs if the tool is missing. After the first run, subsequent recordings skip the install step automatically.
+
+### Does WSL reset between recordings? Do files and software disappear?
+
+No. WSL is a persistent Linux environment. Everything installed or created during pre_record and recording persists permanently (until manually deleted or WSL is reset with `wsl --unregister`). This means:
+
+- Prerequisites only need to be installed once
+- Test files from previous recordings persist in `/tmp/` or wherever created
+- Environment variables set in pre_record persist only for that recording session (not across recordings)
+
+### What output formats are supported?
+
+The toolkit supports `gif`, `mp4`, or `both` via the `output.convert.format` plan field or `--format` CLI switch. GIF uses `agg` (asciinema GIF generator). MP4 converts the GIF to web-optimized MP4 via `ffmpeg` with `movflags faststart` for progressive loading. MP4 files are typically 40–60% smaller than equivalent GIFs.
+
+### Can I record interactive programs like GitHub Copilot CLI?
+
+The current toolkit uses auto-type + eval for non-interactive commands. Interactive programs (REPLs, Copilot CLI, etc.) that take over stdin are not yet supported. Options:
+
+- Use `asciinema rec` directly (manual recording)
+- Future: `expect`-based interactive command type is planned
