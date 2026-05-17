@@ -1,0 +1,55 @@
+{
+  "name": "script-creation-test",
+  "description": "Create and run a bash script demo",
+  "pre_record": {
+    "commands": [
+      "mkdir -p /tmp/demo && cd /tmp/demo"
+    ],
+    "clear_screen": true
+  },
+  "record": {
+    "commands": [
+      {
+        "type": "command",
+        "value": "echo '#!/bin/bash' > hello.sh",
+        "wait_for_output": true,
+        "pause_after": 1.5
+      },
+      {
+        "type": "command",
+        "value": "echo 'echo Hello from $(hostname)!' >> hello.sh",
+        "wait_for_output": true,
+        "pause_after": 1.5
+      },
+      {
+        "type": "command",
+        "value": "chmod +x hello.sh",
+        "wait_for_output": true,
+        "pause_after": 1.0
+      },
+      {
+        "type": "command",
+        "value": "cat hello.sh",
+        "wait_for_output": true,
+        "pause_after": 2.0
+      },
+      {
+        "type": "command",
+        "value": "./hello.sh",
+        "wait_for_output": true,
+        "pause_after": 2.0
+      }
+    ],
+    "typing_speed": "medium",
+    "default_pause": 1.0,
+    "prompt": "demo $ ",
+    "end_pause": 5
+  },
+  "output": {
+    "subdir": "test",
+    "convert": {
+      "preset": "blog-landscape",
+      "no_loop": true
+    }
+  }
+}

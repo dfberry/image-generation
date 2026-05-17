@@ -1,0 +1,55 @@
+{
+  "name": "git-workflow-test",
+  "description": "Git workflow demo: init, add, commit, log",
+  "pre_record": {
+    "commands": [
+      "rm -rf /tmp/git-demo && mkdir -p /tmp/git-demo && cd /tmp/git-demo && git init"
+    ],
+    "clear_screen": true
+  },
+  "record": {
+    "commands": [
+      {
+        "type": "command",
+        "value": "echo \"# My Project\" > README.md",
+        "wait_for_output": true,
+        "pause_after": 1.5
+      },
+      {
+        "type": "command",
+        "value": "git add .",
+        "wait_for_output": true,
+        "pause_after": 1.0
+      },
+      {
+        "type": "command",
+        "value": "git status",
+        "wait_for_output": true,
+        "pause_after": 2.0
+      },
+      {
+        "type": "command",
+        "value": "git commit -m \"Initial commit\"",
+        "wait_for_output": true,
+        "pause_after": 2.0
+      },
+      {
+        "type": "command",
+        "value": "git log --oneline",
+        "wait_for_output": true,
+        "pause_after": 2.0
+      }
+    ],
+    "typing_speed": "medium",
+    "default_pause": 1.0,
+    "prompt": "git-demo $ ",
+    "end_pause": 5
+  },
+  "output": {
+    "subdir": "test",
+    "convert": {
+      "preset": "blog-landscape",
+      "no_loop": true
+    }
+  }
+}

@@ -1,0 +1,9 @@
+# Ignore recording output files
+*.cast
+*.gif
+*.mp4
+
+# But keep test outputs for reproducibility
+!test/*.cast
+!test/*.gif
+

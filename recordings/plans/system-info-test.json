@@ -1,0 +1,53 @@
+{
+  "name": "system-info-test",
+  "description": "Check system info with multiple commands (hostname, whoami, date, python3, node)",
+  "pre_record": {
+    "commands": [],
+    "clear_screen": true
+  },
+  "record": {
+    "commands": [
+      {
+        "type": "command",
+        "value": "hostname",
+        "wait_for_output": true,
+        "pause_after": 1.5
+      },
+      {
+        "type": "command",
+        "value": "whoami",
+        "wait_for_output": true,
+        "pause_after": 1.5
+      },
+      {
+        "type": "command",
+        "value": "date",
+        "wait_for_output": true,
+        "pause_after": 1.5
+      },
+      {
+        "type": "command",
+        "value": "python3 --version",
+        "wait_for_output": true,
+        "pause_after": 1.5
+      },
+      {
+        "type": "command",
+        "value": "node --version",
+        "wait_for_output": true,
+        "pause_after": 1.5
+      }
+    ],
+    "typing_speed": "medium",
+    "default_pause": 1.0,
+    "prompt": "$ ",
+    "end_pause": 5
+  },
+  "output": {
+    "subdir": "test",
+    "convert": {
+      "preset": "blog-landscape",
+      "no_loop": true
+    }
+  }
+}
