@@ -84,6 +84,9 @@ if [ ! -f "$PLAN_FILE" ]; then
     exit 1
 fi
 
+# Resolve to absolute path so pre_record cd doesn't break file references
+PLAN_FILE="$(cd "$(dirname "$PLAN_FILE")" && pwd)/$(basename "$PLAN_FILE")"
+
 # --- JSON helpers ---
 # Prefer jq; fall back to python3
 json_get() {
