@@ -551,7 +551,7 @@ echo "Recording saved: $CAST_FILE"
 
 # --- Optional conversion ---
 if [ -n "$CONVERT_PRESET" ] && [ "$NO_CONVERT" = "false" ]; then
-    CONVERT_SCRIPT="$(dirname "$0")/convert_cast_to_gif.sh"
+    CONVERT_SCRIPT="$SCRIPT_DIR/convert_cast_to_gif.sh"
     if [ -f "$CONVERT_SCRIPT" ]; then
         [ -z "$CONVERT_FORMAT" ] && CONVERT_FORMAT="gif"
         GIF_FILE="${CAST_FILE%.cast}.gif"
