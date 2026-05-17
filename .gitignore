@@ -58,3 +58,6 @@ remotion-animation/outputs/*.tsx
 image-generation/tests/benchmarks.json
 
 media/
+
+# Recording output (local, not committed)
+recordings/
