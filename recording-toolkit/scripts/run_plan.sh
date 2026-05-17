@@ -339,9 +339,14 @@ wait_for_prompt() {
 
 SCRIPT_HEADER
 
-# --- Write pre_record commands ---
+# --- Phase 1: Run pre_record commands OUTSIDE asciinema ---
+# These run in the current shell so installs, file creation, etc. happen silently.
+# We capture the resulting working directory and any export statements to replay
+# inside the recorded session.
 PRE_COUNT=$(json_get_array_length "$PLAN_FILE" ".pre_record.commands")
+PRE_EXPORTS=""
 if [ -n "$PRE_COUNT" ] && [ "$PRE_COUNT" -gt 0 ]; then
+    echo "Running pre-record setup ($PRE_COUNT commands)..."
     i=0
     while [ $i -lt "$PRE_COUNT" ]; do
         if command -v jq >/dev/null 2>&1; then
@@ -349,12 +354,28 @@ if [ -n "$PRE_COUNT" ] && [ "$PRE_COUNT" -gt 0 ]; then
         elif command -v python3 >/dev/null 2>&1; then
             CMD=$(python3 -c 'import json,sys; d=json.load(open(sys.argv[1])); print(d["pre_record"]["commands"][int(sys.argv[2])])' "$PLAN_FILE" "$i" 2>/dev/null)
         fi
-        printf '%s\n' "$CMD" >> "$TEMP_SCRIPT"
+        echo "  [pre_record] $CMD"
+        eval "$CMD"
+        # Collect export statements to replay inside the recorded session
+        case "$CMD" in
+            export\ *) PRE_EXPORTS="${PRE_EXPORTS}${CMD}"$'\n' ;;
+        esac
         i=$((i+1))
     done
+    echo "Pre-record setup complete."
 fi
 
-# Clear screen if requested
+# Capture the working directory after pre_record commands
+PRE_CWD="$(pwd)"
+
+# --- Write session environment into temp script (runs inside asciinema) ---
+# Restore working directory from pre_record phase
+echo "cd $(printf '%q' "$PRE_CWD")" >> "$TEMP_SCRIPT"
+# Replay any export statements so env vars carry into the recording
+if [ -n "$PRE_EXPORTS" ]; then
+    printf '%s' "$PRE_EXPORTS" >> "$TEMP_SCRIPT"
+fi
+# Clear screen if requested — wipes the cd/export lines from view
 if [ "$CLEAR_SCREEN" = "true" ]; then
     echo "clear" >> "$TEMP_SCRIPT"
 fi
