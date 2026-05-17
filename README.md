@@ -10,6 +10,7 @@ This repository contains multiple media generation tools powered by AI models.
 | [manim-animation/](manim-animation/) | AI-powered Manim animation generation → MP4 | ✅ Active |
 | [remotion-animation/](remotion-animation/) | AI-powered Remotion animation generation → MP4 | ✅ Active |
 | [video-stitcher/](video-stitcher/) | Stitch multiple MP4 animations into a single video | ✅ Active |
+| [recording-toolkit/](recording-toolkit/) | Terminal recording → GIF with configurable themes, presets, and CLI switches | ✅ Active |
 | [mermaid-diagrams/](mermaid-diagrams/) | Diagram generation from text | 🔜 Planned |
 
 ## Getting Started

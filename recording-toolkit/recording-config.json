@@ -1,0 +1,49 @@
+{
+  "defaults": {
+    "theme": "asciinema",
+    "speed": 1.5,
+    "font_size": 14,
+    "cols": 120,
+    "rows": 30,
+    "idle_time_limit": 3,
+    "loop": true,
+    "fps_cap": 30,
+    "last_frame_duration": 3,
+    "watermark_text": "",
+    "output_dir": "recordings/cli"
+  },
+  "presets": {
+    "blog-landscape": {
+      "theme": "monokai",
+      "speed": 1.5,
+      "font_size": 16,
+      "cols": 120,
+      "rows": 30
+    },
+    "blog-large": {
+      "theme": "monokai",
+      "speed": 1.5,
+      "font_size": 20,
+      "cols": 100,
+      "rows": 25
+    },
+    "social-square": {
+      "theme": "dracula",
+      "font_size": 16,
+      "cols": 80,
+      "rows": 40
+    },
+    "compact": {
+      "theme": "nord",
+      "font_size": 12,
+      "cols": 80,
+      "rows": 24,
+      "speed": 2
+    }
+  },
+  "theme_aliases": {
+    "dark": "asciinema",
+    "light": "github-light",
+    "gruvbox": "gruvbox-dark"
+  }
+}

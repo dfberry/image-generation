@@ -59,5 +59,6 @@ image-generation/tests/benchmarks.json
 
 media/
 
-# Recording output (local, not committed)
-recordings/
+# Recording output (local, not committed) — ignore cast/gif files but track plan JSONs
+recordings/**/*.cast
+recordings/**/*.gif
