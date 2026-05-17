@@ -40,10 +40,10 @@ Typing speed presets:
   fast    — 30ms/char  ±10ms
 
 Examples:
-  ./run_plan.sh recordings/plans/copilot-cli-demo.json
-  ./run_plan.sh recordings/plans/copilot-cli-demo.json --dry-run
-  ./run_plan.sh recordings/plans/copilot-cli-demo.json --no-convert
-  ./run_plan.sh recordings/plans/copilot-cli-demo.json --output recordings/cli/my-demo.cast
+  ./run_plan.sh recordings/plans/copilot-cli-test.json
+  ./run_plan.sh recordings/plans/copilot-cli-test.json --dry-run
+  ./run_plan.sh recordings/plans/copilot-cli-test.json --no-convert
+  ./run_plan.sh recordings/plans/copilot-cli-test.json --output recordings/cli/my-demo.cast
 EOF
     exit 0
 }

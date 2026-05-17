@@ -30,9 +30,9 @@ This script translates Windows paths to WSL paths and calls run_plan.sh via WSL.
 asciinema requires a Unix terminal and cannot run natively on Windows.
 
 Examples:
-  .\run_plan.ps1 recordings\plans\copilot-cli-demo.json
-  .\run_plan.ps1 recordings\plans\copilot-cli-demo.json -DryRun
-  .\run_plan.ps1 recordings\plans\copilot-cli-demo.json -NoConvert
+  .\run_plan.ps1 recordings\plans\copilot-cli-test.json
+  .\run_plan.ps1 recordings\plans\copilot-cli-test.json -DryRun
+  .\run_plan.ps1 recordings\plans\copilot-cli-test.json -NoConvert
 "@
     exit 0
 }
