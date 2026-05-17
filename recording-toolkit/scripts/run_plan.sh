@@ -380,7 +380,7 @@ if [ -n "$REC_COUNT" ] && [ "$REC_COUNT" -gt 0 ]; then
                 cat >> "$TEMP_SCRIPT" <<CMD_BLOCK
 printf '%s' '$ESCAPED_PROMPT'
 auto_type '$ESCAPED_VALUE' $CHAR_DELAY $CHAR_VARIANCE
-$VALUE
+eval '$ESCAPED_VALUE'
 CMD_BLOCK
                 if [ "$WAIT_OUTPUT" = "true" ]; then
                     echo "wait_for_prompt $PAUSE_AFTER" >> "$TEMP_SCRIPT"
