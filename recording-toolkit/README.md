@@ -147,7 +147,7 @@ A recording plan is a JSON file that automates a two-phase recording workflow:
 1. **Pre-record phase** — runs setup commands silently (install tools, cd, set env vars), then clears the screen
 2. **Record phase** — starts asciinema, auto-types demo commands with realistic keystroke delays, waits for output
 
-Plans live in `recordings/plans/`. See `recordings/plans/copilot-cli-demo.json` for a working example.
+Plans live in `recordings/plans/`. See `recordings/plans/copilot-cli-test.json` for a working example.
 
 ### Plan JSON Format
 
@@ -188,6 +188,8 @@ Plans live in `recordings/plans/`. See `recordings/plans/copilot-cli-demo.json` 
 | `record.commands` | yes | Array of command objects (see below) |
 | `record.typing_speed` | no | `slow`, `medium` (default), or `fast` |
 | `record.default_pause` | no | Seconds to pause after each command (default: `1.0`) |
+| `record.end_pause` | no | Seconds to pause at end of recording (default: `2`) |
+| `record.prompt` | no | Terminal prompt string to display (default: `"$ "`) |
 | `output.subdir` | no | Subdirectory under `recordings/` for output (default: `cli`) |
 | `output.convert.preset` | no | Auto-convert to GIF using this preset after recording |
 | `output.convert.format` | no | Output format: `gif` (default), `mp4`, or `both` |
@@ -201,7 +203,7 @@ Plans live in `recordings/plans/`. See `recordings/plans/copilot-cli-demo.json` 
 | `pause` | `duration` | Waits silently (dramatic effect, output rendering) |
 | `type` | `value` | Types text without pressing Enter (partial input demos) |
 | `key` | `value` | Sends a special key: `enter`, `ctrl-c`, `ctrl-d`, `tab` |
-| `interactive` | `program`, `steps` | Spawns an interactive program and drives it via expect-style send/wait |
+| `interactive` | `program`, `steps` | Spawns an interactive program and drives it via expect-style send/wait. Optional: `timeout` |
 
 Command-type options:
 
@@ -268,24 +270,24 @@ Each step:
 
 ```bash
 # Run a plan
-./scripts/run_plan.sh recordings/plans/copilot-cli-demo.json
+./scripts/run_plan.sh recordings/plans/copilot-cli-test.json
 
 # Dry run — see what would execute without recording
-./scripts/run_plan.sh recordings/plans/copilot-cli-demo.json --dry-run
+./scripts/run_plan.sh recordings/plans/copilot-cli-test.json --dry-run
 
 # Skip GIF conversion
-./scripts/run_plan.sh recordings/plans/copilot-cli-demo.json --no-convert
+./scripts/run_plan.sh recordings/plans/copilot-cli-test.json --no-convert
 
 # Override output path
-./scripts/run_plan.sh recordings/plans/copilot-cli-demo.json --output recordings/cli/my-demo.cast
+./scripts/run_plan.sh recordings/plans/copilot-cli-test.json --output recordings/cli/my-demo.cast
 ```
 
 PowerShell (Windows via WSL):
 
 ```powershell
-.\scripts\run_plan.ps1 recordings\plans\copilot-cli-demo.json
-.\scripts\run_plan.ps1 recordings\plans\copilot-cli-demo.json -DryRun
-.\scripts\run_plan.ps1 recordings\plans\copilot-cli-demo.json -NoConvert
+.\scripts\run_plan.ps1 recordings\plans\copilot-cli-test.json
+.\scripts\run_plan.ps1 recordings\plans\copilot-cli-test.json -DryRun
+.\scripts\run_plan.ps1 recordings\plans\copilot-cli-test.json -NoConvert
 ```
 
 ### Plan Workflow

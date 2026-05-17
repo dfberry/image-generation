@@ -24,6 +24,7 @@
     ],
     "typing_speed": "medium",
     "default_pause": 1.0,
+    "prompt": "$ ",
     "end_pause": 3
   },
   "output": {
