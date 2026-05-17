@@ -1,0 +1,39 @@
+{
+  "name": "copilot-cli-demo",
+  "description": "Demo: start Copilot CLI and check date/time",
+  "pre_record": {
+    "commands": [
+      "export PS1='\\[\\033[1;32m\\]demo\\[\\033[0m\\] $ '"
+    ],
+    "clear_screen": true
+  },
+  "record": {
+    "commands": [
+      {
+        "type": "command",
+        "value": "/mnt/c/Program\\ Files/GitHub\\ CLI/gh.exe copilot --version",
+        "wait_for_output": true,
+        "pause_after": 2.0
+      },
+      {
+        "type": "command",
+        "value": "date",
+        "wait_for_output": true,
+        "pause_after": 2.0
+      },
+      {
+        "type": "pause",
+        "duration": 1.5
+      }
+    ],
+    "typing_speed": "medium",
+    "pause_between_commands": true,
+    "default_pause": 1.0
+  },
+  "output": {
+    "subdir": "cli",
+    "convert": {
+      "preset": "blog-landscape"
+    }
+  }
+}

@@ -138,6 +138,121 @@ Records terminal sessions using asciinema.
 | `--preset` | `-Preset` | — | Preset name from config |
 | `--orientation` | `-Orientation` | — | `landscape` (120×30) or `portrait` (40×80) |
 
+## Recording Plans
+
+A recording plan is a JSON file that automates a two-phase recording workflow:
+
+1. **Pre-record phase** — runs setup commands silently (install tools, cd, set env vars), then clears the screen
+2. **Record phase** — starts asciinema, auto-types demo commands with realistic keystroke delays, waits for output
+
+Plans live in `recordings/plans/`. See `recordings/plans/copilot-cli-demo.json` for a working example.
+
+### Plan JSON Format
+
+```json
+{
+  "name": "my-demo",
+  "description": "Optional human-readable description",
+  "pre_record": {
+    "commands": [
+      "cd /mnt/c/my-project",
+      "export PS1='$ '"
+    ],
+    "clear_screen": true
+  },
+  "record": {
+    "commands": [
+      { "type": "command", "value": "gh --version", "wait_for_output": true, "pause_after": 1.5 },
+      { "type": "pause",   "duration": 1.0 }
+    ],
+    "typing_speed": "medium",
+    "default_pause": 1.0
+  },
+  "output": {
+    "subdir": "cli",
+    "convert": { "preset": "blog-landscape" }
+  }
+}
+```
+
+### Plan Fields
+
+| Field | Required | Description |
+|-------|----------|-------------|
+| `name` | yes | Identifier used in output filename |
+| `description` | no | Human-readable description |
+| `pre_record.commands` | no | Shell commands run silently before recording |
+| `pre_record.clear_screen` | no | If `true`, clears the terminal before recording starts |
+| `record.commands` | yes | Array of command objects (see below) |
+| `record.typing_speed` | no | `slow`, `medium` (default), or `fast` |
+| `record.default_pause` | no | Seconds to pause after each command (default: `1.0`) |
+| `output.subdir` | no | Subdirectory under `recordings/` for output (default: `cli`) |
+| `output.convert.preset` | no | Auto-convert to GIF using this preset after recording |
+
+### Command Types
+
+| Type | Required Fields | Description |
+|------|----------------|-------------|
+| `command` | `value` | Auto-types the command, presses Enter, waits for output |
+| `pause` | `duration` | Waits silently (dramatic effect, output rendering) |
+| `type` | `value` | Types text without pressing Enter (partial input demos) |
+| `key` | `value` | Sends a special key: `enter`, `ctrl-c`, `ctrl-d`, `tab` |
+
+Command-type options:
+
+| Option | Default | Description |
+|--------|---------|-------------|
+| `wait_for_output` | `false` | Wait after Enter for command output to render |
+| `pause_after` | `default_pause` | Seconds to pause after this command |
+
+### Typing Speed Presets
+
+| Speed | Char delay | Variance | Use For |
+|-------|------------|----------|---------|
+| `slow` | 120 ms | ±40 ms | Accessibility, close-ups |
+| `medium` | 60 ms | ±20 ms | Standard demos |
+| `fast` | 30 ms | ±10 ms | Quick utility commands |
+
+### Scripts
+
+| Script | Description |
+|--------|-------------|
+| `scripts/run_plan.sh` | Bash runner — reads plan JSON and executes two-phase recording |
+| `scripts/run_plan.ps1` | PowerShell wrapper — translates paths and calls `run_plan.sh` via WSL |
+
+```bash
+# Run a plan
+./scripts/run_plan.sh recordings/plans/copilot-cli-demo.json
+
+# Dry run — see what would execute without recording
+./scripts/run_plan.sh recordings/plans/copilot-cli-demo.json --dry-run
+
+# Skip GIF conversion
+./scripts/run_plan.sh recordings/plans/copilot-cli-demo.json --no-convert
+
+# Override output path
+./scripts/run_plan.sh recordings/plans/copilot-cli-demo.json --output recordings/cli/my-demo.cast
+```
+
+PowerShell (Windows via WSL):
+
+```powershell
+.\scripts\run_plan.ps1 recordings\plans\copilot-cli-demo.json
+.\scripts\run_plan.ps1 recordings\plans\copilot-cli-demo.json -DryRun
+.\scripts\run_plan.ps1 recordings\plans\copilot-cli-demo.json -NoConvert
+```
+
+### Plan Workflow
+
+```
+1. Create plan JSON in recordings/plans/
+2. Dry run to verify:  ./scripts/run_plan.sh <plan.json> --dry-run
+3. Record:            ./scripts/run_plan.sh <plan.json>
+4. GIF auto-converts if output.convert.preset is set
+```
+
+---
+
 ## Example Workflows
 
 ### Record and convert with preset
