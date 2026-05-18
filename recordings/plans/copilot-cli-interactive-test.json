@@ -1,0 +1,60 @@
+{
+  "name": "copilot-cli-interactive-test",
+  "description": "Demo interactive GitHub Copilot CLI TUI session. Launches copilot in interactive mode (-C /root to keep CWD clean), accepts the folder-trust dialog, sends a programming joke prompt, waits for the Copilot response, then exits with Ctrl+D. Requires GH_TOKEN or 'copilot login' beforehand.",
+  "pre_record": {
+    "commands": [
+      "which copilot || npm install -g @github/copilot",
+      "export PS1='demo $ '"
+    ],
+    "clear_screen": true
+  },
+  "record": {
+    "commands": [
+      {
+        "type": "command",
+        "value": "copilot --version",
+        "wait_for_output": true,
+        "pause_after": 2.0
+      },
+      {
+        "type": "pause",
+        "duration": 1.0
+      },
+      {
+        "type": "interactive",
+        "program": "copilot -C /root",
+        "steps": [
+          {
+            "wait_for": "Do you trust",
+            "send": "",
+            "pause_after": 2.0
+          },
+          {
+            "wait_for": "/ commands",
+            "send": "write me a short programming joke",
+            "pause_after": 3.0
+          },
+          {
+            "wait_for": "/ commands",
+            "send": "\u0004",
+            "pause_after": 3.0
+          }
+        ],
+        "timeout": 60,
+        "pause_after": 2.0
+      }
+    ],
+    "typing_speed": "slow",
+    "default_pause": 1.5,
+    "prompt": "demo $ ",
+    "end_pause": 5
+  },
+  "output": {
+    "subdir": "cli",
+    "convert": {
+      "preset": "blog-landscape",
+      "format": "both",
+      "no_loop": true
+    }
+  }
+}
