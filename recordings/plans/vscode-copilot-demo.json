@@ -1,0 +1,28 @@
+{
+  "name": "vscode-copilot-demo",
+  "description": "Full VS Code + Copilot CLI desktop recording — one-shot mode",
+  "type": "desktop",
+  "pre_record": {
+    "commands": [
+      "pip install pyautogui mss numpy",
+      "npm install -g @github/copilot"
+    ]
+  },
+  "capture": {
+    "mode": "full",
+    "fps": 30,
+    "resolution": [1920, 1080]
+  },
+  "steps": [
+    { "action": "launch", "program": "code", "args": ["C:\\my-project"], "wait": 5 },
+    { "action": "hotkey", "keys": ["ctrl", "`"], "wait": 1 },
+    { "action": "type",   "text": "copilot -p \"Tell me a programming joke\" --allow-all",
+                          "interval": 0.04 },
+    { "action": "press",  "key": "enter", "wait": 20 },
+    { "action": "pause",  "wait": 3 },
+    { "action": "hotkey", "keys": ["ctrl", "d"] }
+  ],
+  "output": {
+    "subdir": "desktop"
+  }
+}

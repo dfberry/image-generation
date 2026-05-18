@@ -87,6 +87,19 @@ fi
 # Resolve to absolute path so pre_record cd doesn't break file references
 PLAN_FILE="$(cd "$(dirname "$PLAN_FILE")" && pwd)/$(basename "$PLAN_FILE")"
 
+# --- Type-routing: dispatch desktop plans to demo_plan_runner.py ---
+PLAN_TYPE=$(python3 -c "import json,sys; d=json.load(open(sys.argv[1])); print(d.get('type','terminal'))" "$PLAN_FILE" 2>/dev/null || echo "terminal")
+
+if [ "$PLAN_TYPE" = "desktop" ]; then
+    SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
+    RUNNER_ARGS="$PLAN_FILE"
+    [ "$DRY_RUN" = "true" ] && RUNNER_ARGS="$RUNNER_ARGS --dry-run"
+    [ -n "$OUTPUT_OVERRIDE" ] && RUNNER_ARGS="$RUNNER_ARGS --output $OUTPUT_OVERRIDE"
+    [ -n "$CONFIG_PATH" ] && RUNNER_ARGS="$RUNNER_ARGS --config $CONFIG_PATH"
+    python3 "$SCRIPT_DIR/demo_plan_runner.py" $RUNNER_ARGS
+    exit $?
+fi
+
 # --- JSON helpers ---
 # Prefer jq; fall back to python3
 json_get() {

@@ -398,6 +398,169 @@ No. WSL is a persistent Linux environment. Everything installed or created durin
 
 The toolkit supports `gif`, `mp4`, or `both` via the `output.convert.format` plan field or `--format` CLI switch. GIF uses `agg` (asciinema GIF generator). MP4 converts the GIF to web-optimized MP4 via `ffmpeg` with `movflags faststart` for progressive loading. MP4 provides better streaming compatibility and progressive loading (faststart), though file sizes vary by content — terminal recordings in particular may produce larger MP4s than GIFs.
 
+---
+
+## Desktop Recording
+
+Desktop recording captures the **full screen** (or a region) as video while simultaneously automating VS Code and the Copilot CLI via Python. Use it when you need to show the developer experience beyond the terminal — editor UI, Copilot Chat panel, mouse interactions, multi-window workflows.
+
+For terminal-only demos (pure CLI output), continue using the terminal recording pipeline (asciinema + agg).
+
+### Desktop Prerequisites
+
+```bash
+# Python packages
+pip install pyautogui mss opencv-python numpy
+
+# System tools
+winget install ffmpeg
+winget install Microsoft.VisualStudioCode
+npm install -g @github/copilot
+```
+
+Verify all prerequisites:
+
+```bash
+python recording-toolkit/scripts/check_prereqs.py
+```
+
+### Quick Start (Desktop)
+
+```bash
+# Standalone: capture full desktop for 5 seconds
+python recording-toolkit/scripts/record_desktop.py --output recordings/desktop/test.mp4 --duration 5
+
+# Dry-run: see FFmpeg command without recording
+python recording-toolkit/scripts/record_desktop.py --output test.mp4 --dry-run
+
+# Plan-driven: run a full automation + recording plan
+python recording-toolkit/scripts/demo_plan_runner.py recordings/plans/vscode-copilot-demo.json
+
+# Or via the unified plan runner (auto-dispatches by type)
+./scripts/run_plan.sh recordings/plans/vscode-copilot-demo.json
+```
+
+### Desktop Presets
+
+| Preset | Resolution | FPS | Encoder | Use Case |
+|--------|-----------|-----|---------|----------|
+| `demo-fullscreen` | 1920×1080 | 30 | auto | Blog posts, full VS Code window |
+| `demo-720p` | 1280×720 | 30 | auto | Lighter encode; still HD |
+| `quick-test` | 1280×720 | 15 | libx264 | Fast iteration during plan authoring — no GPU required |
+| `social-widescreen` | 1920×1080 | 24 | auto | Social media clips (24fps film-like feel) |
+
+### Desktop Plan Format
+
+Desktop plans use `"type": "desktop"` and live in `recordings/plans/`.
+
+```json
+{
+  "name": "vscode-copilot-demo",
+  "description": "Full VS Code + Copilot CLI desktop recording",
+  "type": "desktop",
+  "pre_record": {
+    "commands": ["pip install pyautogui mss numpy"]
+  },
+  "capture": {
+    "mode": "full",
+    "fps": 30,
+    "resolution": [1920, 1080]
+  },
+  "steps": [
+    { "action": "launch", "program": "code", "args": ["C:\\my-project"], "wait": 5 },
+    { "action": "hotkey", "keys": ["ctrl", "`"], "wait": 1 },
+    { "action": "type",   "text": "copilot -p \"joke\" --allow-all", "interval": 0.04 },
+    { "action": "press",  "key": "enter", "wait": 15 }
+  ],
+  "output": { "subdir": "desktop" }
+}
+```
+
+#### Top-level fields
+
+| Field | Required | Type | Description |
+|-------|----------|------|-------------|
+| `name` | yes | string | Used in output filename |
+| `description` | no | string | Human-readable description |
+| `type` | yes | `"desktop"` | Discriminator — triggers desktop runner |
+| `pre_record` | no | object | Setup commands run before recording starts |
+| `capture` | yes | object | Capture configuration |
+| `steps` | yes | array | Automation steps to execute during recording |
+| `output` | no | object | Output configuration |
+
+#### `capture` object
+
+| Field | Default | Description |
+|-------|---------|-------------|
+| `mode` | `"full"` | `"full"` = primary monitor; `"region"` = explicit coords |
+| `fps` | `30` | Frames per second |
+| `resolution` | `[1920, 1080]` | Capture width × height |
+| `region` | — | `[x, y, w, h]` pixels (only when `mode: "region"`) |
+
+### Desktop Step Actions
+
+| Action | Required fields | Optional | Description |
+|--------|----------------|----------|-------------|
+| `launch` | `program` | `args`, `wait` | Start an application |
+| `hotkey` | `keys` | `wait` | Key combination (e.g., `["ctrl", "\`"]`) |
+| `type` | `text` | `interval`, `wait` | Type text character-by-character |
+| `press` | `key` | `wait` | Press a single key |
+| `click` | `x`, `y` | `wait` | Left-click at coordinates |
+| `right_click` | `x`, `y` | `wait` | Right-click at coordinates |
+| `move` | `x`, `y` | `duration`, `wait` | Move mouse |
+| `scroll` | `x`, `y`, `clicks` | `wait` | Scroll wheel |
+| `pause` | — | `wait` | No-op; wait-only step |
+| `screenshot` | — | `filename`, `wait` | Save debug screenshot |
+
+All steps accept `wait` (seconds to sleep after action). Default: `0`.
+
+### Desktop Scripts Reference
+
+#### `record_desktop.py`
+
+| Option | Short | Default | Description |
+|--------|-------|---------|-------------|
+| `--output <path>` | `-o` | required | Output MP4 file path |
+| `--fps <int>` | `-f` | `30` | Frames per second |
+| `--duration <sec>` | `-d` | unlimited | Stop after N seconds |
+| `--region <x,y,w,h>` | `-r` | full monitor | Capture region |
+| `--resolution <WxH>` | — | primary monitor | Override capture size |
+| `--encoder <name>` | `-e` | auto | Force encoder |
+| `--preset <name>` | `-p` | — | Named preset from config |
+| `--config <path>` | `-c` | auto-discover | Path to recording-config.json |
+| `--queue-size <int>` | — | `120` | Frame queue buffer |
+| `--dry-run` | — | false | Print FFmpeg command and exit |
+| `--verbose` | `-v` | false | Per-frame timing stats |
+
+#### `demo_plan_runner.py`
+
+| Option | Short | Default | Description |
+|--------|-------|---------|-------------|
+| `--dry-run` | — | false | Print steps without executing |
+| `--output <path>` | `-o` | from plan name + timestamp | Override output path |
+| `--no-record` | — | false | Run automation without recording |
+| `--config <path>` | `-c` | auto-discover | Path to recording-config.json |
+| `--preset <name>` | `-p` | — | Override capture preset |
+| `--step-log` | — | false | Print each step as it executes |
+
+#### `check_prereqs.py`
+
+No arguments. Prints ✅/❌ table. Exit 0 = all pass, exit 1 = any fail.
+
+### FAQ (Desktop)
+
+#### How does GPU encoder detection work?
+
+`record_desktop.py` probes encoders at startup by running a 1-second test encode to NUL. Probe order: `h264_nvenc` (NVIDIA) → `h264_amf` (AMD) → `h264_qsv` (Intel) → `libx264` (CPU, always available). Override with `--encoder libx264` to force CPU encoding.
+
+#### Why do captured frames look wrong on HiDPI displays?
+
+Windows DPI scaling causes screenshot dimensions to mismatch. The scripts call `ctypes.windll.user32.SetProcessDPIAware()` before any imports to prevent this. If you still see issues, check that `mss` is imported before `pyautogui` (import order matters).
+
+#### Why not use OBS?
+
+OBS produces higher quality output with scene switching and audio, but requires installation + configuration. The mss + FFmpeg approach is zero-config and integrates into the plan runner pipeline. OBS integration is planned for a future version.
+
 ### Can I record interactive programs like GitHub Copilot CLI?
 
 Yes — use the `"type": "interactive"` command with `expect`-style send/wait steps. The toolkit

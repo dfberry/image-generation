@@ -3,6 +3,9 @@
 *.gif
 *.mp4
 
+# Desktop recording outputs (large binary MP4s)
+desktop/
+
 # But keep test outputs for reproducibility
 !test/*.cast
 !test/*.gif

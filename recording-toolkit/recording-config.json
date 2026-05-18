@@ -45,5 +45,21 @@
     "dark": "asciinema",
     "light": "github-light",
     "gruvbox": "gruvbox-dark"
+  },
+  "desktop": {
+    "defaults": {
+      "fps": 30,
+      "encoder": "auto",
+      "capture_mode": "full",
+      "resolution": [1920, 1080],
+      "typing_interval": 0.04,
+      "output_dir": "recordings/desktop"
+    },
+    "presets": {
+      "demo-fullscreen":   { "fps": 30, "resolution": [1920, 1080], "encoder": "auto" },
+      "demo-720p":         { "fps": 30, "resolution": [1280, 720],  "encoder": "auto" },
+      "quick-test":        { "fps": 15, "resolution": [1280, 720],  "encoder": "libx264" },
+      "social-widescreen": { "fps": 24, "resolution": [1920, 1080], "encoder": "auto" }
+    }
   }
 }
