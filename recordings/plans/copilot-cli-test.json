@@ -1,10 +1,9 @@
 {
   "name": "copilot-cli-test",
-  "description": "Demo the standalone GitHub Copilot CLI binary — version check then one-shot prompt via -p flag. The copilot binary lives at ~/.local/share/gh/copilot/copilot (auto-downloaded by gh copilot on first run). WSL PATH is stripped of Windows paths and ~/.local/share/gh/copilot is prepended so the native Linux binary is used. Requires GH_TOKEN or gh auth login in WSL beforehand.",
+  "description": "Demo the standalone GitHub Copilot CLI (npm install -g @github/copilot). Shows version check then a one-shot prompt via -p. The copilot binary is a plain npm global — no gh dependency. Requires GH_TOKEN or 'copilot login' to have been run beforehand.",
   "pre_record": {
     "commands": [
-      "export PATH=$(echo \"$PATH\" | tr ':' '\\n' | grep -v '/mnt/c' | tr '\\n' ':'):~/.local/share/gh/copilot",
-      "command -v copilot || { echo 'ERROR: copilot binary not found. Run gh copilot once to download it.'; exit 1; }",
+      "which copilot || npm install -g @github/copilot",
       "export PS1='demo $ '"
     ],
     "clear_screen": true
@@ -13,7 +12,7 @@
     "commands": [
       {
         "type": "command",
-        "value": "gh --version",
+        "value": "npm list -g @github/copilot",
         "wait_for_output": true,
         "pause_after": 1.5
       },
