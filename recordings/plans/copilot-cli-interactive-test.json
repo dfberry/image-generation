@@ -3,6 +3,7 @@
   "description": "Demo interactive GitHub Copilot CLI TUI session. Launches copilot in interactive mode (-C /root to keep CWD clean), accepts the folder-trust dialog, sends a programming joke prompt, waits for the Copilot response, then exits with Ctrl+D. Requires GH_TOKEN or 'copilot login' beforehand.",
   "pre_record": {
     "commands": [
+      "command -v expect || sudo apt-get install -y expect",
       "which copilot || npm install -g @github/copilot",
       "export PS1='demo $ '"
     ],

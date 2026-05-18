@@ -520,6 +520,10 @@ with open(out_file, 'w') as f:
     f.write('\n'.join(lines) + '\n')
 os.chmod(out_file, 0o755)
 PYEOF
+                if [ $? -ne 0 ] || [ ! -s "$EXPECT_SCRIPT" ]; then
+                    echo "Error: failed to generate expect script for interactive command at index $i" >&2
+                    exit 1
+                fi
 
                 echo "expect -f $EXPECT_SCRIPT" >> "$TEMP_SCRIPT"
                 echo "sleep $PAUSE_AFTER" >> "$TEMP_SCRIPT"
