@@ -1,11 +1,12 @@
 {
   "name": "copilot-cli-test",
-  "description": "Demo GitHub Copilot CLI — version check + interactive suggest session using expect-style automation. NOTE: requires native Linux gh in WSL (not Windows gh.exe — Windows interop bypasses the PTY layer that expect uses). Pre-record installs gh via apt and the gh-copilot extension. Also requires gh auth login to have been run in WSL beforehand.",
+  "description": "Demo GitHub Copilot CLI (gh copilot built-in, gh v2.92+) — version check then one-shot prompt via -p flag. WSL PATH is stripped of Windows paths so the native Linux gh binary is used, not the Windows gh.bat shim. Requires gh auth login to have been run in WSL beforehand.",
   "pre_record": {
     "commands": [
+      "export PATH=$(echo \"$PATH\" | tr ':' '\\n' | grep -v '/mnt/c' | tr '\\n' ':')",
       "command -v gh || sudo apt-get install -y gh",
       "gh auth status || { echo 'ERROR: gh not authenticated. Run: gh auth login'; exit 1; }",
-      "gh extension list 2>/dev/null | grep -q copilot || gh extension install github/gh-copilot",
+      "gh copilot --version || { echo 'ERROR: gh copilot not available. Upgrade gh to v2.92+'; exit 1; }",
       "export PS1='demo $ '"
     ],
     "clear_screen": true
@@ -25,22 +26,18 @@
         "pause_after": 2.0
       },
       {
-        "type": "interactive",
-        "program": "gh copilot suggest -t shell",
-        "steps": [
-          {
-            "wait_for": "What would you like",
-            "send": "write a bash for loop that counts from 1 to 5",
-            "pause_after": 1.0
-          },
-          {
-            "wait_for": "Select an option",
-            "send": "\u0003",
-            "pause_after": 1.0
-          }
-        ],
-        "timeout": 60,
-        "pause_after": 2.0
+        "type": "pause",
+        "duration": 1.0
+      },
+      {
+        "type": "command",
+        "value": "gh copilot -p \"Tell me a programming joke\"",
+        "wait_for_output": true,
+        "pause_after": 8.0
+      },
+      {
+        "type": "pause",
+        "duration": 2.0
       }
     ],
     "typing_speed": "slow",
