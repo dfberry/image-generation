@@ -23,6 +23,15 @@
 
 set -euo pipefail
 
+# NOTE: Environment variables set by this script are session-scoped.
+# To persist env vars to the parent shell, source this script instead of executing it:
+#   source ./scripts/create-azure-openai-dalle.sh
+if [[ "${BASH_SOURCE[0]}" == "${0}" ]]; then
+    echo "⚠️  NOTE: Running as script (not sourced). Environment variables will NOT persist."
+    echo "   To persist env vars, run: source ${0}"
+    echo ""
+fi
+
 # ---------------------------------------------------------------------------
 # Configuration — override these variables as needed
 # ---------------------------------------------------------------------------
@@ -68,7 +77,23 @@ else
         --kind "OpenAI" \
         --sku "$SKU" \
         --output none
-    echo "    Done. (This may take a minute to propagate.)"
+    echo "    Done."
+    echo "    Waiting for resource to become ready..."
+    for i in $(seq 1 30); do
+        STATE=$(az cognitiveservices account show \
+            --name "$OPENAI_RESOURCE_NAME" \
+            --resource-group "$RESOURCE_GROUP" \
+            --query "properties.provisioningState" \
+            --output tsv 2>/dev/null)
+        if [[ "$STATE" == "Succeeded" ]]; then
+            break
+        fi
+        sleep 5
+    done
+    if [[ "$STATE" != "Succeeded" ]]; then
+        echo "ERROR: Resource did not reach Succeeded state (current: $STATE)"
+        exit 1
+    fi
 fi
 
 # ---------------------------------------------------------------------------
@@ -114,6 +139,13 @@ KEY=$(az cognitiveservices account keys list \
     --query "key1" \
     --output tsv)
 
+if [[ -z "$ENDPOINT" || -z "$KEY" ]]; then
+    echo "ERROR: Could not retrieve endpoint or key. Resource may still be provisioning."
+    exit 1
+fi
+
+MASKED_KEY="${KEY:0:4}********************************"
+
 # ---------------------------------------------------------------------------
 # Step 5: Set environment variables in current session
 # ---------------------------------------------------------------------------
@@ -130,17 +162,21 @@ echo " Azure OpenAI DALL-E 3 — Ready"
 echo "============================================================"
 echo ""
 echo " Endpoint:    ${ENDPOINT}"
-echo " API Key:     ${KEY}"
+echo " API Key:     ${MASKED_KEY}"
 echo " Deployment:  ${DEPLOYMENT_NAME}"
 echo ""
 echo " ✓ Environment variables SET in current session:"
 echo ""
 echo "   STORY_VIDEO_AZURE_OPENAI_ENDPOINT=${ENDPOINT}"
-echo "   STORY_VIDEO_AZURE_OPENAI_API_KEY=${KEY}"
+echo "   STORY_VIDEO_AZURE_OPENAI_API_KEY=<set - use 'az cognitiveservices account keys list' to retrieve>"
 echo "   STORY_VIDEO_AZURE_OPENAI_DEPLOYMENT=${DEPLOYMENT_NAME}"
 echo ""
 echo " Ready to use with story-video:"
 echo "   story-video render --input story.txt --provider azure"
+echo ""
+echo " ⚠️  SECURITY: Never commit API keys to source control."
+echo "     Use a secret manager (Azure Key Vault) for production workloads."
+echo "     If storing locally, ensure .env is in .gitignore."
 echo ""
 echo " NOTE: These environment variables are session-scoped. If you"
 echo " open a new terminal, re-run this script or manually set them."
