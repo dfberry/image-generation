@@ -24,6 +24,10 @@ python $runner $planFile --dry-run
 
 if ($LASTEXITCODE -eq 0) {
     Write-Host "PASS: Dry-run completed successfully."
+    Write-Host ""
+    Write-Host "Note: For real recordings, add --verify to check the output video:"
+    Write-Host "  python $runner <plan.json> --verify"
+    Write-Host "  (--verify is skipped in dry-run mode; it requires an actual recorded file)"
     exit 0
 } else {
     Write-Host "FAIL: Dry-run exited with code $LASTEXITCODE."
