@@ -87,6 +87,19 @@ fi
 # Resolve to absolute path so pre_record cd doesn't break file references
 PLAN_FILE="$(cd "$(dirname "$PLAN_FILE")" && pwd)/$(basename "$PLAN_FILE")"
 
+# --- Type-routing: dispatch desktop plans to demo_plan_runner.py ---
+PLAN_TYPE=$(python3 -c "import json,sys; d=json.load(open(sys.argv[1])); print(d.get('type','terminal'))" "$PLAN_FILE" 2>/dev/null || echo "terminal")
+
+if [ "$PLAN_TYPE" = "desktop" ]; then
+    SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
+    RUNNER_ARGS="$PLAN_FILE"
+    [ "$DRY_RUN" = "true" ] && RUNNER_ARGS="$RUNNER_ARGS --dry-run"
+    [ -n "$OUTPUT_OVERRIDE" ] && RUNNER_ARGS="$RUNNER_ARGS --output $OUTPUT_OVERRIDE"
+    [ -n "$CONFIG_PATH" ] && RUNNER_ARGS="$RUNNER_ARGS --config $CONFIG_PATH"
+    python3 "$SCRIPT_DIR/demo_plan_runner.py" $RUNNER_ARGS
+    exit $?
+fi
+
 # --- JSON helpers ---
 # Prefer jq; fall back to python3
 json_get() {
@@ -344,7 +357,7 @@ if [ "$DRY_RUN" = "true" ]; then
 fi
 
 # --- Generate temp demo script ---
-TEMP_SCRIPT=$(mktemp /tmp/plan_demo_XXXXXX.sh)
+TEMP_SCRIPT=$(mktemp ./plan_demo_XXXXXX.sh)
 TEMP_EXPECT_SCRIPTS=""
 trap 'rm -f "$TEMP_SCRIPT" $TEMP_EXPECT_SCRIPTS' EXIT INT TERM
 
@@ -473,7 +486,7 @@ TYPE_BLOCK
                 [ -z "$INT_TIMEOUT" ] && INT_TIMEOUT="10"
 
                 # Generate a per-segment expect script
-                EXPECT_SCRIPT=$(mktemp /tmp/plan_expect_XXXXXX.exp)
+                EXPECT_SCRIPT=$(mktemp ./plan_expect_XXXXXX.exp)
                 TEMP_EXPECT_SCRIPTS="$TEMP_EXPECT_SCRIPTS $EXPECT_SCRIPT"
 
                 python3 - "$PLAN_FILE" "$i" "$CHAR_DELAY" "$CHAR_VARIANCE" "$INT_TIMEOUT" "$EXPECT_SCRIPT" <<'PYEOF'
