@@ -63,6 +63,7 @@ media/
 recordings/**/*.cast
 recordings/**/*.gif
 recordings/**/*.mp4
+recording-toolkit/recordings/
 
 # Desktop recording checkpoints — generated during smoke tests
 checkpoint-*.png
