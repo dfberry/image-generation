@@ -98,7 +98,8 @@ def detect_encoder(force: str = None) -> tuple:
 
 
 def capture_thread(queue: Queue, region: dict, fps: int, stop_event: threading.Event,
-                   verbose: bool = False, stats: dict = None):
+                   verbose: bool = False, stats: dict = None,
+                   ready_event: threading.Event = None):
     """Capture frames at drift-compensated intervals and push to queue.
 
     Uses fixed-interval timing: next_frame = start + (frame_count / fps)
@@ -115,6 +116,11 @@ def capture_thread(queue: Queue, region: dict, fps: int, stop_event: threading.E
                 time.sleep(lag)
 
             frame = numpy.array(sct.grab(region))
+
+            # Signal after the first real frame is grabbed
+            if frame_count == 0 and ready_event is not None:
+                ready_event.set()
+
             try:
                 queue.put(frame, block=True, timeout=0.5)
             except (Full,):
@@ -246,7 +252,7 @@ def record(output_path: str, region: dict, fps: int = 30, duration: float = None
     t_capture = threading.Thread(
         target=capture_thread,
         args=(q, region, fps, stop_event, verbose),
-        kwargs={"stats": capture_stats},
+        kwargs={"stats": capture_stats, "ready_event": ready_event},
         daemon=True,
     )
     t_encode = threading.Thread(
@@ -258,10 +264,6 @@ def record(output_path: str, region: dict, fps: int = 30, duration: float = None
     logger.info("[record] Capture started")
     t_capture.start()
     t_encode.start()
-
-    # Signal caller that capture is now actively running
-    if ready_event is not None:
-        ready_event.set()
 
     if duration:
         time.sleep(duration)
