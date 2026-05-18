@@ -282,6 +282,6 @@ if [ "$FORMAT" = "mp4" ]; then
         -movflags faststart \
         -pix_fmt yuv420p \
         -vf "scale=trunc(iw/2)*2:trunc(ih/2)*2" \
-        "$MP4_FILE" 2>/dev/null
+        "$MP4_FILE" 2>/dev/null || { echo "Error: ffmpeg failed converting to MP4" >&2; exit 1; }
     echo "Created: $MP4_FILE"
 fi

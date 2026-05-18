@@ -506,7 +506,7 @@ for step in steps:
     pause     = step.get('pause_after', None)
     # Braces for expect pattern → literal match, no special-char interpretation
     # Only escape } inside the pattern
-    safe_wait = wait_for.replace('\\', '\\\\').replace('}', '\\}')
+    safe_wait = wait_for.replace('\\', '\\\\').replace('}', '\\}').replace('[', '\\[').replace(']', '\\]').replace('*', '\\*').replace('?', '\\?')
     # Double-quoted Tcl string for send; escape \ and "
     safe_send = send_text.replace('\\', '\\\\').replace('"', '\\"')
     lines.append('expect {' + safe_wait + '}')

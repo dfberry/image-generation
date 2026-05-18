@@ -231,7 +231,7 @@ Drives interactive programs (REPLs, CLIs) that take over stdin. Uses `expect` un
 
 | Field | Required | Description |
 |-------|----------|-------------|
-| `program` | yes | Program to spawn (e.g., `python3`, `node`, `gh copilot`) |
+| `program` | yes | Program to spawn (e.g., `python3`, `node`, `copilot`) |
 | `steps` | yes | Array of send/wait steps (see below) |
 | `timeout` | no | Seconds to wait for each pattern before failing (default: `10`) |
 
@@ -396,7 +396,7 @@ No. WSL is a persistent Linux environment. Everything installed or created durin
 
 ### What output formats are supported?
 
-The toolkit supports `gif`, `mp4`, or `both` via the `output.convert.format` plan field or `--format` CLI switch. GIF uses `agg` (asciinema GIF generator). MP4 converts the GIF to web-optimized MP4 via `ffmpeg` with `movflags faststart` for progressive loading. MP4 files are typically 40–60% smaller than equivalent GIFs.
+The toolkit supports `gif`, `mp4`, or `both` via the `output.convert.format` plan field or `--format` CLI switch. GIF uses `agg` (asciinema GIF generator). MP4 converts the GIF to web-optimized MP4 via `ffmpeg` with `movflags faststart` for progressive loading. MP4 provides better streaming compatibility and progressive loading (faststart), though file sizes vary by content — terminal recordings in particular may produce larger MP4s than GIFs.
 
 ### Can I record interactive programs like GitHub Copilot CLI?
 
