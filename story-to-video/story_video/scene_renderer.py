@@ -3,8 +3,9 @@
 import logging
 import re
 from pathlib import Path
-from typing import Literal, Optional
+from typing import Optional
 
+from .image_generators import ImageGeneratorBase
 from .models import RenderResult, RendererStrategy, Scene
 from .renderers import ImageRenderer, ManimRenderer, RemotionRenderer
 
@@ -39,6 +40,7 @@ class SceneRendererOrchestrator:
         provider: str = "ollama",
         model: str = "llama3.2",
         renderer_strategy: Optional[RendererStrategy] = None,
+        image_generator: Optional[ImageGeneratorBase] = None,
     ):
         self.output_dir = output_dir
         self.quality = quality
@@ -47,7 +49,7 @@ class SceneRendererOrchestrator:
         self.renderer_strategy = renderer_strategy or RendererStrategy()
         
         # Initialize renderers
-        self.image_renderer = ImageRenderer(output_dir, quality)
+        self.image_renderer = ImageRenderer(output_dir, quality, image_generator=image_generator)
         self.remotion_renderer = RemotionRenderer(output_dir, quality, provider, model)
         self.manim_renderer = ManimRenderer(output_dir, quality)
 

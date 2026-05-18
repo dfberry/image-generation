@@ -7,9 +7,8 @@ import sys
 from pathlib import Path
 from typing import Optional
 
-from ..config import RENDER_TIMEOUT_IMAGE
+from ..image_generators import ImageGeneratorBase, get_image_generator
 from ..models import RenderResult, Scene
-from ..tool_locator import find_tool_file
 from .base import BaseRenderer
 
 logger = logging.getLogger(__name__)
@@ -23,36 +22,41 @@ class ImageRenderer(BaseRenderer):
         "warm luminous lighting, no text"
     )
 
-    def __init__(self, output_dir: Path, quality: str = "medium", image_gen_path: Optional[Path] = None, style_anchor: Optional[str] = None):
+    def __init__(
+        self,
+        output_dir: Path,
+        quality: str = "medium",
+        image_gen_path: Optional[Path] = None,
+        style_anchor: Optional[str] = None,
+        image_generator: Optional[ImageGeneratorBase] = None,
+    ):
         """Initialize ImageRenderer.
 
         Args:
             output_dir: Directory for rendered video output files.
             quality: Render quality preset (low/medium/high).
-            image_gen_path: Explicit path to the image-generation generate.py script.
-                If None, auto-discovers via IMAGE_GEN_PATH env var or sibling directory.
-            style_anchor: SDXL style prompt suffix appended to every scene prompt
+            image_gen_path: Deprecated — use image_generator instead.
+            style_anchor: Style prompt suffix appended to every scene prompt
                 for visual consistency across scenes. Defaults to Latin American
                 folk art / magical realism aesthetic.
+            image_generator: Pluggable image generation backend. Defaults to
+                local SDXL if not provided.
         """
         super().__init__(output_dir, quality)
-        self.image_gen_path = image_gen_path or self._find_image_gen()
+        self.image_generator = image_generator or get_image_generator("local")
         self.style_anchor = style_anchor or self.DEFAULT_STYLE_ANCHOR
         self.temp_dir = output_dir / "temp_images"
         self.temp_dir.mkdir(exist_ok=True)
 
-    def _find_image_gen(self) -> Optional[Path]:
-        """Find image-generation tool (check env var, then sibling directory)."""
-        return find_tool_file("image-generation/generate.py", env_var="IMAGE_GEN_PATH")
-
     def is_available(self) -> tuple[bool, Optional[str]]:
-        """Check if ffmpeg and image-generation are available."""
+        """Check if ffmpeg and the image generator are available."""
         if not shutil.which("ffmpeg"):
             return False, "ffmpeg not found in PATH"
-        
-        if not self.image_gen_path or not self.image_gen_path.exists():
-            return False, "image-generation tool not found"
-        
+
+        gen_ok, gen_reason = self.image_generator.is_available()
+        if not gen_ok:
+            return False, f"Image generator '{self.image_generator.name}' not available: {gen_reason}"
+
         return True, None
 
     def render(self, scene: Scene) -> RenderResult:
@@ -101,40 +105,15 @@ class ImageRenderer(BaseRenderer):
         return f"{base_prompt}, {framing}, {style_anchor}"
 
     def _generate_image(self, scene: Scene) -> Path:
-        """Call image-generation to create a still image."""
+        """Delegate image generation to the pluggable backend."""
         output_dir = self.temp_dir / f"scene_{scene.scene_number:03d}"
         output_dir.mkdir(exist_ok=True)
         output_file = output_dir / f"scene_{scene.scene_number:03d}.png"
 
         enhanced_prompt = self._build_sdxl_prompt(scene)
-        
-        cmd = [
-            sys.executable,
-            str(self.image_gen_path),
-            "--prompt", enhanced_prompt,
-            "--output", str(output_file),
-        ]
-        
-        logger.debug(f"Running image generation: {' '.join(cmd[:4])}... → {output_file}")
-        result = subprocess.run(
-            cmd,
-            capture_output=True,
-            text=True,
-            encoding="utf-8",
-            errors="replace",
-            timeout=RENDER_TIMEOUT_IMAGE,
-        )
-        logger.debug(f"Image generation exited with code {result.returncode}")
-        
-        if result.returncode != 0:
-            raise RuntimeError(f"Image generation failed: {result.stderr}")
-        
-        if output_file.exists():
-            if output_file.stat().st_size == 0:
-                raise RuntimeError(f"Image generation produced 0-byte file: {output_file}")
-            return output_file
 
-        raise RuntimeError(f"Expected output {output_file} not found after image generation")
+        logger.debug(f"Generating image via {self.image_generator.name}: scene {scene.scene_number}")
+        return self.image_generator.generate(enhanced_prompt, output_file)
 
     def _create_video_from_image(self, scene: Scene, image_path: Path) -> Path:
         """Apply Ken Burns effect and text overlay using ffmpeg."""
