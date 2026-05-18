@@ -1,0 +1,35 @@
+{
+  "name": "vscode-copilot-chat-test",
+  "description": "VS Code + Copilot CLI terminal session followed by Copilot Chat inline on a file",
+  "type": "desktop",
+  "pre_record": {
+    "commands": ["npm install -g @github/copilot"]
+  },
+  "capture": { "mode": "full", "fps": 30 },
+  "steps": [
+    { "action": "launch", "program": "code", "args": ["C:\\test-project"], "wait": 5 },
+
+    { "action": "hotkey", "keys": ["ctrl", "`"], "wait": 1 },
+    { "action": "type",   "text": "copilot", "interval": 0.05 },
+    { "action": "press",  "key": "enter", "wait": 5 },
+    { "action": "type",   "text": "explain what a REST API is in one sentence", "interval": 0.04 },
+    { "action": "press",  "key": "enter", "wait": 15 },
+    { "action": "pause",  "wait": 3 },
+    { "action": "hotkey", "keys": ["ctrl", "d"], "wait": 2 },
+
+    { "action": "hotkey", "keys": ["ctrl", "`"], "wait": 1 },
+
+    { "action": "hotkey", "keys": ["ctrl", "p"], "wait": 1 },
+    { "action": "type",   "text": "app.py", "interval": 0.05 },
+    { "action": "press",  "key": "enter", "wait": 2 },
+
+    { "action": "hotkey", "keys": ["ctrl", "i"], "wait": 2 },
+    { "action": "type",   "text": "Add a docstring to this function explaining what it does", "interval": 0.04 },
+    { "action": "press",  "key": "enter", "wait": 12 },
+    { "action": "pause",  "wait": 3 },
+    { "action": "screenshot", "wait": 1 },
+
+    { "action": "hotkey", "keys": ["alt", "F4"], "wait": 1 }
+  ],
+  "output": { "subdir": "desktop" }
+}
