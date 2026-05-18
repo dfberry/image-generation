@@ -272,8 +272,15 @@ def run_verify(output_path: str) -> int:
     if not os.path.isfile(verifier):
         print("[verify] Warning: verify_recording.py not found — skipping", file=sys.stderr)
         return 0
-    result = subprocess.run([sys.executable, verifier, output_path])
-    return result.returncode
+    try:
+        result = subprocess.run(
+            [sys.executable, verifier, output_path, "--verbose"],
+            timeout=60,
+        )
+        return result.returncode
+    except subprocess.TimeoutExpired:
+        print(f"[verify] Timeout after 60s verifying {output_path}", file=sys.stderr)
+        return 1
 
 
 def run_plan(plan_path: str, dry_run: bool = False, output_override: str = None,
@@ -320,7 +327,7 @@ def run_plan(plan_path: str, dry_run: bool = False, output_override: str = None,
             if step_log:
                 print(f"  [pre_record] {cmd}")
             if sys.platform == "win32":
-                subprocess.run(cmd, shell=True, check=True)
+                subprocess.run(["cmd", "/c", cmd], check=True)
             else:
                 subprocess.run(shlex.split(cmd), check=True)
 
