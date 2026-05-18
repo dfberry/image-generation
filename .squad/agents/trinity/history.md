@@ -995,3 +995,17 @@ Created `recording-toolkit/scripts/verify_recording.py` — post-recording conte
 - Sequential comparison (frame N vs N-1) misses repeats that skip every other frame. Good enough for detecting a truly frozen recording; not intended as a duplicate-count audit.
 - The existing test MP4 (`copilot-cli-test-20260517-2200.mp4`) shows all 10 samples with ~40 avg pixel (not blank) but similarity 1.0 (frozen) — confirms the video is a static screen, exactly the failure mode this tool catches.
 
+### 2026-05-18 — Fix: Frozen video due to race between encoder detection and automation steps
+
+**Root cause:** `demo_plan_runner.py` used `time.sleep(0.5)` after starting the recording thread. `record_desktop.record()` calls `detect_encoder()` before capture starts — on machines without GPU encoders this takes 5–30s. The automation steps ran and completed before any frames were captured, producing a static final-state video.
+
+**Fix:**
+- Added `ready_event: threading.Event = None` parameter to `record_desktop.record()`. Set via `ready_event.set()` immediately after `t_capture.start()` and `t_encode.start()` — signals that the capture loop is genuinely live.
+- `demo_plan_runner.py` creates a `ready_event`, passes it to `record()`, and replaces `time.sleep(0.5)` with `ready_event.wait(timeout=60)`. Exits with error if capture never becomes ready. Adds `time.sleep(1.0)` after the ready signal for FFmpeg pipeline stabilization.
+- Backward-compatible: `ready_event=None` leaves existing behavior unchanged.
+
+**Key learnings:**
+- A fixed sleep to "wait for initialization" is fragile whenever initialization time is variable (encoder probe, GPU detection, network I/O). An event-based handshake is always correct.
+- The `ready_event` pattern (producer sets, consumer waits) is the right primitive for "wait until genuinely ready" — cheaper than polling, correct under all timing conditions.
+- `threading.Event.wait(timeout=60)` returns `True` if set, `False` on timeout — always check the return value and treat timeout as a hard error when capture is a prerequisite.
+
