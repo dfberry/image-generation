@@ -130,6 +130,21 @@ def verify(
     failures = []
     warnings = []
 
+    # --- Guard: no readable frames ---
+    if not frames:
+        return {
+            "pass": False,
+            "file": video_path,
+            "duration_seconds": round(duration, 2),
+            "total_frames": total_frames,
+            "resolution": f"{width}x{height}",
+            "fps": round(fps, 2),
+            "samples_taken": 0,
+            "unique_frames_in_sample": 0,
+            "failures": ["no_readable_frames: No readable frames found — video may be corrupted."],
+            "warnings": [],
+        }
+
     # --- Check 1: Too short ---
     if duration < min_duration:
         failures.append(
