@@ -19,6 +19,7 @@ import pyautogui  # noqa: E402
 
 import argparse
 import json
+import logging
 import os
 import subprocess
 import sys
@@ -28,6 +29,8 @@ from pathlib import Path
 from queue import Queue, Empty, Full
 
 import numpy
+
+logger = logging.getLogger("record_desktop")
 
 
 def find_config() -> dict:
@@ -94,7 +97,8 @@ def detect_encoder(force: str = None) -> tuple:
     )
 
 
-def capture_thread(queue: Queue, region: dict, fps: int, stop_event: threading.Event, verbose: bool = False):
+def capture_thread(queue: Queue, region: dict, fps: int, stop_event: threading.Event,
+                   verbose: bool = False, stats: dict = None):
     """Capture frames at drift-compensated intervals and push to queue.
 
     Uses fixed-interval timing: next_frame = start + (frame_count / fps)
@@ -120,14 +124,14 @@ def capture_thread(queue: Queue, region: dict, fps: int, stop_event: threading.E
 
             if verbose and frame_count % fps == 0:
                 elapsed = time.perf_counter() - start
-                print(f"[capture] {frame_count} frames in {elapsed:.1f}s (dropped: {dropped})", file=sys.stderr)
+                logger.debug(f"[capture] {frame_count} frames in {elapsed:.1f}s (dropped: {dropped})")
 
-        # Report final stats
         elapsed = time.perf_counter() - start
-        print(
-            f"[record_desktop] Capture done: {frame_count} frames in {elapsed:.1f}s, "
-            f"dropped: {dropped}",
-            file=sys.stderr,
+        if stats is not None:
+            stats["frame_count"] = frame_count
+            stats["elapsed"] = elapsed
+        logger.debug(
+            f"[capture] done: {frame_count} frames in {elapsed:.1f}s, dropped: {dropped}"
         )
 
 
@@ -173,7 +177,7 @@ def build_ffmpeg_cmd(encoder: str, flags: list, output_path: str, width: int, he
 
 def record(output_path: str, region: dict, fps: int = 30, duration: float = None,
            stop_event: threading.Event = None, encoder: str = None, queue_size: int = 120,
-           verbose: bool = False):
+           verbose: bool = False, ready_event: threading.Event = None):
     """Public API: capture screen region and encode to MP4.
 
     Args:
@@ -185,6 +189,9 @@ def record(output_path: str, region: dict, fps: int = 30, duration: float = None
         encoder: Force encoder name or None for auto-detect.
         queue_size: Frame buffer depth.
         verbose: Print per-second timing stats.
+        ready_event: Optional threading.Event set after capture thread starts
+            (after lead-in frames). Callers can wait on this instead of
+            using a fixed sleep to ensure capture is genuinely active.
     """
     enc_name, enc_flags = detect_encoder(encoder)
     width = region["width"]
@@ -194,6 +201,8 @@ def record(output_path: str, region: dict, fps: int = 30, duration: float = None
         raise ValueError(f"Invalid region: width={width}, height={height} must be positive")
     if region["left"] < 0 or region["top"] < 0:
         raise ValueError(f"Invalid region: left={region['left']}, top={region['top']} must be non-negative")
+
+    logger.info(f"[record] Starting: {output_path}, {width}x{height} @ {fps}fps, encoder={enc_name}")
 
     ffmpeg_cmd = build_ffmpeg_cmd(enc_name, enc_flags, output_path, width, height, fps)
 
@@ -207,14 +216,37 @@ def record(output_path: str, region: dict, fps: int = 30, duration: float = None
         stderr=subprocess.PIPE,
     )
 
+    # Drain FFmpeg stderr in a background thread to prevent buffer deadlock
+    stderr_lines: list = []
+
+    def _read_stderr():
+        for raw_line in ffmpeg_proc.stderr:
+            stderr_lines.append(raw_line.decode(errors="replace"))
+
+    t_stderr = threading.Thread(target=_read_stderr, daemon=True)
+    t_stderr.start()
+
     if stop_event is None:
         stop_event = threading.Event()
 
+    # Lead-in: 3 seconds of black (BGRA) frames written directly to FFmpeg stdin
+    lead_frames = fps * 3
+    logger.info(f"[record] Writing {lead_frames} lead-in frames (3s black)")
+    black_frame = numpy.zeros((height, width, 4), dtype=numpy.uint8)
+    black_bytes = black_frame.tobytes()
+    for _ in range(lead_frames):
+        try:
+            ffmpeg_proc.stdin.write(black_bytes)
+        except (BrokenPipeError, OSError):
+            break
+
     q = Queue(maxsize=queue_size)
+    capture_stats: dict = {}
 
     t_capture = threading.Thread(
         target=capture_thread,
         args=(q, region, fps, stop_event, verbose),
+        kwargs={"stats": capture_stats},
         daemon=True,
     )
     t_encode = threading.Thread(
@@ -223,35 +255,57 @@ def record(output_path: str, region: dict, fps: int = 30, duration: float = None
         daemon=True,
     )
 
+    logger.info("[record] Capture started")
     t_capture.start()
     t_encode.start()
+
+    # Signal caller that capture is now actively running
+    if ready_event is not None:
+        ready_event.set()
 
     if duration:
         time.sleep(duration)
         stop_event.set()
 
     t_capture.join()
-    # After capture stops, signal encode thread to drain and exit
+    elapsed = capture_stats.get("elapsed", 0.0)
+    frame_count = capture_stats.get("frame_count", 0)
+    logger.info(f"[record] Capture stopped after {elapsed:.1f}s, {frame_count} frames")
+
+    # Signal encode thread to drain remaining queued frames and exit
     stop_event.set()
     t_encode.join()
 
+    # Lead-out: 3 seconds of black frames
+    lead_frames = fps * 3
+    logger.info(f"[record] Writing {lead_frames} lead-out frames (3s black)")
+    for _ in range(lead_frames):
+        try:
+            ffmpeg_proc.stdin.write(black_bytes)
+        except (BrokenPipeError, OSError):
+            break
+
+    logger.info("[record] FFmpeg stdin closed, waiting for process...")
     try:
         ffmpeg_proc.stdin.close()
     except (BrokenPipeError, OSError):
         pass  # Pipe already closed by FFmpeg crash — handled in encode_thread
+
     ffmpeg_proc.wait()
+    t_stderr.join(timeout=5)
+
+    stderr_text = "".join(stderr_lines)
+    logger.info(f"[record] FFmpeg exited with code {ffmpeg_proc.returncode}")
+    logger.info(f"[record] FFmpeg stderr: {stderr_text[-1000:]}")
 
     if ffmpeg_proc.returncode != 0:
-        stderr_out = ffmpeg_proc.stderr.read().decode(errors="replace")
-        # Rename to PARTIAL
         partial_path = output_path.replace(".mp4", f"-PARTIAL-{int(time.time())}.mp4")
         if os.path.exists(output_path):
             os.rename(output_path, partial_path)
-        print(f"[record_desktop] FFmpeg error (exit {ffmpeg_proc.returncode}):", file=sys.stderr)
-        print(stderr_out[-2000:], file=sys.stderr)
         raise RuntimeError(f"FFmpeg failed with exit code {ffmpeg_proc.returncode}")
 
-    print(f"[record_desktop] Saved: {output_path}", file=sys.stderr)
+    file_size_mb = os.path.getsize(output_path) / (1024 * 1024) if os.path.exists(output_path) else 0.0
+    logger.info(f"[record] Done: {output_path} ({file_size_mb:.1f} MB)")
 
 
 def resolve_region(region_str: str = None, resolution_str: str = None) -> dict:
@@ -289,6 +343,12 @@ def main():
     parser.add_argument("-v", "--verbose", action="store_true", help="Print per-frame timing stats")
 
     args = parser.parse_args()
+
+    logging.basicConfig(
+        level=logging.DEBUG if args.verbose else logging.INFO,
+        format="%(message)s",
+        stream=sys.stderr,
+    )
 
     # Load config
     if args.config:

@@ -345,14 +345,20 @@ def run_plan(plan_path: str, dry_run: bool = False, output_override: str = None,
     record_thread = None
     if not no_record:
         encoder = preset_settings.get("encoder") or desktop_cfg.get("defaults", {}).get("encoder", "auto")
+        ready_event = threading.Event()
         record_thread = threading.Thread(
             target=record_desktop.record,
             args=(output_path, region, fps),
-            kwargs={"stop_event": stop_event, "encoder": encoder},
+            kwargs={"stop_event": stop_event, "encoder": encoder, "ready_event": ready_event},
         )
         logger.info("[runner] Starting recording thread")
         record_thread.start()
-        time.sleep(0.5)  # Brief pause to let FFmpeg initialize
+        if not ready_event.wait(timeout=60):
+            print("[error] Recording never became ready after 60s — encoder detection may have failed.", file=sys.stderr)
+            stop_event.set()
+            record_thread.join(timeout=10)
+            sys.exit(1)
+        time.sleep(1.0)  # Let FFmpeg stabilize after capture starts
         logger.info("[runner] Recording active")
 
     # Execute automation steps
