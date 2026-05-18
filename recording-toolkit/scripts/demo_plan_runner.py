@@ -137,7 +137,9 @@ def run_step(step: dict, step_log: bool = False):
         # Validate screenshot path stays local
         resolved_screenshot = pathlib.Path(filename).resolve()
         cwd = pathlib.Path.cwd().resolve()
-        if not str(resolved_screenshot).startswith(str(cwd)):
+        try:
+            resolved_screenshot.relative_to(cwd)
+        except ValueError:
             print(f"Error: screenshot path '{filename}' escapes working directory", file=sys.stderr)
             return
         screenshot = pyautogui.screenshot()
@@ -161,7 +163,9 @@ def build_output_path(plan: dict, output_dir: str = None) -> str:
     base_dir = output_dir or os.path.join("recordings", subdir)
     resolved = pathlib.Path(base_dir).resolve()
     safe_root = pathlib.Path("recordings").resolve()
-    if not str(resolved).startswith(str(safe_root)):
+    try:
+        resolved.relative_to(safe_root)
+    except ValueError:
         sys.exit(f"Error: output directory '{base_dir}' escapes recordings/ directory")
     os.makedirs(base_dir, exist_ok=True)
     return os.path.join(base_dir, f"{name}-{timestamp}.mp4")
