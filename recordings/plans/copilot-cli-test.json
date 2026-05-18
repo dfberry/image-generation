@@ -1,12 +1,10 @@
 {
   "name": "copilot-cli-test",
-  "description": "Demo GitHub Copilot CLI (gh copilot built-in, gh v2.92+) — version check then one-shot prompt via -p flag. WSL PATH is stripped of Windows paths so the native Linux gh binary is used, not the Windows gh.bat shim. Requires gh auth login to have been run in WSL beforehand.",
+  "description": "Demo the standalone GitHub Copilot CLI binary — version check then one-shot prompt via -p flag. The copilot binary lives at ~/.local/share/gh/copilot/copilot (auto-downloaded by gh copilot on first run). WSL PATH is stripped of Windows paths and ~/.local/share/gh/copilot is prepended so the native Linux binary is used. Requires GH_TOKEN or gh auth login in WSL beforehand.",
   "pre_record": {
     "commands": [
-      "export PATH=$(echo \"$PATH\" | tr ':' '\\n' | grep -v '/mnt/c' | tr '\\n' ':')",
-      "command -v gh || sudo apt-get install -y gh",
-      "gh auth status || { echo 'ERROR: gh not authenticated. Run: gh auth login'; exit 1; }",
-      "gh copilot --version || { echo 'ERROR: gh copilot not available. Upgrade gh to v2.92+'; exit 1; }",
+      "export PATH=$(echo \"$PATH\" | tr ':' '\\n' | grep -v '/mnt/c' | tr '\\n' ':'):~/.local/share/gh/copilot",
+      "command -v copilot || { echo 'ERROR: copilot binary not found. Run gh copilot once to download it.'; exit 1; }",
       "export PS1='demo $ '"
     ],
     "clear_screen": true
@@ -21,7 +19,7 @@
       },
       {
         "type": "command",
-        "value": "gh copilot --version",
+        "value": "copilot --version",
         "wait_for_output": true,
         "pause_after": 2.0
       },
@@ -31,9 +29,9 @@
       },
       {
         "type": "command",
-        "value": "gh copilot -p \"Tell me a programming joke\"",
+        "value": "copilot -p \"Tell me a programming joke\" --allow-all",
         "wait_for_output": true,
-        "pause_after": 8.0
+        "pause_after": 20.0
       },
       {
         "type": "pause",
