@@ -2,11 +2,16 @@
 
 Reads a plan with "type": "desktop", starts record_desktop.py in a background thread,
 executes automation steps in sequence, then signals recording to stop.
+
+SECURITY WARNING: Plans can execute arbitrary shell commands. Only run plans from
+trusted sources. Do not include PII or secrets in plan files or output paths.
 """
 
 import argparse
 import json
 import os
+import pathlib
+import shlex
 import shutil
 import subprocess
 import sys
@@ -99,7 +104,7 @@ def run_step(step: dict, step_log: bool = False):
     elif action == "type":
         # Type text character-by-character with interval delay
         interval = step.get("interval", 0.04)
-        pyautogui.write(step["text"], interval=interval)
+        pyautogui.typewrite(step["text"], interval=interval)
 
     elif action == "press":
         # Press a single key (e.g., "enter", "tab")
@@ -111,7 +116,7 @@ def run_step(step: dict, step_log: bool = False):
 
     elif action == "right_click":
         # Right-click at screen coordinates
-        pyautogui.rightClick(step["x"], step["y"])
+        pyautogui.click(step["x"], step["y"], button='right')
 
     elif action == "move":
         # Move mouse to coordinates
@@ -145,9 +150,13 @@ def run_step(step: dict, step_log: bool = False):
 def build_output_path(plan: dict, output_dir: str = None) -> str:
     """Build output MP4 path from plan name + timestamp."""
     name = plan.get("name", "recording")
-    timestamp = datetime.now().strftime("%Y%m%d-%H%M")
+    timestamp = datetime.now().strftime("%Y%m%d-%H%M%S")
     subdir = plan.get("output", {}).get("subdir", "desktop")
     base_dir = output_dir or os.path.join("recordings", subdir)
+    resolved = pathlib.Path(base_dir).resolve()
+    safe_root = pathlib.Path("recordings").resolve()
+    if not str(resolved).startswith(str(safe_root)):
+        sys.exit(f"Error: output directory '{base_dir}' escapes recordings/ directory")
     os.makedirs(base_dir, exist_ok=True)
     return os.path.join(base_dir, f"{name}-{timestamp}.mp4")
 
@@ -214,7 +223,7 @@ def run_plan(plan_path: str, dry_run: bool = False, output_override: str = None,
         else:
             if step_log:
                 print(f"  [pre_record] {cmd}")
-            subprocess.run(cmd, shell=True, check=True)
+            subprocess.run(shlex.split(cmd), check=True)
 
     # Determine output path
     output_dir = desktop_cfg.get("defaults", {}).get("output_dir")
@@ -269,7 +278,7 @@ def main():
     parser.add_argument("-o", "--output", default=None, help="Override output MP4 path")
     parser.add_argument("--no-record", action="store_true", help="Run automation without recording")
     parser.add_argument("-c", "--config", default=None, help="Path to recording-config.json")
-    parser.add_argument("-p", "--preset", default=None, help="Override capture preset")
+    parser.add_argument("--preset", default=None, help="Override capture preset")
     parser.add_argument("--step-log", action="store_true", help="Print each step as it executes")
 
     args = parser.parse_args()

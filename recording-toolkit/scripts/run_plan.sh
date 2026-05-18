@@ -357,7 +357,7 @@ if [ "$DRY_RUN" = "true" ]; then
 fi
 
 # --- Generate temp demo script ---
-TEMP_SCRIPT=$(mktemp /tmp/plan_demo_XXXXXX.sh)
+TEMP_SCRIPT=$(mktemp ./plan_demo_XXXXXX.sh)
 TEMP_EXPECT_SCRIPTS=""
 trap 'rm -f "$TEMP_SCRIPT" $TEMP_EXPECT_SCRIPTS' EXIT INT TERM
 
@@ -486,7 +486,7 @@ TYPE_BLOCK
                 [ -z "$INT_TIMEOUT" ] && INT_TIMEOUT="10"
 
                 # Generate a per-segment expect script
-                EXPECT_SCRIPT=$(mktemp /tmp/plan_expect_XXXXXX.exp)
+                EXPECT_SCRIPT=$(mktemp ./plan_expect_XXXXXX.exp)
                 TEMP_EXPECT_SCRIPTS="$TEMP_EXPECT_SCRIPTS $EXPECT_SCRIPT"
 
                 python3 - "$PLAN_FILE" "$i" "$CHAR_DELAY" "$CHAR_VARIANCE" "$INT_TIMEOUT" "$EXPECT_SCRIPT" <<'PYEOF'

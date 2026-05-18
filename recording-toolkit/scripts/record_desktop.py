@@ -25,7 +25,7 @@ import sys
 import threading
 import time
 from pathlib import Path
-from queue import Queue, Empty
+from queue import Queue, Empty, Full
 
 import numpy
 
@@ -77,7 +77,7 @@ def detect_encoder(force: str = None) -> tuple:
             probe = subprocess.run(
                 [
                     "ffmpeg", "-y", "-f", "lavfi", "-i", "nullsrc=s=1280x720:d=1",
-                    "-vcodec", encoder, "-t", "1", "-f", "null", "NUL",
+                    "-vcodec", encoder, "-t", "1", "-f", "null", os.devnull,
                 ],
                 capture_output=True,
                 timeout=10,
@@ -113,7 +113,7 @@ def capture_thread(queue: Queue, region: dict, fps: int, stop_event: threading.E
             frame = numpy.array(sct.grab(region))
             try:
                 queue.put(frame, block=True, timeout=0.5)
-            except Exception:
+            except (Full,):
                 dropped += 1  # Queue full — drop frame rather than block forever
 
             frame_count += 1
@@ -189,6 +189,11 @@ def record(output_path: str, region: dict, fps: int = 30, duration: float = None
     enc_name, enc_flags = detect_encoder(encoder)
     width = region["width"]
     height = region["height"]
+
+    if width <= 0 or height <= 0:
+        raise ValueError(f"Invalid region: width={width}, height={height} must be positive")
+    if region["left"] < 0 or region["top"] < 0:
+        raise ValueError(f"Invalid region: left={region['left']}, top={region['top']} must be non-negative")
 
     ffmpeg_cmd = build_ffmpeg_cmd(enc_name, enc_flags, output_path, width, height, fps)
 
@@ -335,12 +340,14 @@ def main():
         sys.exit(0)
 
     # Run recording
+    stop_event = threading.Event()
     try:
         record(
             output_path=args.output,
             region=region,
             fps=fps,
             duration=args.duration,
+            stop_event=stop_event,
             encoder=encoder,
             queue_size=queue_size,
             verbose=args.verbose,
@@ -349,6 +356,7 @@ def main():
         print(f"Error: {e}", file=sys.stderr)
         sys.exit(1)
     except KeyboardInterrupt:
+        stop_event.set()
         print("\n[record_desktop] Interrupted — finalizing...", file=sys.stderr)
 
 
