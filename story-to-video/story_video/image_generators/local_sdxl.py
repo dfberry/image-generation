@@ -21,7 +21,7 @@ class LocalSdxlGenerator(ImageGeneratorBase):
 
     @property
     def name(self) -> str:
-        return "local-sdxl"
+        return "local"
 
     def _find_image_gen(self) -> Optional[Path]:
         return find_tool_file("image-generation/generate.py", env_var="IMAGE_GEN_PATH")
@@ -32,6 +32,8 @@ class LocalSdxlGenerator(ImageGeneratorBase):
         return True, None
 
     def generate(self, prompt: str, output_path: Path, **kwargs) -> Path:
+        if not prompt or not prompt.strip():
+            raise RuntimeError("Image generation prompt cannot be empty")
         output_path.parent.mkdir(parents=True, exist_ok=True)
 
         cmd = [
@@ -42,14 +44,17 @@ class LocalSdxlGenerator(ImageGeneratorBase):
         ]
 
         logger.debug(f"Running local SDXL: {' '.join(cmd[:4])}... → {output_path}")
-        result = subprocess.run(
-            cmd,
-            capture_output=True,
-            text=True,
-            encoding="utf-8",
-            errors="replace",
-            timeout=RENDER_TIMEOUT_IMAGE,
-        )
+        try:
+            result = subprocess.run(
+                cmd,
+                capture_output=True,
+                text=True,
+                encoding="utf-8",
+                errors="replace",
+                timeout=RENDER_TIMEOUT_IMAGE,
+            )
+        except subprocess.TimeoutExpired as e:
+            raise RuntimeError(f"Local SDXL generation timed out after {RENDER_TIMEOUT_IMAGE}s") from e
         logger.debug(f"Local SDXL exited with code {result.returncode}")
 
         if result.returncode != 0:

@@ -162,6 +162,9 @@ def render(
             force_renderer=force_renderer,
         )
         image_gen = get_image_generator(image_provider)
+        gen_ok, gen_reason = image_gen.is_available()
+        if not gen_ok:
+            raise click.ClickException(f"Image provider '{image_gen.name}' not available: {gen_reason}")
         click.echo(f"\n🖼️  Image provider: {image_gen.name}")
         renderer = SceneRendererOrchestrator(
             output_dir=clips_dir,

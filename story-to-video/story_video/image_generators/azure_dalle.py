@@ -46,6 +46,8 @@ class AzureDalleGenerator(ImageGeneratorBase):
         return True, None
 
     def generate(self, prompt: str, output_path: Path, **kwargs) -> Path:
+        if not prompt or not prompt.strip():
+            raise RuntimeError("Image generation prompt cannot be empty")
         available, reason = self.is_available()
         if not available:
             raise RuntimeError(f"Azure DALL-E not available: {reason}")
@@ -77,8 +79,8 @@ class AzureDalleGenerator(ImageGeneratorBase):
             raise RuntimeError("Azure DALL-E 3 returned no image data")
 
         image_url = response.data[0].url
-        if not image_url:
-            raise RuntimeError("Azure DALL-E 3 returned empty image URL")
+        if not image_url or not image_url.startswith("https://"):
+            raise RuntimeError(f"Azure DALL-E returned invalid image URL: {image_url!r}")
 
         # Download the generated image
         logger.debug(f"Downloading generated image to {output_path}")
