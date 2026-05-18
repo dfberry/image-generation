@@ -336,6 +336,38 @@ PowerShell (Windows via WSL):
 ./scripts/convert_cast_to_gif.sh demo.cast --preset blog-landscape --watermark-text "© Dina Berry"
 ```
 
+### Record GitHub Copilot CLI — one-shot
+
+Prerequisite: `npm install -g @github/copilot` (run once in WSL).
+
+```bash
+# Run the one-shot plan (copilot -p flag, no interactive session needed)
+./scripts/run_plan.sh recordings/plans/copilot-cli-test.json
+
+# Dry run first to verify
+./scripts/run_plan.sh recordings/plans/copilot-cli-test.json --dry-run
+```
+
+The plan shows `npm list -g @github/copilot`, `copilot --version`, then a live one-shot prompt.
+Outputs `.cast`, `.gif`, and `.mp4` via `"format": "both"`.
+
+### Record GitHub Copilot CLI — interactive TUI
+
+```bash
+# Run the interactive TUI plan
+./scripts/run_plan.sh recordings/plans/copilot-cli-interactive-test.json
+```
+
+The plan launches `copilot -C /root`, handles the folder-trust dialog automatically (`wait_for: "Do
+you trust"`), types a prompt into the TUI, waits for the Copilot response (~15s), then exits with
+Ctrl+D. The full TUI — box-drawing, thinking spinner, response — is captured in the GIF.
+
+**Auth:** Pass `GH_TOKEN` when running in WSL if `gh auth login` hasn't been run:
+
+```bash
+GH_TOKEN=$(gh auth token) bash ./scripts/run_plan.sh recordings/plans/copilot-cli-interactive-test.json
+```
+
 ## Notes
 
 - **WSL on Windows**: asciinema requires a Unix terminal. On Windows, run recording scripts from WSL or use Windows Terminal with WSL.
@@ -380,4 +412,5 @@ keystrokes appear naturally in the recording.
 ```
 
 Requires `expect` (`sudo apt-get install -y expect`). Add the install check to `pre_record.commands`
-for portability. See `recordings/plans/interactive-python-test.json` for a full example.
+for portability. See `recordings/plans/interactive-python-test.json` for a Python REPL example, or
+`recordings/plans/copilot-cli-interactive-test.json` for a full Copilot CLI TUI example.
