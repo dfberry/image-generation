@@ -235,7 +235,10 @@ def record(output_path: str, region: dict, fps: int = 30, duration: float = None
     stop_event.set()
     t_encode.join()
 
-    ffmpeg_proc.stdin.close()
+    try:
+        ffmpeg_proc.stdin.close()
+    except (BrokenPipeError, OSError):
+        pass  # Pipe already closed by FFmpeg crash — handled in encode_thread
     ffmpeg_proc.wait()
 
     if ffmpeg_proc.returncode != 0:

@@ -134,8 +134,14 @@ def run_step(step: dict, step_log: bool = False):
     elif action == "screenshot":
         # Save a checkpoint screenshot (debug aid)
         filename = step.get("filename", f"checkpoint-{int(time.time())}.png")
+        # Validate screenshot path stays local
+        resolved_screenshot = pathlib.Path(filename).resolve()
+        cwd = pathlib.Path.cwd().resolve()
+        if not str(resolved_screenshot).startswith(str(cwd)):
+            print(f"Error: screenshot path '{filename}' escapes working directory", file=sys.stderr)
+            return
         screenshot = pyautogui.screenshot()
-        screenshot.save(filename)
+        screenshot.save(str(resolved_screenshot))
         if step_log:
             print(f"    [screenshot] saved: {filename}")
 
