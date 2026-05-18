@@ -40,10 +40,10 @@ Typing speed presets:
   fast    — 30ms/char  ±10ms
 
 Examples:
-  ./run_plan.sh recordings/plans/copilot-cli-demo.json
-  ./run_plan.sh recordings/plans/copilot-cli-demo.json --dry-run
-  ./run_plan.sh recordings/plans/copilot-cli-demo.json --no-convert
-  ./run_plan.sh recordings/plans/copilot-cli-demo.json --output recordings/cli/my-demo.cast
+  ./run_plan.sh recordings/plans/copilot-cli-test.json
+  ./run_plan.sh recordings/plans/copilot-cli-test.json --dry-run
+  ./run_plan.sh recordings/plans/copilot-cli-test.json --no-convert
+  ./run_plan.sh recordings/plans/copilot-cli-test.json --output recordings/cli/my-demo.cast
 EOF
     exit 0
 }
@@ -83,6 +83,9 @@ if [ ! -f "$PLAN_FILE" ]; then
     echo "Error: plan file not found: $PLAN_FILE"
     exit 1
 fi
+
+# Resolve to absolute path so pre_record cd doesn't break file references
+PLAN_FILE="$(cd "$(dirname "$PLAN_FILE")" && pwd)/$(basename "$PLAN_FILE")"
 
 # --- JSON helpers ---
 # Prefer jq; fall back to python3
@@ -183,12 +186,18 @@ CONVERT_PRESET=$(json_get "$PLAN_FILE" ".output.convert.preset")
 CLEAR_SCREEN=$(json_get "$PLAN_FILE" ".pre_record.clear_screen")
 TYPING_SPEED=$(json_get "$PLAN_FILE" ".record.typing_speed")
 DEFAULT_PAUSE=$(json_get "$PLAN_FILE" ".record.default_pause")
+END_PAUSE=$(json_get "$PLAN_FILE" ".record.end_pause")
+PROMPT_STR=$(json_get "$PLAN_FILE" ".record.prompt")
+NO_LOOP=$(json_get "$PLAN_FILE" ".output.convert.no_loop")
+CONVERT_FORMAT=$(json_get "$PLAN_FILE" ".output.convert.format")
 
 # Defaults
 [ -z "$OUTPUT_SUBDIR" ] && OUTPUT_SUBDIR="cli"
 [ -z "$TYPING_SPEED" ] && TYPING_SPEED="medium"
 [ -z "$DEFAULT_PAUSE" ] && DEFAULT_PAUSE="1.0"
 [ -z "$CLEAR_SCREEN" ] && CLEAR_SCREEN="false"
+[ -z "$END_PAUSE" ] && END_PAUSE="2"
+[ -z "$PROMPT_STR" ] && PROMPT_STR='$ '
 
 # --- Typing speed presets ---
 case "$TYPING_SPEED" in
@@ -200,6 +209,24 @@ case "$TYPING_SPEED" in
         CHAR_DELAY="0.06"; CHAR_VARIANCE="0.02"
         ;;
 esac
+
+# --- Check for expect if plan uses interactive commands ---
+if [ "$DRY_RUN" = "false" ]; then
+    _has_interactive=0
+    if command -v jq >/dev/null 2>&1; then
+        _has_interactive=$(jq -r '[.record.commands[]? | select(.type == "interactive")] | length' "$PLAN_FILE" 2>/dev/null || echo 0)
+    elif command -v python3 >/dev/null 2>&1; then
+        _has_interactive=$(python3 -c '
+import json, sys
+d = json.load(open(sys.argv[1]))
+cmds = d.get("record", {}).get("commands", [])
+print(sum(1 for c in cmds if c.get("type") == "interactive"))
+' "$PLAN_FILE" 2>/dev/null || echo 0)
+    fi
+    if [ "${_has_interactive:-0}" -gt 0 ]; then
+        command -v expect >/dev/null 2>&1 || { echo "Error: 'expect' is required for interactive commands. Install with: sudo apt-get install -y expect"; exit 1; }
+    fi
+fi
 
 # --- Locate repo root and config ---
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
@@ -213,10 +240,23 @@ if [ -z "$CONFIG_PATH" ]; then
 fi
 
 IDLE_LIMIT="3"
+REC_COLS=""
+REC_ROWS=""
 if [ -n "$CONFIG_PATH" ] && [ -f "$CONFIG_PATH" ]; then
     val=$(json_get "$CONFIG_PATH" ".defaults.idle_time_limit")
     [ -n "$val" ] && IDLE_LIMIT="$val"
+
+    # Load cols/rows from preset if specified, otherwise from defaults
+    if [ -n "$CONVERT_PRESET" ]; then
+        REC_COLS=$(json_get "$CONFIG_PATH" ".presets.${CONVERT_PRESET}.cols")
+        REC_ROWS=$(json_get "$CONFIG_PATH" ".presets.${CONVERT_PRESET}.rows")
+    fi
+    [ -z "$REC_COLS" ] && REC_COLS=$(json_get "$CONFIG_PATH" ".defaults.cols")
+    [ -z "$REC_ROWS" ] && REC_ROWS=$(json_get "$CONFIG_PATH" ".defaults.rows")
 fi
+# Fallback defaults
+[ -z "$REC_COLS" ] && REC_COLS="120"
+[ -z "$REC_ROWS" ] && REC_ROWS="30"
 
 # --- Resolve output path ---
 if [ -n "$OUTPUT_OVERRIDE" ]; then
@@ -259,6 +299,8 @@ if [ "$DRY_RUN" = "true" ]; then
     echo ""
 
     echo "--- Phase 2: record ---"
+    echo "  Prompt:    '$PROMPT_STR'"
+    echo "  End pause: ${END_PAUSE}s"
     REC_COUNT=$(json_get_array_length "$PLAN_FILE" ".record.commands")
     if [ -z "$REC_COUNT" ] || [ "$REC_COUNT" = "0" ]; then
         echo "  (no record commands)"
@@ -270,10 +312,19 @@ if [ "$DRY_RUN" = "true" ]; then
             DURATION=$(json_get_index_field "$PLAN_FILE" ".record.commands" $i "duration")
             PAUSE_AFTER=$(json_get_index_field "$PLAN_FILE" ".record.commands" $i "pause_after")
             case "$TYPE" in
-                command) echo "  [command]  $ $VALUE  (pause_after: ${PAUSE_AFTER:-$DEFAULT_PAUSE}s)" ;;
+                command) echo "  [command]  ${PROMPT_STR}$VALUE  (pause_after: ${PAUSE_AFTER:-$DEFAULT_PAUSE}s)" ;;
                 type)    echo "  [type]     $VALUE" ;;
                 key)     echo "  [key]      $VALUE" ;;
                 pause)   echo "  [pause]    ${DURATION:-1.0}s" ;;
+                interactive)
+                    INT_PROG=$(json_get_index_field "$PLAN_FILE" ".record.commands" $i "program")
+                    if command -v jq >/dev/null 2>&1; then
+                        INT_STEPS=$(jq -r "(.record.commands[$i].steps // []) | length" "$PLAN_FILE" 2>/dev/null)
+                    else
+                        INT_STEPS=$(python3 -c "import json,sys; d=json.load(open(sys.argv[1])); print(len(d['record']['commands'][$i].get('steps',[])))" "$PLAN_FILE" 2>/dev/null)
+                    fi
+                    echo "  [interactive] program=$INT_PROG  (${INT_STEPS:-0} steps, pause_after: ${PAUSE_AFTER:-$DEFAULT_PAUSE}s)"
+                    ;;
                 *)       echo "  [unknown]  type=$TYPE" ;;
             esac
             i=$((i+1))
@@ -284,6 +335,7 @@ if [ "$DRY_RUN" = "true" ]; then
     if [ -n "$CONVERT_PRESET" ] && [ "$NO_CONVERT" = "false" ]; then
         echo "--- Post-record: convert ---"
         echo "  Preset: $CONVERT_PRESET"
+        [ "$NO_LOOP" = "true" ] && echo "  No-loop: yes"
         GIF_FILE="${CAST_FILE%.cast}.gif"
         echo "  Output: $GIF_FILE"
     fi
@@ -293,7 +345,8 @@ fi
 
 # --- Generate temp demo script ---
 TEMP_SCRIPT=$(mktemp /tmp/plan_demo_XXXXXX.sh)
-trap 'rm -f "$TEMP_SCRIPT"' EXIT INT TERM
+TEMP_EXPECT_SCRIPTS=""
+trap 'rm -f "$TEMP_SCRIPT" $TEMP_EXPECT_SCRIPTS' EXIT INT TERM
 
 cat > "$TEMP_SCRIPT" <<SCRIPT_HEADER
 #!/bin/bash
@@ -318,9 +371,14 @@ wait_for_prompt() {
 
 SCRIPT_HEADER
 
-# --- Write pre_record commands ---
+# --- Phase 1: Run pre_record commands OUTSIDE asciinema ---
+# These run in the current shell so installs, file creation, etc. happen silently.
+# We capture the resulting working directory and any export statements to replay
+# inside the recorded session.
 PRE_COUNT=$(json_get_array_length "$PLAN_FILE" ".pre_record.commands")
+PRE_EXPORTS=""
 if [ -n "$PRE_COUNT" ] && [ "$PRE_COUNT" -gt 0 ]; then
+    echo "Running pre-record setup ($PRE_COUNT commands)..."
     i=0
     while [ $i -lt "$PRE_COUNT" ]; do
         if command -v jq >/dev/null 2>&1; then
@@ -328,12 +386,28 @@ if [ -n "$PRE_COUNT" ] && [ "$PRE_COUNT" -gt 0 ]; then
         elif command -v python3 >/dev/null 2>&1; then
             CMD=$(python3 -c 'import json,sys; d=json.load(open(sys.argv[1])); print(d["pre_record"]["commands"][int(sys.argv[2])])' "$PLAN_FILE" "$i" 2>/dev/null)
         fi
-        printf '%s\n' "$CMD" >> "$TEMP_SCRIPT"
+        echo "  [pre_record] $CMD"
+        eval "$CMD"
+        # Collect export statements to replay inside the recorded session
+        case "$CMD" in
+            export\ *) PRE_EXPORTS="${PRE_EXPORTS}${CMD}"$'\n' ;;
+        esac
         i=$((i+1))
     done
+    echo "Pre-record setup complete."
 fi
 
-# Clear screen if requested
+# Capture the working directory after pre_record commands
+PRE_CWD="$(pwd)"
+
+# --- Write session environment into temp script (runs inside asciinema) ---
+# Restore working directory from pre_record phase
+echo "cd $(printf '%q' "$PRE_CWD")" >> "$TEMP_SCRIPT"
+# Replay any export statements so env vars carry into the recording
+if [ -n "$PRE_EXPORTS" ]; then
+    printf '%s' "$PRE_EXPORTS" >> "$TEMP_SCRIPT"
+fi
+# Clear screen if requested — wipes the cd/export lines from view
 if [ "$CLEAR_SCREEN" = "true" ]; then
     echo "clear" >> "$TEMP_SCRIPT"
 fi
@@ -355,8 +429,11 @@ if [ -n "$REC_COUNT" ] && [ "$REC_COUNT" -gt 0 ]; then
             command)
                 # Escape value for embedding in single-quoted shell string
                 ESCAPED_VALUE=$(printf '%s' "$VALUE" | sed "s/'/'\\\\''/g")
+                ESCAPED_PROMPT=$(printf '%s' "$PROMPT_STR" | sed "s/'/'\\\\''/g")
                 cat >> "$TEMP_SCRIPT" <<CMD_BLOCK
+printf '%s' '$ESCAPED_PROMPT'
 auto_type '$ESCAPED_VALUE' $CHAR_DELAY $CHAR_VARIANCE
+eval '$ESCAPED_VALUE'
 CMD_BLOCK
                 if [ "$WAIT_OUTPUT" = "true" ]; then
                     echo "wait_for_prompt $PAUSE_AFTER" >> "$TEMP_SCRIPT"
@@ -390,6 +467,67 @@ TYPE_BLOCK
                 [ -z "$DURATION" ] && DURATION="1.0"
                 echo "sleep $DURATION" >> "$TEMP_SCRIPT"
                 ;;
+            interactive)
+                PROGRAM=$(json_get_index_field "$PLAN_FILE" ".record.commands" $i "program")
+                INT_TIMEOUT=$(json_get_index_field "$PLAN_FILE" ".record.commands" $i "timeout")
+                [ -z "$INT_TIMEOUT" ] && INT_TIMEOUT="10"
+
+                # Generate a per-segment expect script
+                EXPECT_SCRIPT=$(mktemp /tmp/plan_expect_XXXXXX.exp)
+                TEMP_EXPECT_SCRIPTS="$TEMP_EXPECT_SCRIPTS $EXPECT_SCRIPT"
+
+                python3 - "$PLAN_FILE" "$i" "$CHAR_DELAY" "$CHAR_VARIANCE" "$INT_TIMEOUT" "$EXPECT_SCRIPT" <<'PYEOF'
+import json, sys, os
+
+plan   = json.load(open(sys.argv[1]))
+i      = int(sys.argv[2])
+char_delay    = float(sys.argv[3])
+char_variance = float(sys.argv[4])
+timeout  = sys.argv[5]
+out_file = sys.argv[6]
+
+cmd     = plan['record']['commands'][i]
+program = cmd.get('program', 'bash')
+steps   = cmd.get('steps', [])
+
+human_min = max(0.01, char_delay - char_variance)
+human_max = char_delay + char_variance
+
+lines = [
+    '#!/usr/bin/expect -f',
+    'set timeout ' + timeout,
+    'set send_human {' + f'{human_min:.3f} {char_delay:.3f} {human_max:.3f} 0.5 1' + '}',
+    'spawn ' + program,
+]
+
+for step in steps:
+    wait_for  = step.get('wait_for', '')
+    send_text = step.get('send', '')
+    pause     = step.get('pause_after', None)
+    # Braces for expect pattern → literal match, no special-char interpretation
+    # Only escape } inside the pattern
+    safe_wait = wait_for.replace('\\', '\\\\').replace('}', '\\}').replace('[', '\\[').replace(']', '\\]').replace('*', '\\*').replace('?', '\\?')
+    # Double-quoted Tcl string for send; escape \ and "
+    safe_send = send_text.replace('\\', '\\\\').replace('"', '\\"')
+    lines.append('expect {' + safe_wait + '}')
+    lines.append('send -h "' + safe_send + '\\r"')
+    if pause is not None:
+        lines.append('sleep ' + str(pause))
+
+lines.append('expect eof')
+
+with open(out_file, 'w') as f:
+    f.write('\n'.join(lines) + '\n')
+os.chmod(out_file, 0o755)
+PYEOF
+                if [ $? -ne 0 ] || [ ! -s "$EXPECT_SCRIPT" ]; then
+                    echo "Error: failed to generate expect script for interactive command at index $i" >&2
+                    exit 1
+                fi
+
+                echo "expect -f $EXPECT_SCRIPT" >> "$TEMP_SCRIPT"
+                echo "sleep $PAUSE_AFTER" >> "$TEMP_SCRIPT"
+                ;;
             *)
                 echo "# unknown command type: $TYPE" >> "$TEMP_SCRIPT"
                 ;;
@@ -399,7 +537,7 @@ TYPE_BLOCK
 fi
 
 # Final hold so last output is visible before recording ends
-echo "sleep 1" >> "$TEMP_SCRIPT"
+echo "sleep $END_PAUSE" >> "$TEMP_SCRIPT"
 chmod +x "$TEMP_SCRIPT"
 
 # --- Create output directory ---
@@ -412,20 +550,44 @@ echo "Recording plan: ${PLAN_NAME:-<unnamed>}"
 echo "Output: $CAST_FILE"
 echo ""
 
-asciinema rec --command "bash $TEMP_SCRIPT" --idle-time-limit "$IDLE_LIMIT" "$CAST_FILE"
+asciinema rec --command "bash $TEMP_SCRIPT" --idle-time-limit "$IDLE_LIMIT" --cols "$REC_COLS" --rows "$REC_ROWS" "$CAST_FILE"
 echo "Recording saved: $CAST_FILE"
 
-# --- Optional GIF conversion ---
+# --- Optional conversion ---
 if [ -n "$CONVERT_PRESET" ] && [ "$NO_CONVERT" = "false" ]; then
-    CONVERT_SCRIPT="$(dirname "$0")/convert_cast_to_gif.sh"
+    CONVERT_SCRIPT="$SCRIPT_DIR/convert_cast_to_gif.sh"
     if [ -f "$CONVERT_SCRIPT" ]; then
+        [ -z "$CONVERT_FORMAT" ] && CONVERT_FORMAT="gif"
         GIF_FILE="${CAST_FILE%.cast}.gif"
-        echo "Converting to GIF with preset: $CONVERT_PRESET"
         CONVERT_ARGS=("$CAST_FILE" "--preset" "$CONVERT_PRESET" "--output" "$GIF_FILE")
+        [ "$NO_LOOP" = "true" ] && CONVERT_ARGS+=("--no-loop")
         [ -n "$CONFIG_PATH" ] && CONVERT_ARGS+=("--config" "$CONFIG_PATH")
-        bash "$CONVERT_SCRIPT" "${CONVERT_ARGS[@]}"
-        echo "GIF created: $GIF_FILE"
+
+        case "$CONVERT_FORMAT" in
+            gif)
+                echo "Converting to GIF with preset: $CONVERT_PRESET"
+                bash "$CONVERT_SCRIPT" "${CONVERT_ARGS[@]}"
+                echo "GIF created: $GIF_FILE"
+                ;;
+            mp4)
+                echo "Converting to MP4 with preset: $CONVERT_PRESET"
+                bash "$CONVERT_SCRIPT" "${CONVERT_ARGS[@]}" --format mp4
+                echo "MP4 created: ${CAST_FILE%.cast}.mp4"
+                ;;
+            both)
+                echo "Converting to GIF + MP4 with preset: $CONVERT_PRESET"
+                bash "$CONVERT_SCRIPT" "${CONVERT_ARGS[@]}"
+                echo "GIF created: $GIF_FILE"
+                bash "$CONVERT_SCRIPT" "${CONVERT_ARGS[@]}" --format mp4
+                echo "MP4 created: ${CAST_FILE%.cast}.mp4"
+                ;;
+            *)
+                echo "Warning: unknown format '$CONVERT_FORMAT', defaulting to GIF"
+                bash "$CONVERT_SCRIPT" "${CONVERT_ARGS[@]}"
+                echo "GIF created: $GIF_FILE"
+                ;;
+        esac
     else
-        echo "Warning: convert_cast_to_gif.sh not found, skipping GIF conversion"
+        echo "Warning: convert_cast_to_gif.sh not found, skipping conversion"
     fi
 fi

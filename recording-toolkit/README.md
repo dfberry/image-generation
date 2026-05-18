@@ -6,6 +6,7 @@ Scripts, config, and guides for creating terminal demo recordings and GIFs.
 
 - **[asciinema](https://asciinema.org/)** — records terminal sessions to `.cast` files
 - **[agg](https://github.com/asciinema/agg)** — converts `.cast` files to animated GIFs (install: `cargo install agg`)
+- **[ffmpeg](https://ffmpeg.org/)** — converts GIFs to web-optimized MP4 (install: `sudo apt-get install ffmpeg` or `winget install ffmpeg`)
 - **[ImageMagick](https://imagemagick.org/)** — optional, for watermark overlay
 
 ## Quick Start
@@ -123,6 +124,7 @@ Converts `.cast` files to `.gif` using agg.
 | `--config` | `-Config` | auto | Path to config JSON |
 | `--preset` | `-Preset` | — | Preset name from config |
 | `--output` | `-OutputFile` | — | Override output file path |
+| `--format` | `-Format` | gif | Output format: `gif` or `mp4` (MP4 requires ffmpeg) |
 
 ### `record_cli.sh` / `record_cli.ps1`
 
@@ -145,7 +147,7 @@ A recording plan is a JSON file that automates a two-phase recording workflow:
 1. **Pre-record phase** — runs setup commands silently (install tools, cd, set env vars), then clears the screen
 2. **Record phase** — starts asciinema, auto-types demo commands with realistic keystroke delays, waits for output
 
-Plans live in `recordings/plans/`. See `recordings/plans/copilot-cli-demo.json` for a working example.
+Plans live in `recordings/plans/`. See `recordings/plans/copilot-cli-test.json` for a working example.
 
 ### Plan JSON Format
 
@@ -170,7 +172,7 @@ Plans live in `recordings/plans/`. See `recordings/plans/copilot-cli-demo.json` 
   },
   "output": {
     "subdir": "cli",
-    "convert": { "preset": "blog-landscape" }
+    "convert": { "preset": "blog-landscape", "format": "both", "no_loop": true }
   }
 }
 ```
@@ -186,8 +188,12 @@ Plans live in `recordings/plans/`. See `recordings/plans/copilot-cli-demo.json` 
 | `record.commands` | yes | Array of command objects (see below) |
 | `record.typing_speed` | no | `slow`, `medium` (default), or `fast` |
 | `record.default_pause` | no | Seconds to pause after each command (default: `1.0`) |
+| `record.end_pause` | no | Seconds to pause at end of recording (default: `2`) |
+| `record.prompt` | no | Terminal prompt string to display (default: `"$ "`) |
 | `output.subdir` | no | Subdirectory under `recordings/` for output (default: `cli`) |
 | `output.convert.preset` | no | Auto-convert to GIF using this preset after recording |
+| `output.convert.format` | no | Output format: `gif` (default), `mp4`, or `both` |
+| `output.convert.no_loop` | no | If `true`, disables GIF animation looping |
 
 ### Command Types
 
@@ -197,13 +203,55 @@ Plans live in `recordings/plans/`. See `recordings/plans/copilot-cli-demo.json` 
 | `pause` | `duration` | Waits silently (dramatic effect, output rendering) |
 | `type` | `value` | Types text without pressing Enter (partial input demos) |
 | `key` | `value` | Sends a special key: `enter`, `ctrl-c`, `ctrl-d`, `tab` |
+| `interactive` | `program`, `steps` | Spawns an interactive program and drives it via expect-style send/wait. Optional: `timeout` |
 
 Command-type options:
 
 | Option | Default | Description |
 |--------|---------|-------------|
-| `wait_for_output` | `false` | Wait after Enter for command output to render |
+| `wait_for_output` | `false` | Wait after Enter for command output to render (`command` type only) |
 | `pause_after` | `default_pause` | Seconds to pause after this command |
+
+#### `interactive` command
+
+Drives interactive programs (REPLs, CLIs) that take over stdin. Uses `expect` under the hood.
+
+```json
+{
+  "type": "interactive",
+  "program": "python3",
+  "steps": [
+    { "wait_for": ">>> ", "send": "print('hello')", "pause_after": 1.0 },
+    { "wait_for": ">>> ", "send": "2 + 2",           "pause_after": 1.0 },
+    { "wait_for": ">>> ", "send": "exit()" }
+  ],
+  "timeout": 10
+}
+```
+
+| Field | Required | Description |
+|-------|----------|-------------|
+| `program` | yes | Program to spawn (e.g., `python3`, `node`, `copilot`) |
+| `steps` | yes | Array of send/wait steps (see below) |
+| `timeout` | no | Seconds to wait for each pattern before failing (default: `10`) |
+
+Each step:
+
+| Field | Required | Description |
+|-------|----------|-------------|
+| `wait_for` | yes | Pattern to wait for before sending input (e.g., `">>> "`) |
+| `send` | yes | Text to type (Enter is appended automatically) |
+| `pause_after` | no | Seconds to pause after sending (for output to render) |
+
+**Prerequisites:** `expect` must be installed (`sudo apt-get install -y expect`). Include it in `pre_record.commands` for portability:
+
+```json
+"pre_record": {
+  "commands": [
+    "command -v expect || sudo apt-get install -y expect"
+  ]
+}
+```
 
 ### Typing Speed Presets
 
@@ -222,24 +270,24 @@ Command-type options:
 
 ```bash
 # Run a plan
-./scripts/run_plan.sh recordings/plans/copilot-cli-demo.json
+./scripts/run_plan.sh recordings/plans/copilot-cli-test.json
 
 # Dry run — see what would execute without recording
-./scripts/run_plan.sh recordings/plans/copilot-cli-demo.json --dry-run
+./scripts/run_plan.sh recordings/plans/copilot-cli-test.json --dry-run
 
 # Skip GIF conversion
-./scripts/run_plan.sh recordings/plans/copilot-cli-demo.json --no-convert
+./scripts/run_plan.sh recordings/plans/copilot-cli-test.json --no-convert
 
 # Override output path
-./scripts/run_plan.sh recordings/plans/copilot-cli-demo.json --output recordings/cli/my-demo.cast
+./scripts/run_plan.sh recordings/plans/copilot-cli-test.json --output recordings/cli/my-demo.cast
 ```
 
 PowerShell (Windows via WSL):
 
 ```powershell
-.\scripts\run_plan.ps1 recordings\plans\copilot-cli-demo.json
-.\scripts\run_plan.ps1 recordings\plans\copilot-cli-demo.json -DryRun
-.\scripts\run_plan.ps1 recordings\plans\copilot-cli-demo.json -NoConvert
+.\scripts\run_plan.ps1 recordings\plans\copilot-cli-test.json
+.\scripts\run_plan.ps1 recordings\plans\copilot-cli-test.json -DryRun
+.\scripts\run_plan.ps1 recordings\plans\copilot-cli-test.json -NoConvert
 ```
 
 ### Plan Workflow
@@ -288,6 +336,38 @@ PowerShell (Windows via WSL):
 ./scripts/convert_cast_to_gif.sh demo.cast --preset blog-landscape --watermark-text "© Dina Berry"
 ```
 
+### Record GitHub Copilot CLI — one-shot
+
+Prerequisite: `npm install -g @github/copilot` (run once in WSL).
+
+```bash
+# Run the one-shot plan (copilot -p flag, no interactive session needed)
+./scripts/run_plan.sh recordings/plans/copilot-cli-test.json
+
+# Dry run first to verify
+./scripts/run_plan.sh recordings/plans/copilot-cli-test.json --dry-run
+```
+
+The plan shows `npm list -g @github/copilot`, `copilot --version`, then a live one-shot prompt.
+Outputs `.cast`, `.gif`, and `.mp4` via `"format": "both"`.
+
+### Record GitHub Copilot CLI — interactive TUI
+
+```bash
+# Run the interactive TUI plan
+./scripts/run_plan.sh recordings/plans/copilot-cli-interactive-test.json
+```
+
+The plan launches `copilot -C /root`, handles the folder-trust dialog automatically (`wait_for: "Do
+you trust"`), types a prompt into the TUI, waits for the Copilot response (~15s), then exits with
+Ctrl+D. The full TUI — box-drawing, thinking spinner, response — is captured in the GIF.
+
+**Auth:** Pass `GH_TOKEN` when running in WSL if `gh auth login` hasn't been run:
+
+```bash
+GH_TOKEN=$(gh auth token) bash ./scripts/run_plan.sh recordings/plans/copilot-cli-interactive-test.json
+```
+
 ## Notes
 
 - **WSL on Windows**: asciinema requires a Unix terminal. On Windows, run recording scripts from WSL or use Windows Terminal with WSL.
@@ -295,3 +375,42 @@ PowerShell (Windows via WSL):
 - **Config auto-discovery**: Scripts look for `recording-config.json` in the toolkit root (parent of `scripts/`) automatically.
 - **Watermark**: Requires ImageMagick (`magick` command). If not installed, the GIF is created without watermark and a warning is shown.
 - See `docs/` for detailed per-tool guides and `docs/azure_demo_best_practices.md` for demo structure guidance.
+
+## FAQ
+
+### Can MP4 videos loop like GIFs?
+
+GIF has a built-in loop flag (controlled via `no_loop` in plan config). MP4 looping depends on the player — use the HTML `<video loop>` attribute for web playback. The toolkit doesn't add looping metadata to MP4 files, but any player can loop them.
+
+### Do pre_record steps need to install all prerequisites every time?
+
+No. WSL persists state between recordings — software installed via `apt-get` stays installed, and files created remain on disk. The `command -v tool || apt-get install tool` pattern in pre_record is idempotent: it only installs if the tool is missing. After the first run, subsequent recordings skip the install step automatically.
+
+### Does WSL reset between recordings? Do files and software disappear?
+
+No. WSL is a persistent Linux environment. Everything installed or created during pre_record and recording persists permanently (until manually deleted or WSL is reset with `wsl --unregister`). This means:
+
+- Prerequisites only need to be installed once
+- Test files from previous recordings persist in `/tmp/` or wherever created
+- Environment variables set in pre_record persist only for that recording session (not across recordings)
+
+### What output formats are supported?
+
+The toolkit supports `gif`, `mp4`, or `both` via the `output.convert.format` plan field or `--format` CLI switch. GIF uses `agg` (asciinema GIF generator). MP4 converts the GIF to web-optimized MP4 via `ffmpeg` with `movflags faststart` for progressive loading. MP4 provides better streaming compatibility and progressive loading (faststart), though file sizes vary by content — terminal recordings in particular may produce larger MP4s than GIFs.
+
+### Can I record interactive programs like GitHub Copilot CLI?
+
+Yes — use the `"type": "interactive"` command with `expect`-style send/wait steps. The toolkit
+spawns the program, waits for each prompt pattern, then types input character-by-character so the
+keystrokes appear naturally in the recording.
+
+```json
+{ "type": "interactive", "program": "python3",
+  "steps": [{ "wait_for": ">>> ", "send": "print('hello')", "pause_after": 1.0 },
+            { "wait_for": ">>> ", "send": "exit()" }],
+  "timeout": 10 }
+```
+
+Requires `expect` (`sudo apt-get install -y expect`). Add the install check to `pre_record.commands`
+for portability. See `recordings/plans/interactive-python-test.json` for a Python REPL example, or
+`recordings/plans/copilot-cli-interactive-test.json` for a full Copilot CLI TUI example.

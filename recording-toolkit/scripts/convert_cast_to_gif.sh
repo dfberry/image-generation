@@ -23,6 +23,7 @@ Options:
   --config <path>             Path to config JSON file
   --preset <name>             Preset name from config file
   --output <path>             Override output file path
+  --format <gif|mp4>          Output format (default: gif). MP4 uses agg→GIF→ffmpeg pipeline
   --help                      Show this help
 
 Priority: CLI switches > preset > config defaults > built-in defaults
@@ -52,6 +53,7 @@ CONFIG_PATH=""
 PRESET=""
 OUTPUT_FILE=""
 INPUT_FILE=""
+FORMAT="gif"
 COLS_FROM_CLI="false"
 ROWS_FROM_CLI="false"
 THEME_FROM_CLI="false"
@@ -81,6 +83,7 @@ while [ $# -gt 0 ]; do
         --config)          CONFIG_PATH="$2"; shift 2 ;;
         --preset)          PRESET="$2"; shift 2 ;;
         --output)          OUTPUT_FILE="$2"; shift 2 ;;
+        --format)          FORMAT="$2"; shift 2 ;;
         -*)                echo "Error: unknown option $1"; exit 1 ;;
         *)
             if [ -z "$INPUT_FILE" ]; then
@@ -268,4 +271,17 @@ if [ -n "$WATERMARK_TEXT" ]; then
     else
         echo "Warning: ImageMagick (magick) not found — skipping watermark. Install from https://imagemagick.org"
     fi
+fi
+
+# --- MP4 conversion (when --format mp4) ---
+if [ "$FORMAT" = "mp4" ]; then
+    command -v ffmpeg >/dev/null 2>&1 || { echo "Error: ffmpeg not found. Install with: sudo apt-get install -y ffmpeg"; exit 1; }
+    MP4_FILE="${OUTPUT_FILE%.gif}.mp4"
+    echo "Converting GIF to MP4: $MP4_FILE"
+    ffmpeg -y -i "$OUTPUT_FILE" \
+        -movflags faststart \
+        -pix_fmt yuv420p \
+        -vf "scale=trunc(iw/2)*2:trunc(ih/2)*2" \
+        "$MP4_FILE" 2>/dev/null || { echo "Error: ffmpeg failed converting to MP4" >&2; exit 1; }
+    echo "Created: $MP4_FILE"
 fi
