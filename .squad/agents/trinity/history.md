@@ -968,3 +968,30 @@ Implemented Phase 1 intelligent scene routing for story-to-video. Narrative scen
 - Strategy bias: `prefer-image` / `prefer-remotion` adds +2 to respective score
 - Force override: `force_renderer` bypasses all routing logic
 - SDXL prompt enhancement: framing hints (wide/medium/close-up by scene number) + style anchor
+
+### 2026-05-18 — recording-toolkit: verify_recording.py + --verify flag
+
+Created `recording-toolkit/scripts/verify_recording.py` — post-recording content validator using opencv-python (cv2).
+
+**What it does:**
+- Samples N frames evenly across the video (default 10) using `cv2.CAP_PROP_POS_FRAMES`
+- Detects **all-blank** frames: avg pixel intensity < threshold (default 15/255) across all samples
+- Detects **frozen/static** video: sequential frame similarity (1 - normalised MAD) >= 0.98
+- Detects **too-short** recordings: duration < 5s minimum
+- Reports PASS/FAIL with duration, resolution, fps, unique frame count, per-frame intensities (--verbose)
+- `--json` flag emits machine-readable output for CI consumption
+- Exit 0 = PASS, exit 1 = FAIL
+
+**Updated `demo_plan_runner.py`:**
+- Added `--verify` flag; calls `verify_recording.py` after recording finishes
+- Exit code 2 on verification failure (distinct from step failure code 1)
+- Skipped on `--dry-run` and `--no-record` (no video to verify)
+
+**Created `recording-toolkit/requirements.txt`** to capture all toolkit Python deps (mss, numpy, pyautogui, opencv-python).
+
+**Key learnings:**
+- `cv2.CAP_PROP_FRAME_COUNT` can be inaccurate for some MP4s; always guard against zero-frame edge cases.
+- Normalised MAD (`np.abs(a - b).mean() / 255.0`) is a cheap frozen-frame heuristic. Structural similarity (SSIM) is heavier and not worth it for this use case.
+- Sequential comparison (frame N vs N-1) misses repeats that skip every other frame. Good enough for detecting a truly frozen recording; not intended as a duplicate-count audit.
+- The existing test MP4 (`copilot-cli-test-20260517-2200.mp4`) shows all 10 samples with ~40 avg pixel (not blank) but similarity 1.0 (frozen) — confirms the video is a static screen, exactly the failure mode this tool catches.
+
