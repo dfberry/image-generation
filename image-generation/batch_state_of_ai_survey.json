@@ -1,0 +1,8 @@
+[
+  {
+    "prompt": "Watercolor illustration, warm muted tones. Developer at wooden desk on hilltop surveying panoramic landscape of glowing AI nodes, floating cloud icons, tiny laptops. Sky pale gold to soft violet. Dusty amber sage teal palette, no text",
+    "seed": 84,
+    "output": "outputs/state-of-ai-survey/hero.png",
+    "negative_prompt": "blurry, bad quality, worst quality, low resolution, text, watermark, signature, deformed, ugly, duplicate, morbid, photorealistic"
+  }
+]
