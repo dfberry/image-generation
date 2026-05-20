@@ -1,6 +1,9 @@
 """Windows Virtual Desktop helper — creates/destroys isolated desktops for automation."""
 
+import logging
 import sys
+
+logger = logging.getLogger("virtual_desktop")
 
 
 class VirtualDesktopSession:
@@ -14,21 +17,28 @@ class VirtualDesktopSession:
         if sys.platform != "win32":
             raise RuntimeError("Virtual desktop mode requires Windows 10+")
 
-        from pyvda import VirtualDesktop
+        try:
+            from pyvda import VirtualDesktop
+        except ImportError:
+            raise RuntimeError(
+                "pyvda required for virtual desktop mode. Install: pip install pyvda>=0.4.0"
+            )
 
+        logger.info("[vdesktop] Creating new virtual desktop")
         self._original_desktop = VirtualDesktop.current()
         self._created_desktop = VirtualDesktop.create()
         self._created_desktop.go()
+        logger.info("[vdesktop] Switched to new virtual desktop")
         return self
 
     def __exit__(self, *exc):
         if self._original_desktop:
             self._original_desktop.go()
-
+            logger.info("[vdesktop] Returned to original desktop")
         if self._created_desktop:
             try:
                 self._created_desktop.remove()
-            except Exception:
-                pass
-
+                logger.info("[vdesktop] Removed virtual desktop")
+            except Exception as e:
+                logger.warning(f"[vdesktop] Failed to remove virtual desktop: {e}")
         return False

@@ -30,6 +30,10 @@ import record_desktop  # noqa: E402
 
 logger = logging.getLogger("demo_plan_runner")
 
+# Settle time for Windows desktop switch animation to complete
+# before pyautogui starts sending input to the new desktop
+_VIRTUAL_DESKTOP_SETTLE_SECONDS = 1.0
+
 
 def find_config(config_path: str = None) -> dict:
     """Load recording-config.json from explicit path or auto-discover."""
@@ -383,12 +387,18 @@ def run_plan(plan_path: str, dry_run: bool = False, output_override: str = None,
     try:
         with step_context:
             if virtual_desktop:
-                time.sleep(1.0)  # Let desktop switch settle before automation starts
+                time.sleep(_VIRTUAL_DESKTOP_SETTLE_SECONDS)
             for i, step in enumerate(steps, 1):
                 logger.info(f"[runner] Step {i}/{total}: {step.get('action', '?')} ...")
                 run_step(step, step_log=step_log)
+            # Signal stop and wait for recording to finish BEFORE desktop teardown
             logger.info("[runner] All steps complete, signaling stop")
             stop_event.set()
+            if record_thread:
+                record_thread.join(timeout=30)
+                logger.info(f"[runner] Recording saved: {output_path}")
+                print(f"Saved: {output_path}")
+                record_thread = None  # Prevent double-join below
     except Exception as e:
         print(f"[error] Step failed: {e}", file=sys.stderr)
         stop_event.set()
@@ -396,6 +406,7 @@ def run_plan(plan_path: str, dry_run: bool = False, output_override: str = None,
             record_thread.join(timeout=10)
         sys.exit(1)
 
+    # Handle case where virtual_desktop was NOT used (record_thread still needs joining)
     if record_thread:
         record_thread.join(timeout=30)
         logger.info(f"[runner] Recording saved: {output_path}")
@@ -422,7 +433,7 @@ def main():
     parser.add_argument("--preset", default=None, help="Override capture preset")
     parser.add_argument("--step-log", action="store_true", help="Print each step as it executes")
     parser.add_argument("--virtual-desktop", action="store_true",
-                        help="Run automation on a separate virtual desktop (Windows 11+, non-interrupting)")
+                        help="Run automation on a separate virtual desktop (Windows 10+, non-interrupting)")
     parser.add_argument("-v", "--verbose", action="store_true", help="Enable verbose (DEBUG) logging")
     parser.add_argument("--verify", action="store_true",
                         help="Run verify_recording.py after recording completes (exit 2 if verification fails)")
