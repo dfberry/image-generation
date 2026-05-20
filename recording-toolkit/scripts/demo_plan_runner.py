@@ -18,6 +18,7 @@ import subprocess
 import sys
 import threading
 import time
+from contextlib import nullcontext
 from datetime import datetime
 from pathlib import Path
 
@@ -285,7 +286,8 @@ def run_verify(output_path: str) -> int:
 
 def run_plan(plan_path: str, dry_run: bool = False, output_override: str = None,
              no_record: bool = False, config_path: str = None, preset_name: str = None,
-             step_log: bool = False, verify: bool = False):
+             step_log: bool = False, verify: bool = False,
+             virtual_desktop: bool = False):
     """Execute a desktop recording plan end-to-end."""
     # Load plan
     with open(plan_path) as f:
@@ -371,10 +373,22 @@ def run_plan(plan_path: str, dry_run: bool = False, output_override: str = None,
     # Execute automation steps
     steps = plan.get("steps", [])
     total = len(steps)
+    step_context = nullcontext()
+    if virtual_desktop:
+        from virtual_desktop import VirtualDesktopSession
+
+        logger.info("[runner] Creating virtual desktop for automation")
+        step_context = VirtualDesktopSession()
+
     try:
-        for i, step in enumerate(steps, 1):
-            logger.info(f"[runner] Step {i}/{total}: {step.get('action', '?')} ...")
-            run_step(step, step_log=step_log)
+        with step_context:
+            if virtual_desktop:
+                time.sleep(1.0)  # Let desktop switch settle before automation starts
+            for i, step in enumerate(steps, 1):
+                logger.info(f"[runner] Step {i}/{total}: {step.get('action', '?')} ...")
+                run_step(step, step_log=step_log)
+            logger.info("[runner] All steps complete, signaling stop")
+            stop_event.set()
     except Exception as e:
         print(f"[error] Step failed: {e}", file=sys.stderr)
         stop_event.set()
@@ -382,9 +396,6 @@ def run_plan(plan_path: str, dry_run: bool = False, output_override: str = None,
             record_thread.join(timeout=10)
         sys.exit(1)
 
-    # Signal stop and wait for encoding to finish
-    logger.info("[runner] All steps complete, signaling stop")
-    stop_event.set()
     if record_thread:
         record_thread.join(timeout=30)
         logger.info(f"[runner] Recording saved: {output_path}")
@@ -410,6 +421,8 @@ def main():
     parser.add_argument("-c", "--config", default=None, help="Path to recording-config.json")
     parser.add_argument("--preset", default=None, help="Override capture preset")
     parser.add_argument("--step-log", action="store_true", help="Print each step as it executes")
+    parser.add_argument("--virtual-desktop", action="store_true",
+                        help="Run automation on a separate virtual desktop (Windows 11+, non-interrupting)")
     parser.add_argument("-v", "--verbose", action="store_true", help="Enable verbose (DEBUG) logging")
     parser.add_argument("--verify", action="store_true",
                         help="Run verify_recording.py after recording completes (exit 2 if verification fails)")
@@ -435,6 +448,7 @@ def main():
         preset_name=args.preset,
         step_log=args.step_log,
         verify=args.verify,
+        virtual_desktop=args.virtual_desktop,
     )
 
 

@@ -542,6 +542,7 @@ All steps accept `wait` (seconds to sleep after action). Default: `0`.
 | `--config <path>` | `-c` | auto-discover | Path to recording-config.json |
 | `--preset <name>` | `-p` | — | Override capture preset |
 | `--step-log` | — | false | Print each step as it executes |
+| `--virtual-desktop` | — | false | Run automation on a separate Windows virtual desktop |
 
 #### `check_prereqs.py`
 
