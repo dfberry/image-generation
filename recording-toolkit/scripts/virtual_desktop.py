@@ -26,7 +26,11 @@ class VirtualDesktopSession:
 
         logger.info("[vdesktop] Creating new virtual desktop")
         self._original_desktop = VirtualDesktop.current()
+        if not self._original_desktop:
+            raise RuntimeError("[vdesktop] Failed to get current desktop")
         self._created_desktop = VirtualDesktop.create()
+        if not self._created_desktop:
+            raise RuntimeError("[vdesktop] Failed to create new virtual desktop")
         self._created_desktop.go()
         logger.info("[vdesktop] Switched to new virtual desktop")
         return self
