@@ -1,0 +1,8 @@
+[
+  {
+    "prompt": "Watercolor illustration, warm muted tones. White female with pink hair standing on hilltop, hands in pockets, looking at panoramic landscape of glowing AI nodes and floating clouds. Laptop peeking from backpack. Sky pale gold to violet. Dusty amber sage teal, no text",
+    "seed": 84,
+    "output": "outputs/state-of-ai-survey/hero.png",
+    "negative_prompt": "blurry, bad quality, worst quality, low resolution, text, watermark, signature, deformed, ugly, duplicate, morbid, photorealistic"
+  }
+]
